@@ -54,7 +54,6 @@ class JaneCell(object):
         self.mod_events_df = None
         self.event_stats = None
         self.events_fig = None
-        self.raster_df = None
 
         self.traces_filtered = None
         self.traces_filtered_sub = None
@@ -892,74 +891,78 @@ class JaneCell(object):
         events_fig.show()
         self.events_fig = events_fig
 
-    def plot_event_raster(self):
+    def plot_event_psth(self):
         """
         Makes raster plot of all identified events for each sweep.
         """
+        raster_df = self.event_stats[["Sweep", "New pos"]]
+
+        # make sweep numbers go from 1-30 instead of 0-29
+        new_sweeps = raster_df["Sweep"].cat.codes + 1
 
         # sets background color to white
         layout = go.Layout(plot_bgcolor="rgba(0,0,0,0)",)
 
-        self.raster_df = self.event_stats[["Sweep", "New pos"]]
+        # make overall fig layout
+        psth_fig = make_subplots(
+            rows=2,
+            cols=1,
+            row_heights=[0.7, 0.3],
+            vertical_spacing=0.025,
+            x_title="Time (ms)",
+        )
 
-        raster_plot = go.Figure(layout=layout)
-        raster_plot.add_trace(
+        # add raster plot
+        psth_fig.add_trace(
             go.Scatter(
-                x=self.raster_df["New pos"],
-                y=self.raster_df["Sweep"],
+                x=raster_df["New pos"],
+                y=new_sweeps,
                 mode="markers",
                 marker=dict(symbol="line-ns", line_width=1, size=10),
-            )
+                showlegend=False,
+            ),
+            row=1,
+            col=1,
         )
 
-        raster_plot.add_vrect(
-            x0=self.stim_time,
-            x1=self.stim_time + 100,
-            fillcolor="#33F7FF",
-            opacity=0.5,
-            layer="below",
-            line_width=0,
+        psth_fig.update_yaxes(
+            title_text="Trial",
+            row=1,
+            col=1,
+            tickvals=[1, len(self.traces_filtered_sub.columns)],
+            showgrid=False,
+            zeroline=False,
         )
 
-        raster_plot.update_xaxes(
-            title_text="Time (ms)",
+        psth_fig.update_xaxes(
+            row=1, col=1, showticklabels=False, showgrid=False
+        )
+
+        psth_fig.update_xaxes(
+            # title_text="Time (ms)",
             range=[(self.tp_start + self.tp_length), 6020],
         )
-        raster_plot.update_yaxes(title_text="Sweep Number")
 
-        # raster_plot.show()
+        # make PSTH
+        psth_df = raster_df["New pos"]
 
-    def plot_event_psth(self):
-        """
-        Makes a PSTH of events identified across all sweeps, using raster_df.
-        """
+        # do frequency in Hz, # of events per second, divided by # of sweeps
+        counts, bins = np.histogram(psth_df, bins=range(0, 6020, 10))
+        # this puts bar in between the edges of the bin
+        bins = 0.5 * (bins[:-1] + bins[1:])
+        freq = counts / len(self.traces_filtered_sub.columns) / 1e-2
 
-        # use bin width of 10 ms, Burton 2015 paper
-        bin_intervals = np.arange(0, 6030, 10)
-
-        # assign bin numbers based on event positions
-        psth_df = self.raster_df["New pos"]
-        psth_cut = pd.cut(
-            self.raster_df["New pos"],
-            bin_intervals,
-            include_lowest=True,
-            right=False,
-        )
-
-        # get counts for each bin
-        counts = pd.value_counts(psth_df)
-
-        psth_fig = go.Figure()
         psth_fig.add_trace(
-            go.Histogram(
-                x=psth_df,
-                xbins=dict(
-                    start=bin_intervals[0], size=10, end=bin_intervals[-1]
-                ),
-                # histnorm="probability",
-            )
+            go.Bar(x=bins, y=freq, showlegend=False), row=2, col=1
         )
 
+        # this removes the white outline of the bar graph to emulate histogram
+        psth_fig.update_traces(marker=dict(line=dict(width=0)), row=2, col=1)
+
+        psth_fig.update_yaxes(title_text="Frequency (Hz)", row=2, col=1)
+        psth_fig.update_layout(bargap=0)
+
+        # adds blue overlay to show light stim duration
         psth_fig.add_vrect(
             x0=self.stim_time,
             x1=self.stim_time + 100,
@@ -967,45 +970,68 @@ class JaneCell(object):
             opacity=0.5,
             layer="below",
             line_width=0,
+            row="all",
+            col=1,
         )
 
-        psth_fig.update_xaxes(
-            title_text="Time (ms)",
-            range=[(self.tp_start + self.tp_length), 6020],
+        # add main title, x-axis titles
+        psth_fig.update_layout(
+            title_text="{}, {} PSTH".format(self.cell_name, self.cell_type),
+            title_x=0.5,
         )
-        psth_fig.update_yaxes(title_text="Counts")
+
         # psth_fig.show()
 
-        # do frequency in Hz, # of events per second, divided by # of sweeps
-        counts, bins = np.histogram(psth_df, bins=range(0, 6020, 10))
-        # this puts bar in between the edges of the bin
-        bins = 0.5 * (bins[:-1] + bins[1:])
-        freq = counts / len(self.traces_filtered_sub.columns) / 30 / 1e-2
+    # def plot_counts_psth(self):
+    #     """
+    #     Makes a PSTH of events identified across all sweeps, using raster_df.
+    #     Not currently used since we want frequency, which needs bar graph in
+    #     plotly.
+    #     """
 
-        freq_fig = go.Figure()
-        freq_fig.add_trace(go.Bar(x=bins, y=freq))
+    #     # use bin width of 10 ms, Burton 2015 paper
+    #     bin_intervals = np.arange(0, 6030, 10)
 
-        # this removes the white outline of the bar graph to emulate histogram
-        freq_fig.update_traces(marker=dict(line=dict(width=0)))
+    #     # assign bin numbers based on event positions
+    #     psth_df = raster_df["New pos"]
+    #     # psth_cut = pd.cut(
+    #     #     raster_df["New pos"],
+    #     #     bin_intervals,
+    #     #     include_lowest=True,
+    #     #     right=False,
+    #     # )
 
-        freq_fig.add_vrect(
-            x0=self.stim_time,
-            x1=self.stim_time + 100,
-            fillcolor="#33F7FF",
-            opacity=0.5,
-            layer="below",
-            line_width=0,
-        )
+    #     # # get counts for each bin
+    #     # counts = pd.value_counts(psth_df)
 
-        freq_fig.update_xaxes(
-            title_text="Time (ms)",
-            range=[(self.tp_start + self.tp_length), 6020],
-        )
-        freq_fig.update_yaxes(title_text="Frequency (events/s, Hz)")
-        freq_fig.update_layout(bargap=0)
-        freq_fig.show()
+    #     psth_fig = go.Figure()
+    #     psth_fig.add_trace(
+    #         go.Histogram(
+    #             x=psth_df,
+    #             xbins=dict(
+    #                 start=bin_intervals[0], size=10, end=bin_intervals[-1]
+    #             ),
+    #             # histnorm="probability",
+    #         )
+    #     )
 
-        pdb.set_trace()
+    #     psth_fig.add_vrect(
+    #         x0=self.stim_time,
+    #         x1=self.stim_time + 100,
+    #         fillcolor="#33F7FF",
+    #         opacity=0.5,
+    #         layer="below",
+    #         line_width=0,
+    #     )
+
+    #     psth_fig.update_xaxes(
+    #         title_text="Time (ms)",
+    #         range=[(self.tp_start + self.tp_length), 6020],
+    #     )
+    #     psth_fig.update_yaxes(title_text="Counts")
+    #     # psth_fig.show()
+
+    #     pdb.set_trace()
 
     def plot_mean_trace(self):
         """
