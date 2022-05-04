@@ -5,8 +5,11 @@ import pynwb
 import os
 import numpy as np
 from neo.io import IgorIO
+from neo.core import SpikeTrain
+from quantities import ms, s, Hz
 from pynwb import NWBHDF5IO
 import elephant
+import scipy
 import seaborn as sns
 import plotly.express as px
 import plotly.graph_objects as go
@@ -14,6 +17,9 @@ from plotly.subplots import make_subplots
 
 from scipy.stats import sem
 from scipy import io
+
+import pymc3 as pm
+from theano import shared
 
 import plotly.io as pio
 
@@ -910,6 +916,7 @@ class JaneCell(object):
             row_heights=[0.7, 0.3],
             vertical_spacing=0.025,
             x_title="Time (ms)",
+            shared_xaxes=True,
         )
 
         # add raster plot
@@ -947,13 +954,13 @@ class JaneCell(object):
         psth_df = raster_df["New pos"]
 
         # do frequency in Hz, # of events per second, divided by # of sweeps
-        counts, bins = np.histogram(psth_df, bins=range(0, 6020, 10))
+        counts, bins = np.histogram(psth_df, bins=range(0, 6030, 10))
         # this puts bar in between the edges of the bin
-        bins = 0.5 * (bins[:-1] + bins[1:])
+        bar_bins = 0.5 * (bins[:-1] + bins[1:])
         freq = counts / len(self.traces_filtered_sub.columns) / 1e-2
 
         psth_fig.add_trace(
-            go.Bar(x=bins, y=freq, showlegend=False), row=2, col=1
+            go.Bar(x=bar_bins, y=freq, showlegend=False), row=2, col=1
         )
 
         # this removes the white outline of the bar graph to emulate histogram
@@ -981,6 +988,199 @@ class JaneCell(object):
         )
 
         # psth_fig.show()
+
+        # calculate isi, put raster_df into event "spike train"
+
+        # event_trains = pd.DataFrame()
+        # isi_df = pd.DataFrame()
+        # instantaneous_FR = pd.DataFrame()
+
+        # for sweep in range(len(self.traces_filtered_sub.columns)):
+        #     # makes event train
+        #     sweep_train = []
+        #     events = raster_df.loc[raster_df["Sweep"] == sweep][
+        #         "New pos"
+        #     ].tolist()
+        #     events_train = SpikeTrain(events * s, t_stop=6020)
+        #     sweep_train.append(events_train)
+        #     event_trains[sweep] = sweep_train
+
+        #     # calculates isi
+        #     isi = elephant.statistics.isi(sweep_train)
+        #     isi = isi.tolist()
+        #     isi_df[sweep] = isi
+
+        #     # calculates instantaneous FR
+
+        #     # unclear what sampling_period should be.. time stamp resolution of
+        #     # the spike times. inverse of sampling rate, is this 1/FS?  would
+        #     # take too long
+
+        #     # with sampling_period = 10*ms, this leads to 602000 samples, i.e.
+        #     # one sample/FR per 100 ms of the sweep
+
+        #     # can't use gaussian/kernel because uneven distribution
+        #     rate = elephant.statistics.instantaneous_rate(
+        #         events_train, sampling_period=1000 * ms, kernel="auto"
+        #     )
+        #     instantaneous_FR[sweep] = rate.magnitude.tolist()
+
+        # event_trains = event_trains.T
+        # isi_df = isi_df.T
+
+        #
+
+        # gets isi for each sweep
+        # how to put the isi back into time?
+
+        # testing bayesian smoothing,
+        # code from https://gist.github.com/AustinRochford/d640a240af12f6869a7b9b592485ca15
+        # but changed to work with updated pymc
+
+        # below is my data
+
+        # N_KNOT = len(freq)
+        # knots = freq
+        # c = np.random.normal(size=N_KNOT)  # what are these spline coefficient?
+
+        x = bar_bins  # is this right? using the midpoint of PSTH bins
+        # or can I find k and coefficients myself here
+        knots, c, k = scipy.interpolate.splrep(x=bar_bins, y=freq)
+        # uses k=3 degrees for B-spline
+        N_KNOT = len(knots)
+
+        spline = scipy.interpolate.BSpline(knots, c, k, extrapolate=False)
+        y = spline(x)
+
+        # pdb.set_trace()
+
+        # N_MODEL_KNOTS = 5 * N_KNOT
+        N_MODEL_KNOTS = N_KNOT
+        # model_knots = np.linspace(-5, 6015, N_MODEL_KNOTS)
+
+        # running model
+
+        basis_funcs = scipy.interpolate.BSpline(
+            knots, np.eye(N_MODEL_KNOTS), k=3
+        )
+
+        Bx = basis_funcs(x)
+
+        Bx_ = shared(Bx)
+
+        with pm.Model() as model:
+            σ_a = pm.HalfCauchy("σ_a", 5.0)
+            a0 = pm.Normal("a0", 0.0, 10.0)
+            Δ_a = pm.Normal("Δ_a", 0.0, 1.0, shape=N_MODEL_KNOTS)
+            a = pm.Deterministic("a", a0 + (σ_a * Δ_a).cumsum())
+
+            σ = pm.HalfCauchy("σ", 5.0)
+
+            obs = pm.Normal("obs", Bx_.dot(a), σ, observed=y)
+
+        with model:
+            trace = pm.sample(target_accept=0.95)
+
+        pm.energyplot(trace)
+
+        Bx_.set_value(basis_funcs(bins))
+
+        with model:
+            pp_trace = pm.sample_posterior_predictive(trace, 1000)
+
+        fig = go.Figure()
+        fig.add_trace(
+            go.Scatter(x=bins, y=spline(bins), name="spline")
+        )  # plots splines
+        fig.add_trace(
+            go.Scatter(x=bar_bins, y=y, mode="markers", name="freq")
+        )  # plots freq points
+        fig.add_trace(
+            go.Scatter(
+                x=bins, y=pp_trace["obs"].mean(axis=0), name="spline estimate"
+            )
+        )
+        fig.show()
+
+        pdb.set_trace()
+
+        # below is example code parameters
+
+        # N_KNOT = 30
+
+        # knots = np.linspace(-0.5, 1.5, N_KNOT)
+        # c = np.random.normal(size=N_KNOT)
+        # spline = scipy.interpolate.BSpline(knots, c, 3, extrapolate=False)
+
+        # x = np.random.uniform(0, 1, 100)
+        # x.sort()
+        # y = spline(x) + np.random.normal(scale=0.25, size=x.size)
+        # x_plot = np.linspace(0, 1, 100)
+
+        # fig = go.Figure()
+        # fig.add_trace(
+        #     go.Scatter(x=x_plot, y=spline(x_plot), name="spline")
+        # )  # plots splines
+        # fig.add_trace(
+        #     go.Scatter(x=x, y=y, mode="markers", name="freq")
+        # )  # plots freq points
+        # fig.show()
+
+        # N_MODEL_KNOTS = 5 * N_KNOT
+        # model_knots = np.linspace(-0.5, 1.5, N_MODEL_KNOTS)
+
+        # # running model
+
+        # basis_funcs = scipy.interpolate.BSpline(
+        #     knots, np.eye(N_MODEL_KNOTS), k=3
+        # )
+
+        # Bx = basis_funcs(x)
+
+        # Bx_ = shared(Bx)
+
+        # with pm.Model() as model:
+        #     σ_a = pm.HalfCauchy("σ_a", 5.0)
+        #     a0 = pm.Normal("a0", 0.0, 10.0)
+        #     Δ_a = pm.Normal("Δ_a", 0.0, 1.0, shape=N_MODEL_KNOTS)
+        #     a = pm.Deterministic("a", a0 + (σ_a * Δ_a).cumsum())
+
+        #     σ = pm.HalfCauchy("σ", 5.0)
+
+        #     obs = pm.Normal("obs", Bx_.dot(a), σ, observed=y)
+
+        # with model:
+        #     trace = pm.sample(target_accept=0.95)
+
+        # pm.energyplot(trace)
+
+        # Bx_.set_value(basis_funcs(x_plot))
+
+        # with model:
+        #     pp_trace = pm.sample_posterior_predictive(trace, 1000)
+
+        # fig, ax = plt.subplots(figsize=(8, 6))
+
+        # ax.plot(x_plot, spline(x_plot), c="k", label="True function")
+
+        # low, high = np.percentile(pp_trace["obs"], [25, 75], axis=0)
+        # ax.fill_between(x_plot, low, high, color="red", alpha=0.5)
+        # ax.plot(
+        #     x_plot,
+        #     pp_trace["obs"].mean(axis=0),
+        #     c="red",
+        #     label="Spline estimate",
+        # )
+
+        # ax.scatter(x, y, alpha=0.75, zorder=5)
+
+        # ax.set_xlim(0, 1)
+
+        # ax.legend()
+
+        # plt.show()
+
+        pdb.set_trace()
 
     # def plot_counts_psth(self):
     #     """
