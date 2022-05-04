@@ -960,7 +960,14 @@ class JaneCell(object):
         freq = counts / len(self.traces_filtered_sub.columns) / 1e-2
 
         psth_fig.add_trace(
-            go.Bar(x=bar_bins, y=freq, showlegend=False), row=2, col=1
+            go.Bar(
+                x=bar_bins,
+                y=freq,
+                showlegend=False,
+                marker=dict(color="#D39DDD"),
+            ),
+            row=2,
+            col=1,
         )
 
         # this removes the white outline of the bar graph to emulate histogram
@@ -1043,25 +1050,70 @@ class JaneCell(object):
         # knots = freq
         # c = np.random.normal(size=N_KNOT)  # what are these spline coefficient?
 
-        x = bar_bins  # is this right? using the midpoint of PSTH bins
-        # or can I find k and coefficients myself here
-        knots, c, k = scipy.interpolate.splrep(x=bar_bins, y=freq)
-        # uses k=3 degrees for B-spline
-        N_KNOT = len(knots)
+        # x = bar_bins  # is this right? using the midpoint of PSTH bins
+        # y = freq
+        # # or can I find k and coefficients myself here
+        # knots, c, k = scipy.interpolate.splrep(x=bar_bins, y=freq)
+        # # uses k=3 degrees for B-spline
+        # N_KNOT = len(knots)
 
-        spline = scipy.interpolate.BSpline(knots, c, k, extrapolate=False)
-        y = spline(x)
+        # spline = scipy.interpolate.BSpline(knots, c, k, extrapolate=False)
+        # y = spline(x)
+
+        # fig = go.Figure()
+        # fig.add_trace(
+        #     go.Scatter(x=bins, y=spline(bins), name="spline")
+        # )  # plots splines
+        # fig.add_trace(
+        #     go.Scatter(x=bar_bins, y=y, mode="markers", name="freq")
+        # )  # plots freq points
+
+        # fig.show()
 
         # pdb.set_trace()
 
-        # N_MODEL_KNOTS = 5 * N_KNOT
-        N_MODEL_KNOTS = N_KNOT
-        # model_knots = np.linspace(-5, 6015, N_MODEL_KNOTS)
+        N_KNOT = 10  # arbitrary # of knots
+        # quantiles = np.linspace(
+        #     0, 1, N_KNOT
+        # )  # if I want to use quantiles as knots
+        knots = np.linspace(0, bins[-1], N_KNOT)  # interior knots
+        # c = np.random.normal(size=N_KNOT)
+
+        # feed interior knots to get spline coefficients
+
+        knots, c, k = scipy.interpolate.splrep(
+            x=bar_bins, y=freq, task=-1, t=knots[1:-1]
+        )
+
+        # F = scipy.interpolate.PPoly.from_spline(tck)
+
+        spline = scipy.interpolate.BSpline(knots, c, 3, extrapolate=False)
+
+        x = bar_bins
+        y = freq
+        x_plot = bins
+
+        fig = go.Figure()
+
+        fig.add_trace(
+            go.Scatter(x=x_plot, y=spline(x_plot), name="spline")
+        )  # plots splines
+        fig.add_trace(
+            go.Scatter(x=bar_bins, y=y, mode="markers", name="freq")
+        )  # plots freq points
+        fig.show()
+
+        # pdb.set_trace()
+
+        N_MODEL_KNOTS = 5 * N_KNOT
+
+        # N_MODEL_KNOTS = N_KNOT
+        model_knots = np.linspace(0, bins[-1], N_MODEL_KNOTS)
 
         # running model
 
         basis_funcs = scipy.interpolate.BSpline(
-            knots, np.eye(N_MODEL_KNOTS), k=3
+            model_knots, np.eye(N_MODEL_KNOTS), k=3
         )
 
         Bx = basis_funcs(x)
@@ -1088,13 +1140,6 @@ class JaneCell(object):
         with model:
             pp_trace = pm.sample_posterior_predictive(trace, 1000)
 
-        fig = go.Figure()
-        fig.add_trace(
-            go.Scatter(x=bins, y=spline(bins), name="spline")
-        )  # plots splines
-        fig.add_trace(
-            go.Scatter(x=bar_bins, y=y, mode="markers", name="freq")
-        )  # plots freq points
         fig.add_trace(
             go.Scatter(
                 x=bins, y=pp_trace["obs"].mean(axis=0), name="spline estimate"
@@ -1106,79 +1151,77 @@ class JaneCell(object):
 
         # below is example code parameters
 
-        # N_KNOT = 30
+        """
+        N_KNOT = 30
 
-        # knots = np.linspace(-0.5, 1.5, N_KNOT)
-        # c = np.random.normal(size=N_KNOT)
-        # spline = scipy.interpolate.BSpline(knots, c, 3, extrapolate=False)
+        knots = np.linspace(-0.5, 1.5, N_KNOT)
+        c = np.random.normal(size=N_KNOT)
+        spline = scipy.interpolate.BSpline(knots, c, 3, extrapolate=False)
 
-        # x = np.random.uniform(0, 1, 100)
-        # x.sort()
-        # y = spline(x) + np.random.normal(scale=0.25, size=x.size)
-        # x_plot = np.linspace(0, 1, 100)
+        x = np.random.uniform(0, 1, 100)
+        x.sort()
+        y = spline(x) + np.random.normal(scale=0.25, size=x.size)
+        x_plot = np.linspace(0, 1, 100)
 
-        # fig = go.Figure()
-        # fig.add_trace(
-        #     go.Scatter(x=x_plot, y=spline(x_plot), name="spline")
-        # )  # plots splines
-        # fig.add_trace(
-        #     go.Scatter(x=x, y=y, mode="markers", name="freq")
-        # )  # plots freq points
-        # fig.show()
+        fig = go.Figure()
+        fig.add_trace(
+            go.Scatter(x=x_plot, y=spline(x_plot), name="spline")
+        )  # plots splines
+        fig.add_trace(
+            go.Scatter(x=x, y=y, mode="markers", name="freq")
+        )  # plots freq points
+        fig.show()
 
-        # N_MODEL_KNOTS = 5 * N_KNOT
-        # model_knots = np.linspace(-0.5, 1.5, N_MODEL_KNOTS)
+        N_MODEL_KNOTS = 5 * N_KNOT
+        model_knots = np.linspace(-0.5, 1.5, N_MODEL_KNOTS)
 
-        # # running model
+        # running model
 
-        # basis_funcs = scipy.interpolate.BSpline(
-        #     knots, np.eye(N_MODEL_KNOTS), k=3
-        # )
+        basis_funcs = scipy.interpolate.BSpline(
+            knots, np.eye(N_MODEL_KNOTS), k=3
+        )
 
-        # Bx = basis_funcs(x)
+        Bx = basis_funcs(x)
 
-        # Bx_ = shared(Bx)
+        Bx_ = shared(Bx)
 
-        # with pm.Model() as model:
-        #     σ_a = pm.HalfCauchy("σ_a", 5.0)
-        #     a0 = pm.Normal("a0", 0.0, 10.0)
-        #     Δ_a = pm.Normal("Δ_a", 0.0, 1.0, shape=N_MODEL_KNOTS)
-        #     a = pm.Deterministic("a", a0 + (σ_a * Δ_a).cumsum())
+        with pm.Model() as model:
+            σ_a = pm.HalfCauchy("σ_a", 5.0)
+            a0 = pm.Normal("a0", 0.0, 10.0)
+            Δ_a = pm.Normal("Δ_a", 0.0, 1.0, shape=N_MODEL_KNOTS)
+            a = pm.Deterministic("a", a0 + (σ_a * Δ_a).cumsum())
 
-        #     σ = pm.HalfCauchy("σ", 5.0)
+            σ = pm.HalfCauchy("σ", 5.0)
 
-        #     obs = pm.Normal("obs", Bx_.dot(a), σ, observed=y)
+            obs = pm.Normal("obs", Bx_.dot(a), σ, observed=y)
 
-        # with model:
-        #     trace = pm.sample(target_accept=0.95)
+        with model:
+            trace = pm.sample(target_accept=0.95)
 
-        # pm.energyplot(trace)
+        pm.energyplot(trace)
 
-        # Bx_.set_value(basis_funcs(x_plot))
+        Bx_.set_value(basis_funcs(x_plot))
 
-        # with model:
-        #     pp_trace = pm.sample_posterior_predictive(trace, 1000)
+        with model:
+            pp_trace = pm.sample_posterior_predictive(trace, 1000)
 
-        # fig, ax = plt.subplots(figsize=(8, 6))
+        fig = go.Figure()
 
-        # ax.plot(x_plot, spline(x_plot), c="k", label="True function")
-
-        # low, high = np.percentile(pp_trace["obs"], [25, 75], axis=0)
-        # ax.fill_between(x_plot, low, high, color="red", alpha=0.5)
-        # ax.plot(
-        #     x_plot,
-        #     pp_trace["obs"].mean(axis=0),
-        #     c="red",
-        #     label="Spline estimate",
-        # )
-
-        # ax.scatter(x, y, alpha=0.75, zorder=5)
-
-        # ax.set_xlim(0, 1)
-
-        # ax.legend()
-
-        # plt.show()
+        fig.add_trace(
+            go.Scatter(x=x_plot, y=spline(x_plot), name="spline")
+        )  # plots splines
+        fig.add_trace(
+            go.Scatter(x=x, y=y, mode="markers", name="freq")
+        )  # plots freq points
+        fig.add_trace(
+            go.Scatter(
+                x=x_plot,
+                y=pp_trace["obs"].mean(axis=0),
+                name="spline estimate",
+            )
+        )
+        fig.show()
+        """
 
         pdb.set_trace()
 
