@@ -1045,53 +1045,33 @@ class JaneCell(object):
         # but changed to work with updated pymc
 
         # below is my data
-
-        # N_KNOT = len(freq)
-        # knots = freq
-        # c = np.random.normal(size=N_KNOT)  # what are these spline coefficient?
-
-        # x = bar_bins  # is this right? using the midpoint of PSTH bins
+        # x = bar_bins
         # y = freq
-        # # or can I find k and coefficients myself here
-        # knots, c, k = scipy.interpolate.splrep(x=bar_bins, y=freq)
-        # # uses k=3 degrees for B-spline
-        # N_KNOT = len(knots)
+        # x_plot = bins
 
-        # spline = scipy.interpolate.BSpline(knots, c, k, extrapolate=False)
-        # y = spline(x)
+        # only use the first 3000 ms of sweep
+        x = bar_bins[:300]
+        y = freq[:300]
 
-        # fig = go.Figure()
-        # fig.add_trace(
-        #     go.Scatter(x=bins, y=spline(bins), name="spline")
-        # )  # plots splines
-        # fig.add_trace(
-        #     go.Scatter(x=bar_bins, y=y, mode="markers", name="freq")
-        # )  # plots freq points
+        x_plot = np.linspace(
+            0, bins[-303], 300
+        )  # how does this index make sense
+        # x_plot = np.linspace(0, 3000, 300)
 
-        # fig.show()
+        # x_plot = np.linspace(0, bins[-1], 602)
 
-        # pdb.set_trace()
-
-        N_KNOT = 10  # arbitrary # of knots
+        N_KNOT = 5  # arbitrary # of knots
         # quantiles = np.linspace(
         #     0, 1, N_KNOT
         # )  # if I want to use quantiles as knots
-        knots = np.linspace(0, bins[-1], N_KNOT)  # interior knots
-        # c = np.random.normal(size=N_KNOT)
+        knots = np.linspace(0, x_plot[-1], N_KNOT)  # interior knots
 
         # feed interior knots to get spline coefficients
-
         knots, c, k = scipy.interpolate.splrep(
-            x=bar_bins, y=freq, task=-1, t=knots[1:-1]
+            x=x, y=y, task=-1, t=knots[1:-1]
         )
 
-        # F = scipy.interpolate.PPoly.from_spline(tck)
-
         spline = scipy.interpolate.BSpline(knots, c, 3, extrapolate=False)
-
-        x = bar_bins
-        y = freq
-        x_plot = bins
 
         fig = go.Figure()
 
@@ -1099,86 +1079,27 @@ class JaneCell(object):
             go.Scatter(x=x_plot, y=spline(x_plot), name="spline")
         )  # plots splines
         fig.add_trace(
-            go.Scatter(x=bar_bins, y=y, mode="markers", name="freq")
+            go.Scatter(
+                x=x,
+                y=y,
+                mode="markers",
+                marker=dict(color="#D39DDD"),
+                name="freq",
+            )
         )  # plots freq points
         fig.show()
-
-        # pdb.set_trace()
 
         N_MODEL_KNOTS = 5 * N_KNOT
 
         # N_MODEL_KNOTS = N_KNOT
-        model_knots = np.linspace(0, bins[-1], N_MODEL_KNOTS)
+        model_knots = np.linspace(0, x_plot[-1], N_MODEL_KNOTS)
 
         # running model
 
         basis_funcs = scipy.interpolate.BSpline(
-            model_knots, np.eye(N_MODEL_KNOTS), k=3
-        )
-
-        Bx = basis_funcs(x)
-
-        Bx_ = shared(Bx)
-
-        with pm.Model() as model:
-            σ_a = pm.HalfCauchy("σ_a", 5.0)
-            a0 = pm.Normal("a0", 0.0, 10.0)
-            Δ_a = pm.Normal("Δ_a", 0.0, 1.0, shape=N_MODEL_KNOTS)
-            a = pm.Deterministic("a", a0 + (σ_a * Δ_a).cumsum())
-
-            σ = pm.HalfCauchy("σ", 5.0)
-
-            obs = pm.Normal("obs", Bx_.dot(a), σ, observed=y)
-
-        with model:
-            trace = pm.sample(target_accept=0.95)
-
-        pm.energyplot(trace)
-
-        Bx_.set_value(basis_funcs(bins))
-
-        with model:
-            pp_trace = pm.sample_posterior_predictive(trace, 1000)
-
-        fig.add_trace(
-            go.Scatter(
-                x=bins, y=pp_trace["obs"].mean(axis=0), name="spline estimate"
-            )
-        )
-        fig.show()
-
-        pdb.set_trace()
-
-        # below is example code parameters
-
-        """
-        N_KNOT = 30
-
-        knots = np.linspace(-0.5, 1.5, N_KNOT)
-        c = np.random.normal(size=N_KNOT)
-        spline = scipy.interpolate.BSpline(knots, c, 3, extrapolate=False)
-
-        x = np.random.uniform(0, 1, 100)
-        x.sort()
-        y = spline(x) + np.random.normal(scale=0.25, size=x.size)
-        x_plot = np.linspace(0, 1, 100)
-
-        fig = go.Figure()
-        fig.add_trace(
-            go.Scatter(x=x_plot, y=spline(x_plot), name="spline")
-        )  # plots splines
-        fig.add_trace(
-            go.Scatter(x=x, y=y, mode="markers", name="freq")
-        )  # plots freq points
-        fig.show()
-
-        N_MODEL_KNOTS = 5 * N_KNOT
-        model_knots = np.linspace(-0.5, 1.5, N_MODEL_KNOTS)
-
-        # running model
-
-        basis_funcs = scipy.interpolate.BSpline(
-            knots, np.eye(N_MODEL_KNOTS), k=3
+            model_knots,  # why doesn't example code use model_knots here?
+            np.eye(N_MODEL_KNOTS),
+            k=3,
         )
 
         Bx = basis_funcs(x)
@@ -1205,14 +1126,6 @@ class JaneCell(object):
         with model:
             pp_trace = pm.sample_posterior_predictive(trace, 1000)
 
-        fig = go.Figure()
-
-        fig.add_trace(
-            go.Scatter(x=x_plot, y=spline(x_plot), name="spline")
-        )  # plots splines
-        fig.add_trace(
-            go.Scatter(x=x, y=y, mode="markers", name="freq")
-        )  # plots freq points
         fig.add_trace(
             go.Scatter(
                 x=x_plot,
@@ -1221,7 +1134,54 @@ class JaneCell(object):
             )
         )
         fig.show()
-        """
+
+        # plot smoothed PSTH
+
+        smoothed_psth = go.Figure()
+
+        smoothed_psth.add_trace(
+            go.Bar(x=x, y=y, marker=dict(color="#D39DDD"), name="PSTH",),
+        )
+
+        # this removes the white outline of the bar graph to emulate histogram
+        smoothed_psth.update_traces(marker=dict(line=dict(width=0)),)
+
+        smoothed_psth.update_yaxes(title_text="Frequency (Hz)")
+        smoothed_psth.update_xaxes(title_text="Time (ms)")
+
+        # add main title, x-axis titles
+        smoothed_psth.update_layout(
+            title_text="{}, {} Smoothed PSTH".format(
+                self.cell_name, self.cell_type
+            ),
+            title_x=0.5,
+        )
+        smoothed_psth.update_layout(bargap=0)
+
+        # adds blue overlay to show light stim duration
+        smoothed_psth.add_vrect(
+            x0=self.stim_time,
+            x1=self.stim_time + 100,
+            fillcolor="#33F7FF",
+            opacity=0.5,
+            layer="below",
+            line_width=0,
+        )
+
+        smoothed_psth.add_trace(
+            go.Scatter(
+                x=x_plot,
+                y=pp_trace["obs"].mean(axis=0),
+                marker=dict(color="#A613C4", size=2),
+                name="spline estimate",
+            )
+        )
+
+        smoothed_psth.show()
+
+        avg_frequency = pp_trace["obs"].mean(axis=0)
+        max_freq_pos = np.argmax(avg_frequency)
+        max_freq_time = x_plot[max_freq_pos]
 
         pdb.set_trace()
 
