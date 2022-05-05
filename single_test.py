@@ -44,6 +44,102 @@ def igor_to_pandas(path_to_file):
     return data_df
 
 
+def run_BARS_smoothing(x, y, x_plot):
+    """
+        Runs Bayesian Adaptive Regression Splines (BARS) smoothing, code
+        adapted from 
+        https://gist.github.com/AustinRochford/d640a240af12f6869a7b9b592485ca15
+        but changed for updated pymc.
+
+        See also:
+        Wallstrom et al. 2008
+        https://www.ncbi.nlm.nih.gov/pmc/articles/PMC2748880/
+
+        Statistical Smoothing of Neuronal Data by Rob Kass 
+        https://www.stat.cmu.edu/~kass/papers/smooth.pdf
+
+        Arguments:
+            x (array): the x-values of the dataset, from the bar_bins of psth
+            y (array): the y-values of the dataset, freq from psth
+            x_plot (array): the x values to span the plot
+        
+        Returns:
+            smoothed_avg (array): The average interpolated y-values
+        """
+
+    N_KNOT = 5  # arbitrary # of knots
+    # quantiles = np.linspace(
+    #     0, 1, N_KNOT
+    # )  # if I want to use quantiles as knots
+    knots = np.linspace(0, x_plot[-1], N_KNOT)  # interior knots
+
+    # feed interior knots to get spline coefficients
+    knots, c, k = scipy.interpolate.splrep(x=x, y=y, task=-1, t=knots[1:-1])
+
+    spline = scipy.interpolate.BSpline(knots, c, 3, extrapolate=False)
+
+    BARS_fig = go.Figure()
+
+    BARS_fig.add_trace(
+        go.Scatter(x=x_plot, y=spline(x_plot), name="spline")
+    )  # plots splines
+    BARS_fig.add_trace(
+        go.Scatter(
+            x=x,
+            y=y,
+            mode="markers",
+            marker=dict(color="#D39DDD"),
+            name="freq",
+        )
+    )  # plots freq points
+    BARS_fig.show()
+
+    N_MODEL_KNOTS = 5 * N_KNOT
+    # N_MODEL_KNOTS = N_KNOT
+    model_knots = np.linspace(0, x_plot[-1], N_MODEL_KNOTS)
+
+    # running model
+
+    basis_funcs = scipy.interpolate.BSpline(
+        model_knots,  # why doesn't example code use model_knots here?
+        np.eye(N_MODEL_KNOTS),
+        k=3,
+    )
+
+    Bx = basis_funcs(x)
+
+    Bx_ = shared(Bx)
+
+    with pm.Model() as model:
+        σ_a = pm.HalfCauchy("σ_a", 5.0)
+        a0 = pm.Normal("a0", 0.0, 10.0)
+        Δ_a = pm.Normal("Δ_a", 0.0, 1.0, shape=N_MODEL_KNOTS)
+        a = pm.Deterministic("a", a0 + (σ_a * Δ_a).cumsum())
+
+        σ = pm.HalfCauchy("σ", 5.0)
+
+        obs = pm.Normal("obs", Bx_.dot(a), σ, observed=y)
+
+    with model:
+        trace = pm.sample(target_accept=0.95)
+
+    pm.energyplot(trace)
+
+    Bx_.set_value(basis_funcs(x_plot))
+
+    with model:
+        pp_trace = pm.sample_posterior_predictive(trace, 1000)
+
+    smoothed_avg = pp_trace["obs"].mean(axis=0)
+
+    BARS_fig.add_trace(
+        go.Scatter(x=x_plot, y=smoothed_avg, name="spline estimate",)
+    )
+    BARS_fig.show()
+
+    return smoothed_avg
+
+
 class JaneCell(object):
     def __init__(self, dataset, sweep_info, file, file_name):
         self.dataset = dataset
@@ -60,6 +156,10 @@ class JaneCell(object):
         self.mod_events_df = None
         self.event_stats = None
         self.events_fig = None
+        self.bar_bins = None
+        self.freq = None
+        self.avg_frequency = None
+        self.x_plot = None
 
         self.traces_filtered = None
         self.traces_filtered_sub = None
@@ -204,73 +304,6 @@ class JaneCell(object):
 
     #     else:
     #         return False, None
-
-    # def make_drug_sweeps_dict(self):
-    #     """
-    #     Create dict with with stim name as keys, VC data as values - just
-    #     for NBQX wash-in sweeps. Only useful for paper_figs script.
-    #     """
-    #     drug_sweeps_info = self.cell_sweep_info.filter(
-    #         like="NBQX wash-in", axis=0
-    #     )
-
-    #     drug_sweeps_dict = {}
-    #     for i in range(len(drug_sweeps_info.index)):
-    #         stim_name = drug_sweeps_info.index[i]
-    #         stim_range = drug_sweeps_info.iloc[i].str.split(",")[0]
-    #         stim_sweeps = []
-
-    #         for j in range(len(stim_range)):
-    #             if "-" in stim_range[j]:
-    #                 r_start = int(stim_range[j].split("-")[0])
-    #                 r_end = int(stim_range[j].split("-")[1]) + 1
-    #                 all_sweeps = list(range(r_start, r_end))
-    #                 stim_sweeps.extend(all_sweeps)
-    #             else:
-    #                 stim_sweeps.append(int(stim_range[j][0]))
-
-    #         stim_sweeps_VC = self.raw_df[
-    #             self.raw_df.columns.intersection(set(stim_sweeps))
-    #         ]
-    #         drug_sweeps_dict[stim_name] = stim_sweeps_VC
-
-    #     # drop keys with empty dataframes
-    #     self.drug_sweeps_dict = {
-    #         k: v for (k, v) in drug_sweeps_dict.items() if not v.empty
-    #     }
-
-    # def make_spikes_dict(self):
-    #     """
-    #     Collects all the FI IC step sweeps into a dict
-    #     """
-    #     steps_sweep_info = self.cell_sweep_info.filter(like="FI", axis=0)
-
-    #     sweeps_dict = {}
-
-    #     # define sweep ranges for each stim set present
-    #     for i in range(len(steps_sweep_info.index)):
-    #         stim_name = steps_sweep_info.index[i]
-    #         stim_range = steps_sweep_info.iloc[i].str.split(",")[0]
-    #         stim_sweeps = []
-
-    #         for j in range(len(stim_range)):
-    #             if "-" in stim_range[j]:
-    #                 r_start = int(stim_range[j].split("-")[0])
-    #                 r_end = int(stim_range[j].split("-")[1]) + 1
-    #                 all_sweeps = list(range(r_start, r_end))
-    #                 stim_sweeps.extend(all_sweeps)
-    #             else:
-    #                 stim_sweeps.append(int(stim_range[j][0]))
-
-    #         stim_sweeps_IC = self.raw_ic_df[
-    #             self.raw_ic_df.columns.intersection(set(stim_sweeps))
-    #         ]
-    #         sweeps_dict[stim_name] = stim_sweeps_IC
-
-    #     # drop keys with empty dataframes
-    #     self.ic_sweeps_dict = {
-    #         k: v for (k, v) in sweeps_dict.items() if not v.empty
-    #     }
 
     # def make_sweeps_dict(self):
     #     """gv
@@ -674,38 +707,6 @@ class JaneCell(object):
 
     #     return selected_sweep
 
-    # def extract_FI_sweep(self, sweep_number):
-    #     """
-    #     Extracts a single FI step sweep for plotting STC spikes. Select the
-    #     sweep with sweep_number
-    #     """
-    #     sweeps_dict = self.ic_sweeps_dict
-    #     traces = sweeps_dict["FI current steps"]
-
-    #     # convert time to ms
-    #     time = np.arange(0, len(traces) / FS, 1 / FS)
-    #     traces.index = time
-
-    #     # filter traces
-    #     traces_filtered = self.filter_traces(traces)
-    #     mean_trace_filtered = pd.DataFrame(traces_filtered.mean(axis=1))
-
-    #     mean_trace_filtered.index = time
-    #     traces_filtered.index = time
-    #     traces_filtered.columns = traces.columns
-
-    #     extracted_sweep = traces[sweep_number]
-
-    #     # # find mean baseline, defined as the last 3s of the sweep
-    #     # baseline = self.calculate_mean_baseline(
-    #     #     traces_filtered, baseline_start=100, baseline_end=450
-    #     # )
-    #     # mean_baseline = self.calculate_mean_baseline(
-    #     #     mean_trace_filtered, baseline_start=100, baseline_end=450
-    #     # )
-
-    #     return extracted_sweep
-
     def calculate_event_stats(self):
         traces = self.traces
         self.traces_filtered = self.filter_traces(traces)
@@ -959,6 +960,9 @@ class JaneCell(object):
         bar_bins = 0.5 * (bins[:-1] + bins[1:])
         freq = counts / len(self.traces_filtered_sub.columns) / 1e-2
 
+        self.bar_bins = bar_bins
+        self.freq = freq
+
         psth_fig.add_trace(
             go.Bar(
                 x=bar_bins,
@@ -994,153 +998,44 @@ class JaneCell(object):
             title_x=0.5,
         )
 
-        # psth_fig.show()
+    def set_psth_parameters(self):
+        """
+        Gets the counts, bins, bin widths for PSTH-related plotting and
+        calculations
+        """
+        # gets event positions for raster plot
+        raster_df = self.event_stats[["Sweep", "New pos"]]
+        # make PSTH
+        psth_df = raster_df["New pos"]
 
-        # calculate isi, put raster_df into event "spike train"
+        # do frequency in Hz, # of events per second, divided by # of sweeps
+        counts, bins = np.histogram(psth_df, bins=range(0, 6030, 10))
+        # this puts bar in between the edges of the bin
+        bar_bins = 0.5 * (bins[:-1] + bins[1:])
+        freq = counts / len(self.traces_filtered_sub.columns) / 1e-2
 
-        # event_trains = pd.DataFrame()
-        # isi_df = pd.DataFrame()
-        # instantaneous_FR = pd.DataFrame()
+    def plot_smoothed_PSTH(self):
 
-        # for sweep in range(len(self.traces_filtered_sub.columns)):
-        #     # makes event train
-        #     sweep_train = []
-        #     events = raster_df.loc[raster_df["Sweep"] == sweep][
-        #         "New pos"
-        #     ].tolist()
-        #     events_train = SpikeTrain(events * s, t_stop=6020)
-        #     sweep_train.append(events_train)
-        #     event_trains[sweep] = sweep_train
+        time_stop = 3000
+        bin_length = 10
+        x_stop = int(time_stop / bin_length)  # puts into 10 ms bins
+        x_plot = np.linspace(0, self.bar_bins[x_stop], x_stop)
+        x = self.bar_bins[:x_stop]
+        y = self.freq[:x_stop]
 
-        #     # calculates isi
-        #     isi = elephant.statistics.isi(sweep_train)
-        #     isi = isi.tolist()
-        #     isi_df[sweep] = isi
-
-        #     # calculates instantaneous FR
-
-        #     # unclear what sampling_period should be.. time stamp resolution of
-        #     # the spike times. inverse of sampling rate, is this 1/FS?  would
-        #     # take too long
-
-        #     # with sampling_period = 10*ms, this leads to 602000 samples, i.e.
-        #     # one sample/FR per 100 ms of the sweep
-
-        #     # can't use gaussian/kernel because uneven distribution
-        #     rate = elephant.statistics.instantaneous_rate(
-        #         events_train, sampling_period=1000 * ms, kernel="auto"
-        #     )
-        #     instantaneous_FR[sweep] = rate.magnitude.tolist()
-
-        # event_trains = event_trains.T
-        # isi_df = isi_df.T
-
-        #
-
-        # gets isi for each sweep
-        # how to put the isi back into time?
-
-        # testing bayesian smoothing,
-        # code from https://gist.github.com/AustinRochford/d640a240af12f6869a7b9b592485ca15
-        # but changed to work with updated pymc
-
-        # below is my data
-        # x = bar_bins
-        # y = freq
-        # x_plot = bins
-
-        # only use the first 3000 ms of sweep
-        x = bar_bins[:300]
-        y = freq[:300]
-
-        x_plot = np.linspace(
-            0, bins[-303], 300
-        )  # how does this index make sense
-        # x_plot = np.linspace(0, 3000, 300)
-
-        # x_plot = np.linspace(0, bins[-1], 602)
-
-        N_KNOT = 5  # arbitrary # of knots
-        # quantiles = np.linspace(
-        #     0, 1, N_KNOT
-        # )  # if I want to use quantiles as knots
-        knots = np.linspace(0, x_plot[-1], N_KNOT)  # interior knots
-
-        # feed interior knots to get spline coefficients
-        knots, c, k = scipy.interpolate.splrep(
-            x=x, y=y, task=-1, t=knots[1:-1]
-        )
-
-        spline = scipy.interpolate.BSpline(knots, c, 3, extrapolate=False)
-
-        fig = go.Figure()
-
-        fig.add_trace(
-            go.Scatter(x=x_plot, y=spline(x_plot), name="spline")
-        )  # plots splines
-        fig.add_trace(
-            go.Scatter(
-                x=x,
-                y=y,
-                mode="markers",
-                marker=dict(color="#D39DDD"),
-                name="freq",
-            )
-        )  # plots freq points
-        fig.show()
-
-        N_MODEL_KNOTS = 5 * N_KNOT
-
-        # N_MODEL_KNOTS = N_KNOT
-        model_knots = np.linspace(0, x_plot[-1], N_MODEL_KNOTS)
-
-        # running model
-
-        basis_funcs = scipy.interpolate.BSpline(
-            model_knots,  # why doesn't example code use model_knots here?
-            np.eye(N_MODEL_KNOTS),
-            k=3,
-        )
-
-        Bx = basis_funcs(x)
-
-        Bx_ = shared(Bx)
-
-        with pm.Model() as model:
-            σ_a = pm.HalfCauchy("σ_a", 5.0)
-            a0 = pm.Normal("a0", 0.0, 10.0)
-            Δ_a = pm.Normal("Δ_a", 0.0, 1.0, shape=N_MODEL_KNOTS)
-            a = pm.Deterministic("a", a0 + (σ_a * Δ_a).cumsum())
-
-            σ = pm.HalfCauchy("σ", 5.0)
-
-            obs = pm.Normal("obs", Bx_.dot(a), σ, observed=y)
-
-        with model:
-            trace = pm.sample(target_accept=0.95)
-
-        pm.energyplot(trace)
-
-        Bx_.set_value(basis_funcs(x_plot))
-
-        with model:
-            pp_trace = pm.sample_posterior_predictive(trace, 1000)
-
-        fig.add_trace(
-            go.Scatter(
-                x=x_plot,
-                y=pp_trace["obs"].mean(axis=0),
-                name="spline estimate",
-            )
-        )
-        fig.show()
+        # gets smoothed frequency
+        avg_frequency = run_BARS_smoothing(x, y, x_plot)
 
         # plot smoothed PSTH
-
         smoothed_psth = go.Figure()
 
         smoothed_psth.add_trace(
-            go.Bar(x=x, y=y, marker=dict(color="#D39DDD"), name="PSTH",),
+            go.Bar(
+                x=self.bar_bins[:x_stop],
+                y=self.freq[:x_stop],
+                marker=dict(color="#D39DDD"),
+                name="PSTH",
+            ),
         )
 
         # this removes the white outline of the bar graph to emulate histogram
@@ -1171,7 +1066,7 @@ class JaneCell(object):
         smoothed_psth.add_trace(
             go.Scatter(
                 x=x_plot,
-                y=pp_trace["obs"].mean(axis=0),
+                y=avg_frequency,
                 marker=dict(color="#A613C4", size=2),
                 name="spline estimate",
             )
@@ -1179,7 +1074,6 @@ class JaneCell(object):
 
         smoothed_psth.show()
 
-        avg_frequency = pp_trace["obs"].mean(axis=0)
         max_freq_pos = np.argmax(avg_frequency)
         max_freq_time = x_plot[max_freq_pos]
 
