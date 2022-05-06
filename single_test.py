@@ -163,6 +163,28 @@ def decay_func(time, current_peak, tau, offset):
     return current_peak * np.exp(-time / tau) + offset
 
 
+def positive_decay_func(time, current_peak, tau, offset):
+    """
+    Exponential decay function for calculating tau, for when polarity is neg
+    Parameters
+    ----------
+    time: array
+        x array of time
+    current_peak: scalar/float
+        value of the starting peak for the exponential decay
+    tau: scalar/float
+        the time constant of decay of the exponential
+    offset: scalar/float
+        the asymptote that the exponential will decay to
+
+    Returns
+    -------
+    y: array
+        the y values for the exponential decay
+    """
+    return -(current_peak * np.exp(-time / tau) + offset)
+
+
 class JaneCell(object):
     def __init__(self, dataset, sweep_info, file, file_name):
         self.dataset = dataset
@@ -515,7 +537,7 @@ class JaneCell(object):
             return epsc_peaks, peak_window
 
     def calculate_event_peak(
-        self, data, pos, baseline, polarity="-", index=False
+        self, data, pos, baseline, window_width, polarity="-", index=False
     ):
         """
         Find the peak EPSC value for a pandas.Series or for each sweep (column) of
@@ -550,12 +572,18 @@ class JaneCell(object):
         peak_window: pandas.DataFrame
             The window of the time series data where the peak is identified
         """
-
         subtracted_data = data - baseline
-        start = pos - 50
-        end = pos + 50
+
+        start = int(pos - window_width / 2)
+        end = int(pos + window_width / 2)
 
         peak_window = subtracted_data.iloc[start:end]
+
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x=peak_window.index, y=peak_window))
+        # fig.show()
+
+        # pdb.set_trace()
 
         if index is True:
             if polarity == "-":
@@ -566,7 +594,7 @@ class JaneCell(object):
                 epsc_peaks_index = peak_window.idxmax()
             else:
                 raise ValueError("polarity must either be + or -")
-            return epsc_peaks, epsc_peaks_index, peak_window
+            return epsc_peaks, epsc_peaks_index
 
         elif index is False:
             if polarity == "-":
@@ -575,7 +603,32 @@ class JaneCell(object):
                 epsc_peaks = peak_window.max()
             else:
                 raise ValueError("polarity must either be + or -")
-            return epsc_peaks, peak_window
+            return epsc_peaks
+
+    def calculate_event_kinetics(self, data, peak, pos, baseline):
+        """
+        Gets kinetic stats of events
+        """
+        # in ms
+        before_window = 5
+        after_window = 20
+        subtracted_data = data - baseline
+
+        start = int(pos - before_window)
+        end = int(pos + after_window)
+
+        # using .loc here because indices are in ms
+        event_window = subtracted_data.loc[start:end]
+
+        event_fig = go.Figure()
+        event_fig.add_trace(go.Scatter(x=event_window.index, y=event_window))
+        # event_fig.show()
+
+        tau, decay_fit, decay_window = self.calculate_freq_decay(
+            peak, pos, event_window, type="event", polarity="-"
+        )
+
+        pdb.set_trace()
 
     def calculate_latency_jitter(self, window, epsc_peaks, mean_trace=False):
         """
@@ -762,8 +815,21 @@ class JaneCell(object):
             pos = int(row["Subtracted pos"])
             sweep_baseline = baseline[sweep]
 
-            event_peak, new_pos, peak_window = self.calculate_event_peak(
-                self.traces_filtered[sweep], pos, sweep_baseline, index=True
+            # finds event peak and new position
+            event_peak, new_pos = self.calculate_event_peak(
+                self.traces_filtered[sweep],
+                pos,
+                sweep_baseline,
+                window_width=100,
+                index=True,
+            )
+
+            # sets new event window to do kinetics analyses
+            self.calculate_event_kinetics(
+                self.traces_filtered[sweep],
+                event_peak,
+                new_pos,
+                sweep_baseline,
             )
 
             new_amps.append(event_peak)
@@ -939,6 +1005,7 @@ class JaneCell(object):
         3. Smoothes PSTH using BARS and gets smoothed avg frequency
         4. Plots smoothed PSTH
         5. Does calculations on avg frequency 
+        6. Plots smoothed PSTH with stats annotated
         
         """
         if time_stop is None:
@@ -952,7 +1019,7 @@ class JaneCell(object):
         x_plot = np.linspace(
             0, bins[x_stop], x_stop
         )  # also time of avg_frequency
-        avg_frequency = run_BARS_smoothing(
+        raw_avg_frequency = run_BARS_smoothing(
             x_stop, x_array=bar_bins, y_array=freq, x_plot=x_plot
         )
         self.plot_smoothed_PSTH(
@@ -960,10 +1027,21 @@ class JaneCell(object):
             x_array=bar_bins,
             y_array=freq,
             x_plot=x_plot,
-            smoothed=avg_frequency,
+            smoothed=raw_avg_frequency,
         )
 
+        # check whether this is sketch
+        avg_frequency = self.replace_avg_extrapolation(freq, raw_avg_frequency)
+
         self.calculate_avg_freq_stats(bin_width, x_plot, avg_frequency)
+
+        self.plot_annotated_freq_histogram(
+            x_stop,
+            x_array=bar_bins,
+            y_array=freq,
+            x_plot=x_plot,
+            smoothed=avg_frequency,
+        )
 
         pdb.set_trace()
 
@@ -1121,8 +1199,23 @@ class JaneCell(object):
 
         smoothed_psth.show()
 
+    def replace_avg_extrapolation(self, freq, smoothed):
+        # replace tail end of avg trace, if freq = 0, replace with pre-stim
+        # baseline. is this sketchy?
+
+        # finds last segment where there's no activity
+        first_zero = np.where(freq > 0)[0][-1] + 1
+        patch_length = len(freq[first_zero:])
+
+        # replaces the interpolated frequency of last segment with start segment
+        smoothed[first_zero:] = smoothed[:patch_length]
+
+        extrapolated_replaced = smoothed
+
+        return smoothed
+
     def calculate_freq_baseline(
-        self, baseline_start_idx, response_window_start, window="second half"
+        self, baseline_start_idx, response_window_start, window="pre-stim"
     ):
 
         if window == "second half":
@@ -1139,7 +1232,7 @@ class JaneCell(object):
 
     def calculate_freq_peak(self):
 
-        max_freq = self.avg_frequency_df.max(axis=0)
+        max_freq = self.avg_frequency_df.max(axis=0)[0]
         freq_peak_time = self.avg_frequency_df.idxmax(axis=0)[0]
         time_to_peak_freq = freq_peak_time - self.stim_time
 
@@ -1170,22 +1263,40 @@ class JaneCell(object):
 
         return rise_time
 
-    def calculate_freq_decay(self, max_freq, freq_peak_time, response_window):
+    def calculate_freq_decay(
+        self, max_freq, freq_peak_time, response_window, type, polarity
+    ):
         # decay window is peak to 90% decay
         decay_array = response_window.loc[freq_peak_time:]
-        decay_end_idx = np.argmax(decay_array <= max_freq * 0.1)
+
+        if polarity == "-":
+            decay_end_idx = np.argmax(decay_array >= max_freq * 0.1)
+        elif polarity == "+":
+            decay_end_idx = np.argmax(decay_array <= max_freq * 0.1)
+
         decay_end_time = decay_array.index[decay_end_idx]
 
         decay_window = response_window.loc[freq_peak_time:decay_end_time]
 
-        starting_params = [max_freq[0], 200, 2]
+        if polarity == "-":
+            decay_window = decay_window * -1
+
+        if type == "frequency":
+            y = decay_window["Avg Frequency (Hz)"].values.tolist()
+            y_plot = decay_window["Avg Frequency (Hz)"]
+
+        elif type == "event":
+            y = decay_window.tolist()
+            y_plot = decay_window
+
+        starting_params = [max_freq, 200, 2]
 
         # fits
         try:
             popt, pcov = scipy.optimize.curve_fit(
                 f=decay_func,
                 xdata=decay_window.index.tolist(),
-                ydata=decay_window["Avg Frequency (Hz)"].values.tolist(),
+                ydata=y,
                 p0=starting_params,
                 bounds=((-np.inf, 0, -np.inf), (np.inf, np.inf, np.inf)),
             )
@@ -1194,25 +1305,30 @@ class JaneCell(object):
             popt = (np.nan, np.nan, np.nan)
 
         current_peak, tau, offset = popt
-        decay_fit = decay_func(decay_window.index.to_numpy(), *popt)
+
+        if type == "frequency":
+            decay_fit = decay_func(decay_window.index.to_numpy(), *popt)
+        elif type == "event":
+            decay_fit = positive_decay_func(
+                decay_window.index.to_numpy(), *popt
+            )
+
+        # decay_fit = func(decay_window.index.to_numpy(), *popt)
 
         decay_fig = go.Figure()
         decay_fig.add_trace(
-            go.Scatter(
-                x=decay_window.index,
-                y=decay_window["Avg Frequency (Hz)"],
-                name="data",
-            )
+            go.Scatter(x=decay_window.index, y=y_plot, name="data",)
         )
         decay_fig.add_trace(
             go.Scatter(x=decay_window.index, y=decay_fit, name="fit on 90%",)
         )
 
         decay_fig.show()
+        pdb.set_trace()
 
         tau = tau / self.fs
 
-        return tau, decay_fit
+        return tau, decay_fit, decay_window
 
     def calculate_avg_freq_stats(self, bin_width, x_plot, avg_frequency):
 
@@ -1230,7 +1346,7 @@ class JaneCell(object):
         ]
 
         avg_baseline_freq, std_baseline_freq = self.calculate_freq_baseline(
-            baseline_start_idx, response_window_start, window="second half"
+            baseline_start_idx, response_window_start,
         )
 
         (
@@ -1243,8 +1359,12 @@ class JaneCell(object):
             std_baseline_freq, response_window
         )
         rise_time = self.calculate_freq_rise(max_freq, response_window)
-        tau, decay_fit = self.calculate_freq_decay(
-            max_freq, freq_peak_time, response_window
+        tau, decay_fit, decay_window = self.calculate_freq_decay(
+            max_freq,
+            freq_peak_time,
+            response_window,
+            type="frequency",
+            polarity="+",
         )
 
         avg_freq_stats = pd.DataFrame(
@@ -1261,12 +1381,15 @@ class JaneCell(object):
             index=[0],
         )
 
+        decay_fit_trace = pd.DataFrame(decay_fit)
+        decay_fit_trace.index = decay_window.index
+
         self.avg_frequency_df = avg_frequency_df
-        self.frequency_decay_fit = decay_fit
+        self.frequency_decay_fit = decay_fit_trace
         self.avg_frequency_stats = avg_freq_stats
 
     def plot_annotated_freq_histogram(
-        self, x_stop, x_array, y_array, x_plot, freq
+        self, x_stop, x_array, y_array, x_plot, smoothed
     ):
 
         x = x_array[:x_stop]
@@ -1306,10 +1429,42 @@ class JaneCell(object):
         annotated_freq.add_trace(
             go.Scatter(
                 x=x_plot,
-                y=freq,
+                y=smoothed,
                 marker=dict(color="#A613C4", size=2),
                 name="spline estimate",
             )
+        )
+
+        # add decay fit
+        annotated_freq.add_trace(
+            go.Scatter(
+                x=self.frequency_decay_fit.index.values,
+                y=self.frequency_decay_fit[0],
+                marker=dict(color="#57E749", size=2),
+                name="decay fit",
+            )
+        )
+
+        # add peak frequency
+        annotated_freq.add_trace(
+            go.Scatter(
+                x=[self.avg_frequency_stats["Peak Frequency Time (ms)"][0]],
+                y=[self.avg_frequency_stats["Peak Frequency (Hz)"][0]],
+                marker=dict(color="#FFB233", size=4),
+                name="peak frequency",
+            )
+        )
+
+        # make annotation texts, round to two decimal points
+        peak_freq = "{:.2f}".format(
+            self.avg_frequency_stats["Peak Frequency (Hz)"][0]
+        )
+
+        # add peak frequency annotation, baseline subtracted
+        annotated_freq.add_annotation(
+            x=self.avg_frequency_stats["Peak Frequency Time (ms)"][0],
+            y=self.avg_frequency_stats["Peak Frequency (Hz)"][0],
+            text=f"Peak Frequency: {peak_freq}",
         )
 
         annotated_freq.show()
