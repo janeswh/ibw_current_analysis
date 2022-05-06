@@ -163,28 +163,6 @@ def decay_func(time, current_peak, tau, offset):
     return current_peak * np.exp(-time / tau) + offset
 
 
-def positive_decay_func(time, current_peak, tau, offset):
-    """
-    Exponential decay function for calculating tau, for when polarity is neg
-    Parameters
-    ----------
-    time: array
-        x array of time
-    current_peak: scalar/float
-        value of the starting peak for the exponential decay
-    tau: scalar/float
-        the time constant of decay of the exponential
-    offset: scalar/float
-        the asymptote that the exponential will decay to
-
-    Returns
-    -------
-    y: array
-        the y values for the exponential decay
-    """
-    return -(current_peak * np.exp(-time / tau) + offset)
-
-
 class JaneCell(object):
     def __init__(self, dataset, sweep_info, file, file_name):
         self.dataset = dataset
@@ -625,10 +603,8 @@ class JaneCell(object):
         # event_fig.show()
 
         tau, decay_fit, decay_window = self.calculate_freq_decay(
-            peak, pos, event_window, type="event", polarity="-"
+            peak, pos, event_window, data_type="event", polarity="-"
         )
-
-        pdb.set_trace()
 
     def calculate_latency_jitter(self, window, epsc_peaks, mean_trace=False):
         """
@@ -1264,7 +1240,7 @@ class JaneCell(object):
         return rise_time
 
     def calculate_freq_decay(
-        self, max_freq, freq_peak_time, response_window, type, polarity
+        self, max_freq, freq_peak_time, response_window, data_type, polarity
     ):
         # decay window is peak to 90% decay
         decay_array = response_window.loc[freq_peak_time:]
@@ -1280,22 +1256,23 @@ class JaneCell(object):
 
         if polarity == "-":
             decay_window = decay_window * -1
+            max_freq = max_freq * -1
 
-        if type == "frequency":
+        if data_type == "frequency":
             y = decay_window["Avg Frequency (Hz)"].values.tolist()
             y_plot = decay_window["Avg Frequency (Hz)"]
+            starting_params = [max_freq, 200, 2]
 
-        elif type == "event":
-            y = decay_window.tolist()
+        elif data_type == "event":
+            y = decay_window.to_numpy()
             y_plot = decay_window
-
-        starting_params = [max_freq, 200, 2]
+            starting_params = [max_freq, 2, 5]
 
         # fits
         try:
             popt, pcov = scipy.optimize.curve_fit(
                 f=decay_func,
-                xdata=decay_window.index.tolist(),
+                xdata=decay_window.index.to_numpy(),
                 ydata=y,
                 p0=starting_params,
                 bounds=((-np.inf, 0, -np.inf), (np.inf, np.inf, np.inf)),
@@ -1306,12 +1283,10 @@ class JaneCell(object):
 
         current_peak, tau, offset = popt
 
-        if type == "frequency":
+        if data_type == "frequency":
             decay_fit = decay_func(decay_window.index.to_numpy(), *popt)
-        elif type == "event":
-            decay_fit = positive_decay_func(
-                decay_window.index.to_numpy(), *popt
-            )
+        elif data_type == "event":
+            decay_fit = decay_func(decay_window.index.to_numpy(), *popt)
 
         # decay_fit = func(decay_window.index.to_numpy(), *popt)
 
@@ -1320,7 +1295,11 @@ class JaneCell(object):
             go.Scatter(x=decay_window.index, y=y_plot, name="data",)
         )
         decay_fig.add_trace(
-            go.Scatter(x=decay_window.index, y=decay_fit, name="fit on 90%",)
+            go.Scatter(
+                x=decay_window.index.to_numpy(),
+                y=decay_fit,
+                name="fit on 90%",
+            )
         )
 
         decay_fig.show()
@@ -1363,7 +1342,7 @@ class JaneCell(object):
             max_freq,
             freq_peak_time,
             response_window,
-            type="frequency",
+            data_type="frequency",
             polarity="+",
         )
 
