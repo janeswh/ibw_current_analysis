@@ -1,3 +1,4 @@
+from cProfile import run
 from pickle import FALSE
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -27,6 +28,7 @@ pio.renderers.default = "browser"
 
 import p2_acq_parameters
 import p14_acq_parameters
+import plotting
 
 # from file_settings import FileSettings
 import pdb
@@ -44,7 +46,7 @@ def igor_to_pandas(path_to_file):
     return data_df
 
 
-def run_BARS_smoothing(x, y, x_plot):
+def run_BARS_smoothing(x_stop, x_array, y_array, x_plot):
     """
         Runs Bayesian Adaptive Regression Splines (BARS) smoothing, code
         adapted from 
@@ -66,8 +68,9 @@ def run_BARS_smoothing(x, y, x_plot):
         Returns:
             smoothed_avg (array): The average interpolated y-values
         """
-
-    N_KNOT = 5  # arbitrary # of knots
+    x = x_array[:x_stop]
+    y = y_array[:x_stop]
+    N_KNOT = 20  # arbitrary # of knots
     # quantiles = np.linspace(
     #     0, 1, N_KNOT
     # )  # if I want to use quantiles as knots
@@ -92,14 +95,12 @@ def run_BARS_smoothing(x, y, x_plot):
             name="freq",
         )
     )  # plots freq points
-    BARS_fig.show()
 
     N_MODEL_KNOTS = 5 * N_KNOT
     # N_MODEL_KNOTS = N_KNOT
     model_knots = np.linspace(0, x_plot[-1], N_MODEL_KNOTS)
 
     # running model
-
     basis_funcs = scipy.interpolate.BSpline(
         model_knots,  # why doesn't example code use model_knots here?
         np.eye(N_MODEL_KNOTS),
@@ -107,7 +108,6 @@ def run_BARS_smoothing(x, y, x_plot):
     )
 
     Bx = basis_funcs(x)
-
     Bx_ = shared(Bx)
 
     with pm.Model() as model:
@@ -135,9 +135,31 @@ def run_BARS_smoothing(x, y, x_plot):
     BARS_fig.add_trace(
         go.Scatter(x=x_plot, y=smoothed_avg, name="spline estimate",)
     )
-    BARS_fig.show()
+    # BARS_fig.show()
 
     return smoothed_avg
+
+
+def decay_func(time, current_peak, tau, offset):
+    """
+    Exponential decay function for calculating tau
+    Parameters
+    ----------
+    time: array
+        x array of time
+    current_peak: scalar/float
+        value of the starting peak for the exponential decay
+    tau: scalar/float
+        the time constant of decay of the exponential
+    offset: scalar/float
+        the asymptote that the exponential will decay to
+
+    Returns
+    -------
+    y: array
+        the y values for the exponential decay
+    """
+    return current_peak * np.exp(-time * tau) + offset
 
 
 class JaneCell(object):
@@ -147,6 +169,9 @@ class JaneCell(object):
         self.file = file
         self.file_name = file_name
         self.time = None
+        self.raw_sweep_length = None
+        self.sweep_length_ms = None
+        self.num_sweeps = None
         self.raw_df = None
         self.raw_ic_df = None
         self.spikes_sweeps_dict = None
@@ -158,8 +183,7 @@ class JaneCell(object):
         self.events_fig = None
         self.bar_bins = None
         self.freq = None
-        self.avg_frequency = None
-        self.x_plot = None
+        self.avg_frequency_df = None
 
         self.traces_filtered = None
         self.traces_filtered_sub = None
@@ -208,7 +232,10 @@ class JaneCell(object):
     def initialize_cell(self):
         # turn ibw file into a pandas df
         self.raw_df = igor_to_pandas(self.file) * self.amp_factor
+        self.raw_sweep_length = len(self.raw_df)
+        self.sweep_length_ms = self.raw_sweep_length / self.fs
         self.traces = self.raw_df
+        self.num_sweeps = len(self.raw_df.columns)
 
         # gets sweep info for one cell, drops empty values
         file_split = self.file_name.split(".")
@@ -846,7 +873,7 @@ class JaneCell(object):
         """
         events_fig = go.Figure()
 
-        for sweep in range(len(self.traces_filtered_sub.columns)):
+        for sweep in range(self.num_sweeps):
 
             sweep_events_pos = self.event_stats.loc[
                 self.event_stats["Sweep"] == sweep
@@ -898,14 +925,48 @@ class JaneCell(object):
         events_fig.show()
         self.events_fig = events_fig
 
-    def plot_event_psth(self):
+    def analyze_avg_frequency(self, bin_width=10, time_stop=None):
+        """
+        bin_width is width of bins in ms
+        time_stop is time of last timepoint wanted for BARS, in ms
+
+        1. Gets the histogram counts and parameters for PSTH
+        2. Plots raster plot and PSTH for the entire sweep
+        3. Smoothes PSTH using BARS and gets smoothed avg frequency
+        4. Plots smoothed PSTH
+        5. Does calculations on avg frequency 
+        
+        """
+        if time_stop is None:
+            time_stop = int(self.sweep_length_ms)
+
+        x_stop = int(time_stop / bin_width)  # number of bins to stop at
+
+        raster_df, bins, bar_bins, freq = self.get_bin_parameters(bin_width)
+        self.plot_event_psth(raster_df, x=bar_bins, y=freq)
+
+        x_plot = np.linspace(
+            0, bins[x_stop], x_stop
+        )  # also time of avg_frequency
+        avg_frequency = run_BARS_smoothing(
+            x_stop, x_array=bar_bins, y_array=freq, x_plot=x_plot
+        )
+        self.plot_smoothed_PSTH(
+            x_stop,
+            x_array=bar_bins,
+            y_array=freq,
+            x_plot=x_plot,
+            smoothed=avg_frequency,
+        )
+
+        self.calculate_avg_freq_stats(bin_width, x_plot, avg_frequency)
+
+    def plot_event_psth(self, event_times, x, y):
         """
         Makes raster plot of all identified events for each sweep.
         """
-        raster_df = self.event_stats[["Sweep", "New pos"]]
-
         # make sweep numbers go from 1-30 instead of 0-29
-        new_sweeps = raster_df["Sweep"].cat.codes + 1
+        new_sweeps = event_times["Sweep"].cat.codes + 1
 
         # sets background color to white
         layout = go.Layout(plot_bgcolor="rgba(0,0,0,0)",)
@@ -923,7 +984,7 @@ class JaneCell(object):
         # add raster plot
         psth_fig.add_trace(
             go.Scatter(
-                x=raster_df["New pos"],
+                x=event_times["New pos"],
                 y=new_sweeps,
                 mode="markers",
                 marker=dict(symbol="line-ns", line_width=1, size=10),
@@ -937,7 +998,7 @@ class JaneCell(object):
             title_text="Trial",
             row=1,
             col=1,
-            tickvals=[1, len(self.traces_filtered_sub.columns)],
+            tickvals=[1, self.num_sweeps],
             showgrid=False,
             zeroline=False,
         )
@@ -948,28 +1009,11 @@ class JaneCell(object):
 
         psth_fig.update_xaxes(
             # title_text="Time (ms)",
-            range=[(self.tp_start + self.tp_length), 6020],
+            range=[(self.tp_start + self.tp_length), self.sweep_length_ms],
         )
 
-        # make PSTH
-        psth_df = raster_df["New pos"]
-
-        # do frequency in Hz, # of events per second, divided by # of sweeps
-        counts, bins = np.histogram(psth_df, bins=range(0, 6030, 10))
-        # this puts bar in between the edges of the bin
-        bar_bins = 0.5 * (bins[:-1] + bins[1:])
-        freq = counts / len(self.traces_filtered_sub.columns) / 1e-2
-
-        self.bar_bins = bar_bins
-        self.freq = freq
-
         psth_fig.add_trace(
-            go.Bar(
-                x=bar_bins,
-                y=freq,
-                showlegend=False,
-                marker=dict(color="#D39DDD"),
-            ),
+            go.Bar(x=x, y=y, showlegend=False, marker=dict(color="#D39DDD"),),
             row=2,
             col=1,
         )
@@ -998,44 +1042,41 @@ class JaneCell(object):
             title_x=0.5,
         )
 
-    def set_psth_parameters(self):
+        # psth_fig.show()
+        # pdb.set_trace()
+
+    def get_bin_parameters(self, bin_width):
         """
         Gets the counts, bins, bin widths for PSTH-related plotting and
-        calculations
+        calculations. This uses the entire sweep.
         """
         # gets event positions for raster plot
         raster_df = self.event_stats[["Sweep", "New pos"]]
         # make PSTH
         psth_df = raster_df["New pos"]
 
-        # do frequency in Hz, # of events per second, divided by # of sweeps
-        counts, bins = np.histogram(psth_df, bins=range(0, 6030, 10))
+        bin_stop = int(self.sweep_length_ms) + bin_width
+
+        counts, bins = np.histogram(
+            psth_df, bins=range(0, bin_stop, bin_width)
+        )
         # this puts bar in between the edges of the bin
         bar_bins = 0.5 * (bins[:-1] + bins[1:])
-        freq = counts / len(self.traces_filtered_sub.columns) / 1e-2
 
-    def plot_smoothed_PSTH(self):
+        # do frequency in Hz, # of events per second, divided by # of sweeps
+        freq = counts / self.num_sweeps / 1e-2
 
-        time_stop = 3000
-        bin_length = 10
-        x_stop = int(time_stop / bin_length)  # puts into 10 ms bins
-        x_plot = np.linspace(0, self.bar_bins[x_stop], x_stop)
-        x = self.bar_bins[:x_stop]
-        y = self.freq[:x_stop]
+        return raster_df, bins, bar_bins, freq
 
-        # gets smoothed frequency
-        avg_frequency = run_BARS_smoothing(x, y, x_plot)
+    def plot_smoothed_PSTH(self, x_stop, x_array, y_array, x_plot, smoothed):
 
-        # plot smoothed PSTH
+        x = x_array[:x_stop]
+        y = y_array[:x_stop]
+
         smoothed_psth = go.Figure()
 
         smoothed_psth.add_trace(
-            go.Bar(
-                x=self.bar_bins[:x_stop],
-                y=self.freq[:x_stop],
-                marker=dict(color="#D39DDD"),
-                name="PSTH",
-            ),
+            go.Bar(x=x, y=y, marker=dict(color="#D39DDD"), name="PSTH",),
         )
 
         # this removes the white outline of the bar graph to emulate histogram
@@ -1066,7 +1107,7 @@ class JaneCell(object):
         smoothed_psth.add_trace(
             go.Scatter(
                 x=x_plot,
-                y=avg_frequency,
+                y=smoothed,
                 marker=dict(color="#A613C4", size=2),
                 name="spline estimate",
             )
@@ -1074,10 +1115,118 @@ class JaneCell(object):
 
         smoothed_psth.show()
 
-        max_freq_pos = np.argmax(avg_frequency)
-        max_freq_time = x_plot[max_freq_pos]
+    def calculate_avg_freq_stats(self, bin_width, x_plot, avg_frequency):
+
+        avg_frequency_df = pd.DataFrame()
+        avg_frequency_df["Avg Frequency (Hz)"] = avg_frequency
+        avg_frequency_df.index = x_plot
+
+        response_window_start = int(self.stim_time / bin_width)
+        baseline_start_idx = int(self.baseline_start / bin_width)
+
+        max_freq = avg_frequency_df.max(axis=0)
+        freq_peak_time = avg_frequency_df.idxmax(axis=0)[0]
+        time_to_peak_freq = freq_peak_time - self.stim_time
+
+        # how to define onset - 5% of peak, or exceeds 3 std above baseline
+        # baseline use the second half of sweep bc smoothed avg_freq looks
+        # weird before light stim
+
+        # this is using latter half of sweep as baseline
+        baseline_freq = avg_frequency_df.iloc[baseline_start_idx:]
+
+        # this is using pre-stim time as baseline
+        # baseline_freq = avg_frequency_df.iloc[:response_window_start]
+
+        avg_baseline_freq = baseline_freq.mean()
+        std_baseline_freq = baseline_freq.std()
+
+        # window to look for response starts after light stim
+        # the issue is that the smoothed curve is already high before light stim
+
+        response_window = avg_frequency_df.iloc[
+            response_window_start:baseline_start_idx
+        ]
+
+        # onset code probably won't work for spontaneous conditions since there
+        # is no response
+
+        onset_amp = std_baseline_freq * 3
+        latency = []
+        onset = []
+
+        onset_idx = np.argmax(response_window >= onset_amp)
+        onset_time = response_window.index[onset_idx]
+
+        # rise time - 20-80%, ms
+        rise_start_idx = np.argmax(response_window >= max_freq * 0.2)
+        rise_start = response_window.index[rise_start_idx]
+        rise_end_idx = np.argmax(response_window >= max_freq * 0.8)
+        rise_end = response_window.index[rise_end_idx]
+
+        rise_time = rise_end - rise_start
+
+        # decay window is peak to 90% decay
+        decay_array = response_window.loc[freq_peak_time:]
+        decay_end_idx = np.argmax(decay_array <= max_freq * 0.1)
+        decay_end_time = decay_array.index[decay_end_idx]
+
+        decay_window = response_window.loc[freq_peak_time:decay_end_time]
+
+        # if you actually need guesses, i'm taking a guess at tau
+        # take first index value that goes below 1*tau value, then multiply by 2 to account for noise
+        # and divide by sampling time to get ms time scale
+        # these should be the same regardless of where stopping
+        # if len(np.where(peak_trace < (peak_trace[0] * 0.37))[0]) == 0:
+        #     guess_tau_time = 3
+        # else:
+        #     guess_tau_time  = np.where(peak_trace < (peak_trace[0] * 0.37))[0][0] * 2 / self.fs
+
+        starting_params = [max_freq[0], 50, 20]
+
+        # fits
+        try:
+            popt, pcov = scipy.optimize.curve_fit(
+                f=decay_func,
+                xdata=decay_window.index.tolist(),
+                ydata=decay_window["Avg Frequency (Hz)"].values.tolist(),
+                p0=starting_params,
+                bounds=((-np.inf, 0, -np.inf), (np.inf, np.inf, np.inf)),
+            )
+
+        except RuntimeError:
+            popt = (np.nan, np.nan, np.nan)
+
+        current_peak, tau, offset = popt
+        # plt.figure()
+        # plt.plot(xtime_adj, peak_trace, color='k', label='data')
+        # plt.plot(xtime_adj, decay_func(xtime_adj, *popt), color='r', label=f'fit on 90%; tau (ms): {round(tau, 2)}')
+        # plt.legend()
+
+        decay_fig = go.Figure()
+        decay_fig.add_trace(
+            go.Scatter(
+                x=decay_window.index,
+                y=decay_window["Avg Frequency (Hz)"],
+                name="data",
+            )
+        )
+        decay_fig.add_trace(
+            go.Scatter(
+                x=decay_window.index,
+                y=decay_func(decay_window.index, *popt),
+                name="fit on 90%",
+            )
+        )
+
+        decay_fig.show()
 
         pdb.set_trace()
+
+        self.avg_frequency_df = avg_frequency_df
+
+    # max_freq_pos = np.argmax(avg_frequency)
+    # max_freq_time = x_plot[max_freq_pos]
 
     # def plot_counts_psth(self):
     #     """
@@ -1139,7 +1288,7 @@ class JaneCell(object):
         mean_trace_fig = go.Figure()
 
         # plots individual sweeps
-        for sweep in range(len(self.traces_filtered_sub.columns)):
+        for sweep in range(self.num_sweeps):
             indiv_toplot = self.traces_filtered_sub[sweep][
                 (self.tp_start + self.tp_length) : :
             ]
@@ -1196,14 +1345,17 @@ class JaneCell(object):
             [pos for sublist in pos_list for pos in sublist]
         )
 
-        num_sweeps = len(self.raw_df.columns)
-        raw_intervals = np.arange(0, (num_sweeps + 1) * 150500, 150500)
+        raw_intervals = np.arange(
+            0,
+            (self.num_sweeps + 1) * self.raw_sweep_length,
+            self.raw_sweep_length,
+        )
 
         # assign sweep numbers based on event positions
         sweep_pos = pd.cut(
             flat_pos[0],
             raw_intervals,
-            labels=np.arange(0, num_sweeps),
+            labels=np.arange(0, self.num_sweeps),
             include_lowest=True,
             right=False,
         )
@@ -1215,7 +1367,7 @@ class JaneCell(object):
         sweep_array = np.asarray(mod_events_df["Sweep"])
 
         # get absolute time of event within each sweep
-        subtract_time = sweep_array * self.fs * 6020
+        subtract_time = sweep_array * self.fs * self.sweep_length_ms
         mod_events_df["Subtracted pos"] = flat_pos.squeeze() - subtract_time
         mod_events_df["Event pos (ms)"] = (
             mod_events_df["Subtracted pos"] / self.fs
