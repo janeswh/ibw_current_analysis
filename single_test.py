@@ -1,5 +1,6 @@
 from cProfile import run
 from pickle import FALSE
+from urllib import response
 import pandas as pd
 import matplotlib.pyplot as plt
 import pynwb
@@ -159,7 +160,7 @@ def decay_func(time, current_peak, tau, offset):
     y: array
         the y values for the exponential decay
     """
-    return current_peak * np.exp(-time * tau) + offset
+    return current_peak * np.exp(-time / tau) + offset
 
 
 class JaneCell(object):
@@ -182,8 +183,11 @@ class JaneCell(object):
         self.event_stats = None
         self.events_fig = None
         self.bar_bins = None
+
         self.freq = None
         self.avg_frequency_df = None
+        self.avg_frequency_stats = None
+        self.frequency_decay_fit = None
 
         self.traces_filtered = None
         self.traces_filtered_sub = None
@@ -961,6 +965,8 @@ class JaneCell(object):
 
         self.calculate_avg_freq_stats(bin_width, x_plot, avg_frequency)
 
+        pdb.set_trace()
+
     def plot_event_psth(self, event_times, x, y):
         """
         Makes raster plot of all identified events for each sweep.
@@ -1115,49 +1121,45 @@ class JaneCell(object):
 
         smoothed_psth.show()
 
-    def calculate_avg_freq_stats(self, bin_width, x_plot, avg_frequency):
+    def calculate_freq_baseline(
+        self, baseline_start_idx, response_window_start, window="second half"
+    ):
 
-        avg_frequency_df = pd.DataFrame()
-        avg_frequency_df["Avg Frequency (Hz)"] = avg_frequency
-        avg_frequency_df.index = x_plot
+        if window == "second half":
+            # this is using latter half of sweep as baseline
+            baseline_freq = self.avg_frequency_df.iloc[baseline_start_idx:]
+        elif window == "pre-stim":
+            # this is using pre-stim time as baseline
+            baseline_freq = self.avg_frequency_df.iloc[:response_window_start]
 
-        response_window_start = int(self.stim_time / bin_width)
-        baseline_start_idx = int(self.baseline_start / bin_width)
-
-        max_freq = avg_frequency_df.max(axis=0)
-        freq_peak_time = avg_frequency_df.idxmax(axis=0)[0]
-        time_to_peak_freq = freq_peak_time - self.stim_time
-
-        # how to define onset - 5% of peak, or exceeds 3 std above baseline
-        # baseline use the second half of sweep bc smoothed avg_freq looks
-        # weird before light stim
-
-        # this is using latter half of sweep as baseline
-        baseline_freq = avg_frequency_df.iloc[baseline_start_idx:]
-
-        # this is using pre-stim time as baseline
-        # baseline_freq = avg_frequency_df.iloc[:response_window_start]
-
-        avg_baseline_freq = baseline_freq.mean()
+        avg_baseline_freq = baseline_freq.mean()[0]
         std_baseline_freq = baseline_freq.std()
 
-        # window to look for response starts after light stim
-        # the issue is that the smoothed curve is already high before light stim
+        return avg_baseline_freq, std_baseline_freq
 
-        response_window = avg_frequency_df.iloc[
-            response_window_start:baseline_start_idx
-        ]
+    def calculate_freq_peak(self):
+
+        max_freq = self.avg_frequency_df.max(axis=0)
+        freq_peak_time = self.avg_frequency_df.idxmax(axis=0)[0]
+        time_to_peak_freq = freq_peak_time - self.stim_time
+
+        return max_freq, freq_peak_time, time_to_peak_freq
+
+    def calculate_freq_peak_onset(self, baseline_std, response_window):
+
+        # how to define onset - 5% of peak, or exceeds 3 std above baseline
+        # the issue is that the smoothed curve is already high before light stim
 
         # onset code probably won't work for spontaneous conditions since there
         # is no response
 
-        onset_amp = std_baseline_freq * 3
-        latency = []
-        onset = []
-
+        onset_amp = baseline_std * 3
         onset_idx = np.argmax(response_window >= onset_amp)
         onset_time = response_window.index[onset_idx]
 
+        return onset_time
+
+    def calculate_freq_rise(self, max_freq, response_window):
         # rise time - 20-80%, ms
         rise_start_idx = np.argmax(response_window >= max_freq * 0.2)
         rise_start = response_window.index[rise_start_idx]
@@ -1166,6 +1168,9 @@ class JaneCell(object):
 
         rise_time = rise_end - rise_start
 
+        return rise_time
+
+    def calculate_freq_decay(self, max_freq, freq_peak_time, response_window):
         # decay window is peak to 90% decay
         decay_array = response_window.loc[freq_peak_time:]
         decay_end_idx = np.argmax(decay_array <= max_freq * 0.1)
@@ -1173,16 +1178,7 @@ class JaneCell(object):
 
         decay_window = response_window.loc[freq_peak_time:decay_end_time]
 
-        # if you actually need guesses, i'm taking a guess at tau
-        # take first index value that goes below 1*tau value, then multiply by 2 to account for noise
-        # and divide by sampling time to get ms time scale
-        # these should be the same regardless of where stopping
-        # if len(np.where(peak_trace < (peak_trace[0] * 0.37))[0]) == 0:
-        #     guess_tau_time = 3
-        # else:
-        #     guess_tau_time  = np.where(peak_trace < (peak_trace[0] * 0.37))[0][0] * 2 / self.fs
-
-        starting_params = [max_freq[0], 50, 20]
+        starting_params = [max_freq[0], 200, 2]
 
         # fits
         try:
@@ -1198,10 +1194,7 @@ class JaneCell(object):
             popt = (np.nan, np.nan, np.nan)
 
         current_peak, tau, offset = popt
-        # plt.figure()
-        # plt.plot(xtime_adj, peak_trace, color='k', label='data')
-        # plt.plot(xtime_adj, decay_func(xtime_adj, *popt), color='r', label=f'fit on 90%; tau (ms): {round(tau, 2)}')
-        # plt.legend()
+        decay_fit = decay_func(decay_window.index.to_numpy(), *popt)
 
         decay_fig = go.Figure()
         decay_fig.add_trace(
@@ -1212,21 +1205,114 @@ class JaneCell(object):
             )
         )
         decay_fig.add_trace(
-            go.Scatter(
-                x=decay_window.index,
-                y=decay_func(decay_window.index, *popt),
-                name="fit on 90%",
-            )
+            go.Scatter(x=decay_window.index, y=decay_fit, name="fit on 90%",)
         )
 
         decay_fig.show()
 
-        pdb.set_trace()
+        tau = tau / self.fs
 
+        return tau, decay_fit
+
+    def calculate_avg_freq_stats(self, bin_width, x_plot, avg_frequency):
+
+        avg_frequency_df = pd.DataFrame()
+        avg_frequency_df["Avg Frequency (Hz)"] = avg_frequency
+        avg_frequency_df.index = x_plot
         self.avg_frequency_df = avg_frequency_df
 
-    # max_freq_pos = np.argmax(avg_frequency)
-    # max_freq_time = x_plot[max_freq_pos]
+        baseline_start_idx = int(self.baseline_start / bin_width)
+
+        # window to look for response starts after light stim
+        response_window_start = int(self.stim_time / bin_width)
+        response_window = self.avg_frequency_df.iloc[
+            response_window_start:baseline_start_idx
+        ]
+
+        avg_baseline_freq, std_baseline_freq = self.calculate_freq_baseline(
+            baseline_start_idx, response_window_start, window="second half"
+        )
+
+        (
+            max_freq,
+            freq_peak_time,
+            time_to_peak_freq,
+        ) = self.calculate_freq_peak()
+
+        onset_time = self.calculate_freq_peak_onset(
+            std_baseline_freq, response_window
+        )
+        rise_time = self.calculate_freq_rise(max_freq, response_window)
+        tau, decay_fit = self.calculate_freq_decay(
+            max_freq, freq_peak_time, response_window
+        )
+
+        avg_freq_stats = pd.DataFrame(
+            {
+                "Peak Frequency (Hz)": max_freq,
+                "Peak Frequency Time (ms)": freq_peak_time,
+                "Time to Peak Frequency (ms)": time_to_peak_freq,
+                "Baseline Frequency (Hz)": avg_baseline_freq,
+                "Baseline-sub Peak Freq (Hz)": max_freq - avg_baseline_freq,
+                "Response Onset Latency (ms)": onset_time - self.stim_time,
+                "Rise Time (ms)": rise_time,
+                "Decay tau": tau,
+            },
+            index=[0],
+        )
+
+        self.avg_frequency_df = avg_frequency_df
+        self.frequency_decay_fit = decay_fit
+        self.avg_frequency_stats = avg_freq_stats
+
+    def plot_annotated_freq_histogram(
+        self, x_stop, x_array, y_array, x_plot, freq
+    ):
+
+        x = x_array[:x_stop]
+        y = y_array[:x_stop]
+
+        annotated_freq = go.Figure()
+
+        annotated_freq.add_trace(
+            go.Bar(x=x, y=y, marker=dict(color="#D39DDD"), name="PSTH",),
+        )
+
+        # this removes the white outline of the bar graph to emulate histogram
+        annotated_freq.update_traces(marker=dict(line=dict(width=0)),)
+
+        annotated_freq.update_yaxes(title_text="Frequency (Hz)")
+        annotated_freq.update_xaxes(title_text="Time (ms)")
+
+        # add main title, x-axis titles
+        annotated_freq.update_layout(
+            title_text="{}, {} Smoothed PSTH".format(
+                self.cell_name, self.cell_type
+            ),
+            title_x=0.5,
+        )
+        annotated_freq.update_layout(bargap=0)
+
+        # adds blue overlay to show light stim duration
+        annotated_freq.add_vrect(
+            x0=self.stim_time,
+            x1=self.stim_time + 100,
+            fillcolor="#33F7FF",
+            opacity=0.5,
+            layer="below",
+            line_width=0,
+        )
+
+        annotated_freq.add_trace(
+            go.Scatter(
+                x=x_plot,
+                y=freq,
+                marker=dict(color="#A613C4", size=2),
+                name="spline estimate",
+            )
+        )
+
+        annotated_freq.show()
 
     # def plot_counts_psth(self):
     #     """
