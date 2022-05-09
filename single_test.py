@@ -17,6 +17,8 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
+import collections
+
 from scipy.stats import sem
 from scipy import io
 
@@ -188,6 +190,8 @@ class JaneCell(object):
         self.avg_frequency_df = None
         self.avg_frequency_stats = None
         self.frequency_decay_fit = None
+
+        self.decay_fits_dict = None
 
         self.traces_filtered = None
         self.traces_filtered_sub = None
@@ -651,7 +655,15 @@ class JaneCell(object):
             peak, peak_time, event_window, polarity="-", root_time=root_time
         )
 
-        return tau, decay_fit, rise_time, rise_start, rise_end, adjusted_peak
+        return (
+            tau,
+            decay_fit,
+            rise_time,
+            rise_start,
+            rise_end,
+            adjusted_peak,
+            root_time,
+        )
 
     def calculate_latency_jitter(self, window, epsc_peaks, mean_trace=False):
         """
@@ -830,6 +842,7 @@ class JaneCell(object):
         self.traces_filtered_sub = self.traces_filtered - baseline
 
         # finds the new positions and peaks of identified events using MOD file
+        sweep_number_list = []
         new_amps = []
         new_pos_list = []
         tau_list = []
@@ -838,6 +851,7 @@ class JaneCell(object):
         risestart_list = []
         riseend_list = []
         adjusted_peak_list = []
+        roots_list = []
 
         # makes list of event times for each sweep and puts in df
         isi_df = pd.DataFrame()
@@ -869,7 +883,7 @@ class JaneCell(object):
         # be dropped from self.mod_events_df
 
         isi_df.columns = range(self.num_sweeps)  # do I even need this df
-        decay_fits_dict = {}
+        decay_fits_dict = collections.defaultdict(dict)
 
         for index, row in self.mod_events_df.iterrows():
             sweep = int(row["Sweep"])
@@ -893,6 +907,7 @@ class JaneCell(object):
                 rise_start,
                 rise_end,
                 adjusted_peak,
+                root_time,
             ) = self.calculate_event_kinetics(
                 self.traces_filtered[sweep],
                 event_peak,
@@ -900,8 +915,11 @@ class JaneCell(object):
                 sweep_baseline,
             )
 
-            decay_fits_dict[index] = decay_fit
+            # don't add decay fits to dict if tau > 100
+            if tau < 100:
+                decay_fits_dict[sweep][index] = decay_fit
 
+            sweep_number_list.append(sweep)
             new_amps.append(event_peak)
             new_pos_list.append(new_pos)
             tau_list.append(tau)
@@ -910,7 +928,9 @@ class JaneCell(object):
             risestart_list.append(rise_start)
             riseend_list.append(rise_end)
             adjusted_peak_list.append(adjusted_peak)
+            roots_list.append(root_time)
 
+        sweep_number_list = pd.DataFrame(sweep_number_list, columns=["Sweep"])
         new_amps = pd.DataFrame(new_amps, columns=["New amplitude (pA)"])
         new_pos_list = pd.DataFrame(new_pos_list, columns=["New pos"])
         tau_list = pd.DataFrame(tau_list, columns=["Tau (ms)"])
@@ -923,10 +943,12 @@ class JaneCell(object):
         adjusted_peak_list = pd.DataFrame(
             adjusted_peak_list, columns=["Adjusted amplitude (pA)"]
         )
+        roots_list = pd.DataFrame(roots_list, columns=["Root time (ms)"])
 
         event_stats = pd.concat(
             [
                 # self.mod_events_df,
+                sweep_number_list,
                 new_pos_list,
                 new_amps,
                 adjusted_peak_list,
@@ -934,6 +956,7 @@ class JaneCell(object):
                 risetime_list,
                 risestart_list,
                 riseend_list,
+                roots_list,
             ],
             axis=1,
         )
@@ -942,10 +965,152 @@ class JaneCell(object):
         to_drop = event_stats.loc[event_stats["Tau (ms)"] > 100].index
         event_stats.drop(to_drop, inplace=True)
 
+        self.decay_fits_dict = decay_fits_dict
         self.event_stats = event_stats
         # event_stats.to_csv("event_stats.csv")
-        pdb.set_trace()
+
         # self.plot_events()
+
+    def plot_event_stats(self):
+        """
+        Plots all the events for every sweep, with the decay fits, rise times,
+        etc. This doesn't include eliminated events.
+        """
+
+        events_stats_fig = go.Figure()
+
+        for sweep in range(self.num_sweeps):
+
+            window_toplot = self.traces_filtered_sub[sweep][
+                (self.tp_start + self.tp_length) : :
+            ]
+
+            sweep_events_pos = self.event_stats.loc[
+                self.event_stats["Sweep"] == sweep
+            ]["New pos"].values
+            sweep_events_amp = self.event_stats.loc[
+                self.event_stats["Sweep"] == sweep
+            ]["New amplitude (pA)"].values
+
+            # gets rise start info
+            rise_starts_pos = self.event_stats.loc[
+                self.event_stats["Sweep"] == sweep
+            ]["Rise start (ms)"].values
+            rise_starts_amp = window_toplot.loc[rise_starts_pos]
+
+            # gets rise end info
+            rise_ends_pos = self.event_stats.loc[
+                self.event_stats["Sweep"] == sweep
+            ]["Rise end (ms)"].values
+            rise_ends_amp = window_toplot.loc[rise_ends_pos]
+
+            # gets roots for baseline
+            roots_pos = self.event_stats.loc[
+                self.event_stats["Sweep"] == sweep
+            ]["Root time (ms)"].values
+            roots_amp = window_toplot.loc[roots_pos]
+
+            # gets root-subtracted amplitudes for annotating
+            adj_amplitudes = self.event_stats.loc[
+                self.event_stats["Sweep"] == sweep
+            ]["Adjusted amplitude (pA)"]
+
+            # plots the sweep
+            events_stats_fig.add_trace(
+                go.Scatter(
+                    x=window_toplot.index,
+                    y=window_toplot,
+                    mode="lines",
+                    name="sweep {}".format(sweep),
+                    legendgroup=sweep,
+                    visible="legendonly",
+                )
+            )
+
+            # plots peaks
+            events_stats_fig.add_trace(
+                go.Scatter(
+                    x=sweep_events_pos,
+                    y=sweep_events_amp,
+                    mode="markers + text",
+                    marker=dict(color="#E75649", size=12),
+                    text=adj_amplitudes.round(2),
+                    textfont=dict(size=18),
+                    textposition="bottom center",
+                    name="sweep {} peaks".format(sweep),
+                    legendgroup=sweep,
+                    visible="legendonly",
+                )
+            )
+
+            # plots start end
+            events_stats_fig.add_trace(
+                go.Scatter(
+                    x=rise_starts_pos,
+                    y=rise_starts_amp,
+                    mode="markers",
+                    marker=dict(color="#8FE749", size=12),
+                    name="sweep {} rise start".format(sweep),
+                    legendgroup=sweep,
+                    visible="legendonly",
+                )
+            )
+
+            # plots rise end
+            events_stats_fig.add_trace(
+                go.Scatter(
+                    x=rise_ends_pos,
+                    y=rise_ends_amp,
+                    mode="markers",
+                    marker=dict(color="#3E5BCF", size=12),
+                    name="sweep {} rise end".format(sweep),
+                    legendgroup=sweep,
+                    visible="legendonly",
+                )
+            )
+
+            # plots roots
+            events_stats_fig.add_trace(
+                go.Scatter(
+                    x=roots_pos,
+                    y=roots_amp,
+                    mode="markers",
+                    marker=dict(color="#993ECF", size=8),
+                    name="sweep {} roots/baseline".format(sweep),
+                    legendgroup=sweep,
+                    visible="legendonly",
+                )
+            )
+
+            # plots decay fits
+            for event in self.decay_fits_dict[sweep].keys():
+                events_stats_fig.add_trace(
+                    go.Scatter(
+                        x=self.decay_fits_dict[sweep][event]["x"],
+                        y=self.decay_fits_dict[sweep][event]["y"],
+                        line=dict(color="#E89F24"),
+                        mode="lines",
+                        name="sweep {} decay fits".format(sweep),
+                        legendgroup=sweep,
+                        visible="legendonly",
+                    )
+                )
+
+        events_stats_fig.update_xaxes(title_text="Time (ms)")
+        events_stats_fig.update_yaxes(title_text="Amplitude (pA)")
+
+        events_stats_fig.add_vrect(
+            x0=self.stim_time,
+            x1=self.stim_time + 100,
+            fillcolor="#33F7FF",
+            opacity=0.5,
+            layer="below",
+            line_width=0,
+        )
+
+        # events_stats_fig.show()
+        # pdb.set_trace()
+        # self.events_fig = events_fig
 
     def calculate_mean_trace_stats(self):
 
@@ -1528,7 +1693,9 @@ class JaneCell(object):
         # decay_fig.show()
         # pdb.set_trace()
 
-        return tau, decay_fit_trace, decay_window
+        decay_fit = pd.DataFrame({"x": x, "y": decay_fit_trace})
+
+        return tau, decay_fit, decay_window
 
     # def calculate_freq_decay(
     #     self, max_freq, freq_peak_time, response_window, data_type, polarity
