@@ -207,6 +207,7 @@ class JaneCell(object):
             self.lowpass_freq = p2_acq_parameters.LOWPASS_FREQ
             self.stim_time = p2_acq_parameters.STIM_TIME
             self.post_stim = p2_acq_parameters.POST_STIM
+            self.freq_post_stim = p2_acq_parameters.FREQ_POST_STIM
             self.tp_start = p2_acq_parameters.TP_START
             self.tp_length = p2_acq_parameters.TP_LENGTH
             self.vm_jump = p2_acq_parameters.VM_JUMP
@@ -221,6 +222,7 @@ class JaneCell(object):
             self.lowpass_freq = p14_acq_parameters.LOWPASS_FREQ
             self.stim_time = p14_acq_parameters.STIM_TIME
             self.post_stim = p14_acq_parameters.POST_STIM
+            self.freq_post_stim = p14_acq_parameters.FREQ_POST_STIM
             self.tp_start = p14_acq_parameters.TP_START
             self.tp_length = p14_acq_parameters.TP_LENGTH
             self.vm_jump = p14_acq_parameters.VM_JUMP
@@ -601,6 +603,8 @@ class JaneCell(object):
         event_fig = go.Figure()
         event_fig.add_trace(go.Scatter(x=event_window.index, y=event_window))
         # event_fig.show()
+
+        # pdb.set_trace()
 
         tau, decay_fit, decay_window = self.calculate_freq_decay_norm(
             peak, pos, event_window, data_type="event", polarity="-"
@@ -1019,7 +1023,7 @@ class JaneCell(object):
             smoothed=avg_frequency,
         )
 
-        pdb.set_trace()
+        # pdb.set_trace()
 
     def plot_event_psth(self, event_times, x, y):
         """
@@ -1254,38 +1258,44 @@ class JaneCell(object):
 
         decay_window = response_window.loc[freq_peak_time:decay_end_time]
 
-        # normalize
-        norm_x = decay_window.index.min()
-        norm_y = decay_window.min()
-
         if polarity == "-":
             decay_window = decay_window * -1
             max_freq = max_freq * -1
 
-        x_2 = (
-            decay_window.index - norm_x + 1
-        )  # why +1 here? so values don't start at 0
-        y_2 = decay_window / norm_y
+        # these conditionals are to account for differences in types
+        # for frequency vs. event, the types are:
+        # y: list vsnp.array
+        # decay_array: df vs. pd.Series
+        # decay_window: df vs. pd.Series
 
-        if data_type == "frequency":
-            y = decay_window["Avg Frequency (Hz)"].values.tolist()
-            y_plot = decay_window["Avg Frequency (Hz)"]
-            starting_params = [max_freq, 200, 2]
+        # if data_type == "frequency":
+        #     x = (decay_window.index.to_numpy(),)
+        #     y = decay_window["Avg Frequency (Hz)"].values.tolist()
+        #     norm_y = decay_window.min()[0]
+        #     y_plot = decay_window["Avg Frequency (Hz)"]
+        #     starting_params = [max_freq, 200, 2]
 
-        elif data_type == "event":
-            # y = decay_window.to_numpy()
-            x = x_2
-            y = y_2.to_numpy()
-            y_plot = decay_window
-            starting_params = [1, 1, 1]
+        # elif data_type == "event":
+        # y = decay_window.to_numpy()
+        x = decay_window.index.to_numpy()
+        y = decay_window.to_numpy()
+        norm_y = decay_window.min()
+        y_plot = decay_window
+        starting_params = [1, 1, 1]
+
+        # normalize
+        norm_x = decay_window.index.min()
+
+        x_2 = x - norm_x + 1  # why +1 here? so values don't start at 0
+        y_2 = y / norm_y
 
         # fits
         try:
             popt, pcov = scipy.optimize.curve_fit(
                 f=decay_func,
                 # xdata=decay_window.index.to_numpy(),
-                xdata=x,
-                ydata=y,
+                xdata=x_2,
+                ydata=y_2,
                 p0=starting_params,
                 bounds=((-np.inf, 0, -np.inf), (np.inf, np.inf, np.inf)),
             )
@@ -1293,98 +1303,97 @@ class JaneCell(object):
         except RuntimeError:
             popt = (np.nan, np.nan, np.nan)
 
-        current_peak, tau, offset = popt
+        a, tau, offset = popt
 
-        # decay_fit = func(decay_window.index.to_numpy(), *popt)
+        decay_fit = decay_func(x_2, *popt)
 
         decay_fig = go.Figure()
+        decay_fig.add_trace(go.Scatter(x=x, y=y_plot, name="data",))
         decay_fig.add_trace(
-            go.Scatter(x=decay_window.index, y=y_plot, name="data",)
-        )
-        decay_fig.add_trace(
-            go.Scatter(
-                x=decay_window.index.to_numpy(),
-                y=norm_y * decay_func(x_2, *popt),
-                name="fit on 90%",
-            )
+            go.Scatter(x=x, y=norm_y * decay_fit, name="fit on 90%",)
         )
 
-        decay_fig.show()
-        pdb.set_trace()
-
-        tau = tau / self.fs
-
-        return tau, decay_window
-
-    def calculate_freq_decay(
-        self, max_freq, freq_peak_time, response_window, data_type, polarity
-    ):
-        # decay window is peak to 90% decay
-        decay_array = response_window.loc[freq_peak_time:]
+        # un-normalize y-values before returning
 
         if polarity == "-":
-            decay_end_idx = np.argmax(decay_array >= max_freq * 0.1)
+            decay_fit_trace = -1 * decay_fit * norm_y
         elif polarity == "+":
-            decay_end_idx = np.argmax(decay_array <= max_freq * 0.1)
+            decay_fit_trace = decay_fit * norm_y
 
-        decay_end_time = decay_array.index[decay_end_idx]
+        # decay_fig.show()
+        # pdb.set_trace()
 
-        decay_window = response_window.loc[freq_peak_time:decay_end_time]
+        return tau, decay_fit_trace, decay_window
 
-        if polarity == "-":
-            decay_window = decay_window * -1
-            max_freq = max_freq * -1
+    # def calculate_freq_decay(
+    #     self, max_freq, freq_peak_time, response_window, data_type, polarity
+    # ):
+    #     # decay window is peak to 90% decay
+    #     decay_array = response_window.loc[freq_peak_time:]
 
-        if data_type == "frequency":
-            y = decay_window["Avg Frequency (Hz)"].values.tolist()
-            y_plot = decay_window["Avg Frequency (Hz)"]
-            starting_params = [max_freq, 200, 2]
+    #     if polarity == "-":
+    #         decay_end_idx = np.argmax(decay_array >= max_freq * 0.1)
+    #     elif polarity == "+":
+    #         decay_end_idx = np.argmax(decay_array <= max_freq * 0.1)
 
-        elif data_type == "event":
-            y = decay_window.to_numpy()
-            y_plot = decay_window
-            starting_params = [max_freq, 1e-12, 5]
+    #     decay_end_time = decay_array.index[decay_end_idx]
 
-        # fits
-        try:
-            popt, pcov = scipy.optimize.curve_fit(
-                f=decay_func,
-                xdata=decay_window.index.to_numpy(),
-                ydata=y,
-                p0=starting_params,
-                bounds=((-np.inf, 0, -np.inf), (np.inf, np.inf, np.inf)),
-            )
+    #     decay_window = response_window.loc[freq_peak_time:decay_end_time]
 
-        except RuntimeError:
-            popt = (np.nan, np.nan, np.nan)
+    #     if polarity == "-":
+    #         decay_window = decay_window * -1
+    #         max_freq = max_freq * -1
 
-        current_peak, tau, offset = popt
+    #     if data_type == "frequency":
+    #         y = decay_window["Avg Frequency (Hz)"].values.tolist()
+    #         y_plot = decay_window["Avg Frequency (Hz)"]
+    #         starting_params = [max_freq, 200, 2]
 
-        if data_type == "frequency":
-            decay_fit = decay_func(decay_window.index.to_numpy(), *popt)
-        elif data_type == "event":
-            decay_fit = decay_func(decay_window.index.to_numpy(), *popt)
+    #     elif data_type == "event":
+    #         y = decay_window.to_numpy()
+    #         y_plot = decay_window
+    #         starting_params = [max_freq, 1e-12, 5]
 
-        # decay_fit = func(decay_window.index.to_numpy(), *popt)
+    #     # fits
+    #     try:
+    #         popt, pcov = scipy.optimize.curve_fit(
+    #             f=decay_func,
+    #             xdata=decay_window.index.to_numpy(),
+    #             ydata=y,
+    #             p0=starting_params,
+    #             bounds=((-np.inf, 0, -np.inf), (np.inf, np.inf, np.inf)),
+    #         )
 
-        decay_fig = go.Figure()
-        decay_fig.add_trace(
-            go.Scatter(x=decay_window.index, y=y_plot, name="data",)
-        )
-        decay_fig.add_trace(
-            go.Scatter(
-                x=decay_window.index.to_numpy(),
-                y=decay_fit,
-                name="fit on 90%",
-            )
-        )
+    #     except RuntimeError:
+    #         popt = (np.nan, np.nan, np.nan)
 
-        decay_fig.show()
-        pdb.set_trace()
+    #     current_peak, tau, offset = popt
 
-        tau = tau / self.fs
+    #     if data_type == "frequency":
+    #         decay_fit = decay_func(decay_window.index.to_numpy(), *popt)
+    #     elif data_type == "event":
+    #         decay_fit = decay_func(decay_window.index.to_numpy(), *popt)
 
-        return tau, decay_fit, decay_window
+    #     # decay_fit = func(decay_window.index.to_numpy(), *popt)
+
+    #     decay_fig = go.Figure()
+    #     decay_fig.add_trace(
+    #         go.Scatter(x=decay_window.index, y=y_plot, name="data",)
+    #     )
+    #     decay_fig.add_trace(
+    #         go.Scatter(
+    #             x=decay_window.index.to_numpy(),
+    #             y=decay_fit,
+    #             name="fit on 90%",
+    #         )
+    #     )
+
+    #     decay_fig.show()
+    #     pdb.set_trace()
+
+    #     tau = tau / self.fs
+
+    #     return tau, decay_fit, decay_window
 
     def calculate_avg_freq_stats(self, bin_width, x_plot, avg_frequency):
 
@@ -1397,8 +1406,9 @@ class JaneCell(object):
 
         # window to look for response starts after light stim
         response_window_start = int(self.stim_time / bin_width)
+        response_window_end = int(self.freq_post_stim / bin_width)
         response_window = self.avg_frequency_df.iloc[
-            response_window_start:baseline_start_idx
+            response_window_start:response_window_end
         ]
 
         avg_baseline_freq, std_baseline_freq = self.calculate_freq_baseline(
@@ -1415,10 +1425,13 @@ class JaneCell(object):
             std_baseline_freq, response_window
         )
         rise_time = self.calculate_freq_rise(max_freq, response_window)
-        tau, decay_fit, decay_window = self.calculate_freq_decay(
+
+        pdb.set_trace()
+
+        tau, decay_fit, decay_window = self.calculate_freq_decay_norm(
             max_freq,
             freq_peak_time,
-            response_window,
+            response_window["Avg Frequency (Hz)"],
             data_type="frequency",
             polarity="+",
         )
@@ -1630,7 +1643,7 @@ class JaneCell(object):
         )
 
         mean_trace_fig.show()
-        pdb.set_trace()
+        # pdb.set_trace()
         # self.events_fig = events_fig
 
     def get_mod_events(self):
