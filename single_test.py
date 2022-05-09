@@ -1314,7 +1314,7 @@ class JaneCell(object):
         Makes raster plot of all identified events for each sweep.
         """
         # make sweep numbers go from 1-30 instead of 0-29
-        new_sweeps = event_times["Sweep"].cat.codes + 1
+        new_sweeps = event_times["Sweep"] + 1
 
         # sets background color to white
         layout = go.Layout(plot_bgcolor="rgba(0,0,0,0)",)
@@ -1517,7 +1517,13 @@ class JaneCell(object):
         return onset_time
 
     def calculate_rise_time(
-        self, peak, peak_time, response_window, polarity, root_time=None
+        self,
+        peak,
+        peak_time,
+        response_window,
+        polarity,
+        root_time=None,
+        data_type=None,
     ):
         # rise time - 20-80%, ms
         if polarity == "-":
@@ -1529,7 +1535,7 @@ class JaneCell(object):
 
         # if it's detecting a rise end too soon, shorten window to start
         # at root
-        if rise_end_idx == 0:
+        if (rise_end_idx == 0) and (data_type == "event"):
             short_window = response_window[root_time:peak_time]
             rise_start = root_time
 
@@ -1554,7 +1560,7 @@ class JaneCell(object):
         )
 
         # if rise time is abnormally long, shorten window to root to 80%
-        if rise_time > 3:
+        if (rise_time > 3) and (data_type == "event"):
             # peak = peak - root
             rise_start = root_time
             rise_time = peak_time - root_time
@@ -1631,7 +1637,7 @@ class JaneCell(object):
 
         # shorten decay_array to 5 ms, check whether this is sketch
 
-        if np.inf in pcov:
+        if (np.inf in pcov) and data_type == "event":
             new_end = freq_peak_time + 5
             decay_window = response_window.loc[freq_peak_time:new_end]
 
@@ -1796,8 +1802,8 @@ class JaneCell(object):
         onset_time = self.calculate_freq_peak_onset(
             std_baseline_freq, response_window
         )
-        rise_time = self.calculate_rise_time(
-            max_freq, response_window, polarity="+"
+        rise_time, rise_start, rise_end = self.calculate_rise_time(
+            max_freq, freq_peak_time, response_window, polarity="+"
         )
 
         tau, decay_fit, decay_window = self.calculate_freq_decay_norm(
@@ -1807,7 +1813,7 @@ class JaneCell(object):
             data_type="frequency",
             polarity="+",
         )
-
+        pdb.set_trace()
         avg_freq_stats = pd.DataFrame(
             {
                 "Peak Frequency (Hz)": max_freq,
@@ -1822,11 +1828,8 @@ class JaneCell(object):
             index=[0],
         )
 
-        decay_fit_trace = pd.DataFrame(decay_fit)
-        decay_fit_trace.index = decay_window.index
-
         self.avg_frequency_df = avg_frequency_df
-        self.frequency_decay_fit = decay_fit_trace
+        self.frequency_decay_fit = decay_fit
         self.avg_frequency_stats = avg_freq_stats
 
     def plot_annotated_freq_histogram(
@@ -1879,8 +1882,8 @@ class JaneCell(object):
         # add decay fit
         annotated_freq.add_trace(
             go.Scatter(
-                x=self.frequency_decay_fit.index.values,
-                y=self.frequency_decay_fit[0],
+                x=self.frequency_decay_fit["x"],
+                y=self.frequency_decay_fit["y"],
                 marker=dict(color="#57E749", size=2),
                 name="decay fit",
             )
