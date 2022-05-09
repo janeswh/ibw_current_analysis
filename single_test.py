@@ -606,9 +606,52 @@ class JaneCell(object):
 
         # pdb.set_trace()
 
+        # # calculate basline, try: going back 2 ms from peak, then 2 more ms
+        # # for baseline
+        peak_time = subtracted_data[subtracted_data == peak].index[0]
+
+        # baseline_end = peak_time - 2
+        # baseline_start = baseline_end - 3
+        # event_baseline = subtracted_data.loc[baseline_start:baseline_end]
+        # avg_event_baseline = event_baseline.mean()
+        # adjusted_peak = peak - avg_event_baseline
+
+        # calculate root point for baseline
+        root_start = peak_time - 3
+        root_window = event_window[root_start:peak_time]
+        root_time = root_window.idxmax()
+        root = root_window.max()
+
+        adjusted_peak = peak - root
+
+        # event_fig.add_trace(
+        #     go.Scatter(
+        #         x=[baseline_start],
+        #         y=[subtracted_data.loc[baseline_start]],
+        #         name="baseline start",
+        #     )
+        # )
+        # event_fig.add_trace(
+        #     go.Scatter(
+        #         x=[baseline_end],
+        #         y=[subtracted_data.loc[baseline_end]],
+        #         name="baseline end",
+        #     )
+        # )
+        # event_fig.show()
+
         tau, decay_fit, decay_window = self.calculate_freq_decay_norm(
             peak, pos, event_window, data_type="event", polarity="-"
         )
+        # i can do a `if tau > 100, continue` here to only run further
+        # analyses, e.g. rise-time etc on non-discarded events. or just
+        # discard everything at the end
+
+        rise_time, rise_start, rise_end = self.calculate_rise_time(
+            peak, peak_time, event_window, polarity="-", root_time=root_time
+        )
+
+        return tau, decay_fit, rise_time, rise_start, rise_end, adjusted_peak
 
     def calculate_latency_jitter(self, window, epsc_peaks, mean_trace=False):
         """
@@ -789,6 +832,44 @@ class JaneCell(object):
         # finds the new positions and peaks of identified events using MOD file
         new_amps = []
         new_pos_list = []
+        tau_list = []
+        decay_fit_list = []
+        risetime_list = []
+        risestart_list = []
+        riseend_list = []
+        adjusted_peak_list = []
+
+        # makes list of event times for each sweep and puts in df
+        isi_df = pd.DataFrame()
+        pos_drops = []
+        for sweep in self.mod_events_df["Sweep"].unique():
+            # sweep = 2
+            pos = self.mod_events_df.loc[self.mod_events_df["Sweep"] == sweep][
+                "Event pos (ms)"
+            ]
+            sweep_isi = pd.DataFrame(elephant.statistics.isi(pos))
+
+            # finds events occuring less than 5 ms after the previous event
+            to_discard = np.where(sweep_isi < 5)[0]
+            pos_to_discard = to_discard + 1  # because event is shifted by one
+            pos_discard_idx = pos.iloc[pos_to_discard].index
+
+            # pdb.set_trace()
+            pos_drops.append(pos_discard_idx.to_list())
+
+            isi_df = pd.concat([isi_df, sweep_isi], axis=1)
+
+        # drops short isi events
+        pos_drops_flat = [idx for sublist in pos_drops for idx in sublist]
+        self.mod_events_df.drop(pos_drops_flat, inplace=True)
+
+        # pdb.set_trace()
+        # drops positions with ISI > 5
+        # pos_drops contain absolute indices (not time) of events that can
+        # be dropped from self.mod_events_df
+
+        isi_df.columns = range(self.num_sweeps)  # do I even need this df
+        decay_fits_dict = {}
 
         for index, row in self.mod_events_df.iterrows():
             sweep = int(row["Sweep"])
@@ -805,28 +886,66 @@ class JaneCell(object):
             )
 
             # sets new event window to do kinetics analyses
-            self.calculate_event_kinetics(
+            (
+                tau,
+                decay_fit,
+                rise_time,
+                rise_start,
+                rise_end,
+                adjusted_peak,
+            ) = self.calculate_event_kinetics(
                 self.traces_filtered[sweep],
                 event_peak,
                 new_pos,
                 sweep_baseline,
             )
 
+            decay_fits_dict[index] = decay_fit
+
             new_amps.append(event_peak)
             new_pos_list.append(new_pos)
+            tau_list.append(tau)
+            # decay_fit_list.append(decay_fit)
+            risetime_list.append(rise_time)
+            risestart_list.append(rise_start)
+            riseend_list.append(rise_end)
+            adjusted_peak_list.append(adjusted_peak)
 
         new_amps = pd.DataFrame(new_amps, columns=["New amplitude (pA)"])
         new_pos_list = pd.DataFrame(new_pos_list, columns=["New pos"])
-
-        event_stats = pd.concat(
-            [self.mod_events_df, new_pos_list, new_amps], axis=1
+        tau_list = pd.DataFrame(tau_list, columns=["Tau (ms)"])
+        # decay_fit_list = pd.DataFrame(decay_fit_list, columns=["Decay fits"])
+        risetime_list = pd.DataFrame(risetime_list, columns=["Rise time (ms)"])
+        risestart_list = pd.DataFrame(
+            risestart_list, columns=["Rise start (ms)"]
+        )
+        riseend_list = pd.DataFrame(riseend_list, columns=["Rise end (ms)"])
+        adjusted_peak_list = pd.DataFrame(
+            adjusted_peak_list, columns=["Adjusted amplitude (pA)"]
         )
 
+        event_stats = pd.concat(
+            [
+                # self.mod_events_df,
+                new_pos_list,
+                new_amps,
+                adjusted_peak_list,
+                tau_list,
+                risetime_list,
+                risestart_list,
+                riseend_list,
+            ],
+            axis=1,
+        )
+
+        # drop events with tau greater than 100
+        to_drop = event_stats.loc[event_stats["Tau (ms)"] > 100].index
+        event_stats.drop(to_drop, inplace=True)
+
         self.event_stats = event_stats
-
+        # event_stats.to_csv("event_stats.csv")
+        pdb.set_trace()
         # self.plot_events()
-
-        # pdb.set_trace
 
     def calculate_mean_trace_stats(self):
 
@@ -1232,16 +1351,70 @@ class JaneCell(object):
 
         return onset_time
 
-    def calculate_freq_rise(self, max_freq, response_window):
+    def calculate_rise_time(
+        self, peak, peak_time, response_window, polarity, root_time=None
+    ):
         # rise time - 20-80%, ms
-        rise_start_idx = np.argmax(response_window >= max_freq * 0.2)
-        rise_start = response_window.index[rise_start_idx]
-        rise_end_idx = np.argmax(response_window >= max_freq * 0.8)
-        rise_end = response_window.index[rise_end_idx]
+        if polarity == "-":
+            rise_start_idx = np.argmax(response_window <= peak * 0.2)
+            rise_end_idx = np.argmax(response_window <= peak * 0.8)
+        elif polarity == "+":
+            rise_start_idx = np.argmax(response_window >= peak * 0.2)
+            rise_end_idx = np.argmax(response_window >= peak * 0.8)
+
+        # if it's detecting a rise end too soon, shorten window to start
+        # at root
+        if rise_end_idx == 0:
+            short_window = response_window[root_time:peak_time]
+            rise_start = root_time
+
+            if polarity == "-":
+                rise_end_idx = np.argmax(short_window <= peak * 0.8)
+            elif polarity == "+":
+                rise_end_idx = np.argmax(short_window >= peak * 0.8)
+
+            rise_end = short_window.index[rise_end_idx]
+
+        else:
+            rise_start = response_window.index[rise_start_idx]
+            rise_end = response_window.index[rise_end_idx]
 
         rise_time = rise_end - rise_start
 
-        return rise_time
+        fig = go.Figure()
+        fig.add_trace(
+            go.Scatter(
+                x=response_window.index, y=response_window, name="event"
+            )
+        )
+
+        # if rise time is abnormally long, shorten window to root to 80%
+        if rise_time > 3:
+            # peak = peak - root
+            rise_start = root_time
+            rise_time = peak_time - root_time
+            # fig.add_trace(
+            #     go.Scatter(x=[rise_start], y=[response_window.loc[rise_start]], name="rise start",)
+            # )
+
+        fig.add_trace(
+            go.Scatter(
+                x=[rise_start],
+                y=[response_window.loc[rise_start]],
+                name="rise start",
+            )
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=[rise_end],
+                y=[response_window.loc[rise_end]],
+                name="rise end",
+            )
+        )
+        # fig.show()
+        # pdb.set_trace()
+
+        return rise_time, rise_start, rise_end
 
     def calculate_freq_decay_norm(
         self, max_freq, freq_peak_time, response_window, data_type, polarity
@@ -1262,21 +1435,6 @@ class JaneCell(object):
             decay_window = decay_window * -1
             max_freq = max_freq * -1
 
-        # these conditionals are to account for differences in types
-        # for frequency vs. event, the types are:
-        # y: list vsnp.array
-        # decay_array: df vs. pd.Series
-        # decay_window: df vs. pd.Series
-
-        # if data_type == "frequency":
-        #     x = (decay_window.index.to_numpy(),)
-        #     y = decay_window["Avg Frequency (Hz)"].values.tolist()
-        #     norm_y = decay_window.min()[0]
-        #     y_plot = decay_window["Avg Frequency (Hz)"]
-        #     starting_params = [max_freq, 200, 2]
-
-        # elif data_type == "event":
-        # y = decay_window.to_numpy()
         x = decay_window.index.to_numpy()
         y = decay_window.to_numpy()
         norm_y = decay_window.min()
@@ -1303,7 +1461,49 @@ class JaneCell(object):
         except RuntimeError:
             popt = (np.nan, np.nan, np.nan)
 
+        # if initial fit doesn't work because event is too close to the next
+        # event, adjust window
+
+        # shorten decay_array to 5 ms, check whether this is sketch
+
+        if np.inf in pcov:
+            new_end = freq_peak_time + 5
+            decay_window = response_window.loc[freq_peak_time:new_end]
+
+            if polarity == "-":
+                decay_window = decay_window * -1
+
+            x = decay_window.index.to_numpy()
+            y = decay_window.to_numpy()
+            norm_y = decay_window.min()
+            y_plot = decay_window
+            starting_params = [1, 1, 1]
+
+            # normalize
+            norm_x = decay_window.index.min()
+
+            x_2 = x - norm_x + 1  # why +1 here? so values don't start at 0
+            y_2 = y / norm_y
+
+            # fits
+            try:
+                popt, pcov = scipy.optimize.curve_fit(
+                    f=decay_func,
+                    # xdata=decay_window.index.to_numpy(),
+                    xdata=x_2,
+                    ydata=y_2,
+                    p0=starting_params,
+                    bounds=((-np.inf, 0, -np.inf), (np.inf, np.inf, np.inf)),
+                )
+
+            except RuntimeError:
+                popt = (np.nan, np.nan, np.nan)
+
+        # if still can't fit, stop this function
+
         a, tau, offset = popt
+
+        # if tau is bigger than 100 ms, don't use this event
 
         decay_fit = decay_func(x_2, *popt)
 
@@ -1311,6 +1511,11 @@ class JaneCell(object):
         decay_fig.add_trace(go.Scatter(x=x, y=y_plot, name="data",))
         decay_fig.add_trace(
             go.Scatter(x=x, y=norm_y * decay_fit, name="fit on 90%",)
+        )
+        decay_fig.add_trace(
+            go.Scatter(
+                x=response_window.index, y=response_window * -1, name="event"
+            )
         )
 
         # un-normalize y-values before returning
@@ -1424,9 +1629,9 @@ class JaneCell(object):
         onset_time = self.calculate_freq_peak_onset(
             std_baseline_freq, response_window
         )
-        rise_time = self.calculate_freq_rise(max_freq, response_window)
-
-        pdb.set_trace()
+        rise_time = self.calculate_rise_time(
+            max_freq, response_window, polarity="+"
+        )
 
         tau, decay_fit, decay_window = self.calculate_freq_decay_norm(
             max_freq,
