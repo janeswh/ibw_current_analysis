@@ -1070,7 +1070,7 @@ class JaneCell(object):
             line_width=0,
         )
 
-        annotated_events_fig.show()
+        # annotated_events_fig.show()
 
         self.annotated_events_fig = annotated_events_fig
 
@@ -1229,7 +1229,7 @@ class JaneCell(object):
         3. Smoothes PSTH using BARS and gets smoothed avg frequency
         4. Plots smoothed PSTH
         5. Does calculations on avg frequency 
-        6. Plots smoothed PSTH with stats annotated
+        6. Plots smoothed PSTH with stats annotated if light condition
         
         """
         if time_stop is None:
@@ -1259,13 +1259,16 @@ class JaneCell(object):
 
         self.calculate_avg_freq_stats(bin_width, x_plot, avg_frequency)
 
-        self.plot_annotated_freq_histogram(
-            x_stop,
-            x_array=bar_bins,
-            y_array=freq,
-            x_plot=x_plot,
-            smoothed=avg_frequency,
-        )
+        if self.condition == "light":
+            self.plot_annotated_freq_histogram(
+                x_stop,
+                x_array=bar_bins,
+                y_array=freq,
+                x_plot=x_plot,
+                smoothed=avg_frequency,
+            )
+
+        self.freq = pd.DataFrame(freq, index=bar_bins)
 
     def plot_event_psth(self, event_times, x, y):
         """
@@ -1669,21 +1672,25 @@ class JaneCell(object):
         onset_time = self.calculate_freq_peak_onset(
             std_baseline_freq, response_window
         )
-        rise_time, rise_start, rise_end = self.calculate_rise_time(
-            max_freq,
-            freq_peak_time,
-            response_window,
-            polarity="+",
-            data_type="frequency",
-        )
 
-        tau, decay_fit = self.calculate_decay(
-            max_freq,
-            freq_peak_time,
-            response_window["Avg Frequency (Hz)"],
-            data_type="frequency",
-            polarity="+",
-        )
+        if self.condition == "light":
+            rise_time, rise_start, rise_end = self.calculate_rise_time(
+                max_freq,
+                freq_peak_time,
+                response_window,
+                polarity="+",
+                data_type="frequency",
+            )
+
+            tau, decay_fit = self.calculate_decay(
+                max_freq,
+                freq_peak_time,
+                response_window["Avg Frequency (Hz)"],
+                data_type="frequency",
+                polarity="+",
+            )
+        elif self.condition == "spontaneous":
+            rise_time, rise_start, rise_end, tau, decay_fit = (None,) * 5
 
         avg_freq_stats = pd.DataFrame(
             {
@@ -1699,7 +1706,6 @@ class JaneCell(object):
             index=[0],
         )
 
-        self.avg_frequency_df = avg_frequency_df
         self.frequency_decay_fit = decay_fit
         self.avg_frequency_stats = avg_freq_stats
 
@@ -1782,7 +1788,7 @@ class JaneCell(object):
             text=f"Peak Frequency: {peak_freq}",
         )
 
-        annotated_freq.show()
+        # annotated_freq.show()
 
     # def plot_counts_psth(self):
     #     """
@@ -1890,9 +1896,17 @@ class JaneCell(object):
         # self.events_fig = events_fig
 
     def get_mod_events(self):
+
+        if self.condition == "light":
+            mod_file = f"{self.cell_name}.mod.w4.e1.h13.minidet.mat"
+
+        elif self.condition == "spontaneous":
+            mod_file = f"{self.cell_name}.mod.w4.e1.h13.minidet.mat"
+
         mod_events = io.loadmat(
-            "/home/jhuang/Documents/phd_projects/mod-2.0/output/JH200313_c3_light100.mod.w4.e1.h13.minidet.mat"
+            f"/home/jhuang/Documents/phd_projects/injected_GC_data/mod_events/{self.dataset}/{mod_file}"
         )
+
         pos_list = mod_events["pos"]
         flat_pos = pd.DataFrame(
             [pos for sublist in pos_list for pos in sublist]

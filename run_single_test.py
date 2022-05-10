@@ -20,6 +20,283 @@ pio.renderers.default = "browser"
 # from acq_parameters import *
 import pdb
 from single_test import JaneCell
+from file_settings import FileSettings
+
+
+def get_both_conditions(dataset, csvfile, cell_name):
+    """
+    Should do this to avoid repeatedly running analysis
+    1. get cell object for each condition
+    2. save all the data to csv
+    3. import data and plot
+    4. save plots
+    """
+    file_names = [
+        f"{cell_name}_light100.ibw",
+        f"{cell_name}_spontaneous_depol.ibw",
+    ]
+
+    light_cell = run_single(dataset, csvfile, file_names[0])
+    spon_cell = run_single(dataset, csvfile, file_names[1])
+
+    cell_type = light_cell.cell_type
+    stim_time = light_cell.stim_time
+
+    # should save avg frequency traces to csv so we don't have to run
+    # the bayesian stuff every time
+
+    # also save avg frequency stats
+    # save event stats
+    # save_freqs(
+    #     dataset,
+    #     cell_type,
+    #     cell_name,
+    #     light_cell.freq,
+    #     light_cell.avg_frequency_df,
+    #     spon_cell.freq,
+    #     spon_cell.avg_frequency_df,
+    # )
+
+    # save_event_stats(
+    #     dataset,
+    #     cell_type,
+    #     cell_name,
+    #     light_cell.event_stats,
+    #     spon_cell.event_stats,
+    # )
+
+    plot_event_stats(cell_name, cell_type)
+    # plot_both_freqs(cell_name, cell_type, stim_time)
+
+
+def save_event_stats(dataset, cell_type, cell_name, light_stats, spon_stats):
+
+    # saves individual event stats
+
+    # drops rise start and end columns
+    cols_to_drop = ["Rise start (ms)", "Rise end (ms)", "Root time (ms)"]
+    light_stats.drop(labels=cols_to_drop, axis=1, inplace=True)
+    spon_stats.drop(labels=cols_to_drop, axis=1, inplace=True)
+
+    base_path = f"{FileSettings.TABLES_FOLDER}/{dataset}/{cell_type}"
+    if not os.path.exists(base_path):
+        os.makedirs(base_path)
+
+    file_names = [
+        f"{cell_name}_light_event_stats.csv",
+        f"{cell_name}_spontaneous_event_stats.csv",
+    ]
+    dfs = [light_stats, spon_stats]
+
+    for count, file_name in enumerate(file_names):
+        path = os.path.join(base_path, file_name)
+        dfs[count].to_csv(path, float_format="%8.4f", index=True)
+
+    # saves avgs from both conditions in one csv
+    avg_event_stats = pd.DataFrame(
+        {"Light": light_stats.mean(), "Spontaneous": spon_stats.mean()},
+        index=light_stats.columns,
+    )
+
+    avg_event_stats.drop(labels=["Sweep", "New pos"], axis=0, inplace=True)
+
+    avg_stats_file_name = f"{cell_name}_avg_event_stats.csv"
+    avg_stats_path = os.path.join(base_path, avg_stats_file_name)
+    avg_event_stats.to_csv(avg_stats_path, float_format="%8.4f", index=True)
+
+
+def save_freqs(
+    dataset,
+    cell_type,
+    cell_name,
+    light_raw_freq,
+    light_avg_freq,
+    spon_raw_freq,
+    spon_avg_freq,
+):
+
+    raw_freqs_df = pd.DataFrame(
+        {
+            "Light Raw Frequency (Hz)": light_raw_freq.iloc[:, 0],
+            "Spontaneous Raw Frequency (Hz)": spon_raw_freq.iloc[:, 0],
+        },
+        index=light_raw_freq.index,
+    )
+
+    avg_freqs_df = pd.DataFrame(
+        {
+            "Light Avg Frequency (Hz)": light_avg_freq.iloc[:, 0],
+            "Spontaneous Avg Frequency (Hz)": spon_avg_freq.iloc[:, 0],
+        },
+        index=light_avg_freq.index,
+    )
+
+    base_path = f"{FileSettings.TABLES_FOLDER}/{dataset}/{cell_type}"
+    if not os.path.exists(base_path):
+        os.makedirs(base_path)
+
+    file_names = [
+        f"{cell_name}_raw_frequency.csv",
+        f"{cell_name}_avg_frequency.csv",
+    ]
+    dfs = [raw_freqs_df, avg_freqs_df]
+
+    for count, file_name in enumerate(file_names):
+        path = os.path.join(base_path, file_name)
+        dfs[count].to_csv(path, float_format="%8.4f", index=True)
+
+
+def plot_event_stats(cell_name, cell_type):
+
+    light_stats_file = f"{FileSettings.TABLES_FOLDER}/{dataset}/{cell_type}/{cell_name}_light_event_stats.csv"
+    light_stats_df = pd.read_csv(light_stats_file, index_col=0)
+
+    spon_stats_file = f"{FileSettings.TABLES_FOLDER}/{dataset}/{cell_type}/{cell_name}_spontaneous_event_stats.csv"
+    spon_stats_df = pd.read_csv(spon_stats_file, index_col=0)
+
+    dfs = [light_stats_df, spon_stats_df]
+    conditions = ["Light", "Spontaneous"]
+    colors = ["#B958F2", "#8A8C89"]
+
+    event_stats_fig = make_subplots(
+        rows=1,
+        cols=3,
+        subplot_titles=["Amplitude (pA)", "Rise time (ms)", "Tau (ms)"],
+        x_title="Condition",
+    )
+
+    for count, condition_stats in enumerate(dfs):
+
+        # plots amplitude
+        event_stats_fig.add_trace(
+            go.Box(
+                y=condition_stats["New amplitude (pA)"],
+                line=dict(color=colors[count]),
+                name=conditions[count],
+                legendgroup=conditions[count],
+            ),
+            row=1,
+            col=1,
+        )
+
+        # reverse y-axis for amplitude
+        event_stats_fig.update_yaxes(autorange="reversed", row=1, col=1)
+
+        # plots rise time
+        event_stats_fig.add_trace(
+            go.Box(
+                y=condition_stats["Rise time (ms)"],
+                line=dict(color=colors[count]),
+                name=conditions[count],
+                legendgroup=conditions[count],
+            ),
+            row=1,
+            col=2,
+        )
+
+        # plots tau
+        event_stats_fig.add_trace(
+            go.Box(
+                y=condition_stats["Tau (ms)"],
+                line=dict(color=colors[count]),
+                name=conditions[count],
+                legendgroup=conditions[count],
+            ),
+            row=1,
+            col=3,
+        )
+
+    # below is code from stack overflow to hide duplicate legends
+    names = set()
+    event_stats_fig.for_each_trace(
+        lambda trace: trace.update(showlegend=False)
+        if (trace.name in names)
+        else names.add(trace.name)
+    )
+
+    event_stats_fig.show()
+    pdb.set_trace()
+
+    return event_stats_fig
+
+
+def plot_both_freqs(cell_name, cell_type, stim_time):
+
+    avg_freq_csv_file = f"{FileSettings.TABLES_FOLDER}/{dataset}/{cell_type}/{cell_name}_avg_frequency.csv"
+    avg_freqs_df = pd.read_csv(avg_freq_csv_file, index_col=0)
+
+    raw_freq_csv_file = f"{FileSettings.TABLES_FOLDER}/{dataset}/{cell_type}/{cell_name}_raw_frequency.csv"
+    raw_freqs_df = pd.read_csv(raw_freq_csv_file, index_col=0)
+
+    both_freqs_fig = go.Figure()
+
+    # plots histogram
+    both_freqs_fig.add_trace(
+        go.Bar(
+            x=raw_freqs_df.index,
+            y=raw_freqs_df["Light Raw Frequency (Hz)"],
+            marker=dict(color="#D9ABF4"),
+            name="light raw frequency",
+        )
+    )
+
+    both_freqs_fig.add_trace(
+        go.Bar(
+            x=raw_freqs_df.index,
+            y=raw_freqs_df["Spontaneous Raw Frequency (Hz)"],
+            marker=dict(color="#B7B9B5"),
+            name="Spontaneous raw frequency",
+        )
+    )
+
+    # this removes the white outline of the bar graph to emulate histogram
+    both_freqs_fig.update_traces(marker=dict(line=dict(width=0)),)
+
+    # removes gaps between bars, puts traces ontop of each other
+    both_freqs_fig.update_layout(barmode="overlay", bargap=0)
+
+    # plots avg frequency smoothed trace
+    both_freqs_fig.add_trace(
+        go.Scatter(
+            x=avg_freqs_df.index,
+            y=avg_freqs_df["Light Avg Frequency (Hz)"],
+            marker=dict(color="#B958F2"),
+            name="Light avg frequency",
+        )
+    )
+
+    both_freqs_fig.add_trace(
+        go.Scatter(
+            x=avg_freqs_df.index,
+            y=avg_freqs_df["Spontaneous Avg Frequency (Hz)"],
+            marker=dict(color="#8A8C89"),
+            name="Spontaneous avg frequency",
+        )
+    )
+
+    # adds blue overlay to show light stim duration
+    both_freqs_fig.add_vrect(
+        x0=stim_time,
+        x1=stim_time + 100,
+        fillcolor="#33F7FF",
+        opacity=0.5,
+        layer="below",
+        line_width=0,
+    )
+
+    # update axes titles
+    both_freqs_fig.update_yaxes(title_text="Frequency (Hz)")
+    both_freqs_fig.update_xaxes(title_text="Time (ms)")
+
+    # add main title, x-axis titles
+    both_freqs_fig.update_layout(
+        title_text="{}, {} Frequency Comparisons".format(cell_name, cell_type),
+        title_x=0.5,
+    )
+
+    both_freqs_fig.show()
+
+    return both_freqs_fig
 
 
 def run_single(dataset, csvfile, file_name):
@@ -48,32 +325,41 @@ def run_single(dataset, csvfile, file_name):
     cell.get_mod_events()
     cell.calculate_event_stats()
     cell.calculate_mean_trace_stats()
+    cell.plot_annotated_events()
+
+    # cell.plot_event_stats()
+
     # cell.plot_events()
-    # cell.plot_event_raster()
-    cell.plot_mean_trace()
+    # cell.analyze_avg_frequency()
 
-    # cell.make_cell_analysis_dict()
+    # pdb.set_trace()
 
-    # 5 calculates power curve for plotting
-    cell.make_power_curve_stats_df()
+    # # cell.plot_mean_trace()
 
-    # 6 calculates response stats for plotting
-    cell.make_stats_df()
+    # # cell.make_cell_analysis_dict()
 
-    # 7 plots mean traces
-    cell.make_mean_traces_df()
-    cell.graph_response_trace()
+    # # 5 calculates power curve for plotting
+    # cell.make_power_curve_stats_df()
 
-    # 8 makes plots for power curve and response stats if cell responds
-    if response == True:
+    # # 6 calculates response stats for plotting
+    # cell.make_stats_df()
 
-        summary_plots = cell.graph_curve_stats()
-        cell.export_stats_csv()
-    else:
-        print("Cell doesn't have response, no response stats plotted")
+    # # 7 plots mean traces
+    # cell.make_mean_traces_df()
+    # cell.graph_response_trace()
 
-    # 9 saves combined plots as html file, exports stats as csv
-    cell.output_html_plots()
+    # # 8 makes plots for power curve and response stats if cell responds
+    # if response == True:
+
+    #     summary_plots = cell.graph_curve_stats()
+    #     cell.export_stats_csv()
+    # else:
+    #     print("Cell doesn't have response, no response stats plotted")
+
+    # # 9 saves combined plots as html file, exports stats as csv
+    # cell.output_html_plots()
+
+    return cell
 
 
 if __name__ == "__main__":
@@ -84,7 +370,10 @@ if __name__ == "__main__":
         dataset,
         csvfile_name,
     )
-    file_name = "JH200313_c3_light100.ibw"
+    cell_name = "JH200313_c3"
+
+    get_both_conditions(dataset, csvfile, cell_name)
+    file_name = "JH200313_c3_spontaneous_depol.ibw"
 
     run_single(dataset, csvfile, file_name)
 
