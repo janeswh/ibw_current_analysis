@@ -1497,23 +1497,6 @@ class JaneCell(object):
             rise_start_idx = np.argmax(response_window >= peak * 0.2)
             rise_end_idx = np.argmax(response_window >= peak * 0.8)
 
-        # if it's detecting a rise end too soon, shorten window to start
-        # at root
-        # if (rise_end_idx == 0) and (data_type == "event"):
-        #     short_window = response_window[root_time:peak_time]
-        #     rise_start = root_time
-
-        #     if polarity == "-":
-        #         rise_end_idx = np.argmax(short_window <= peak * 0.8)
-        #     elif polarity == "+":
-        #         rise_end_idx = np.argmax(short_window >= peak * 0.8)
-
-        #     rise_end = short_window.index[rise_end_idx]
-
-        # else:
-        #     rise_start = response_window.index[rise_start_idx]
-        #     rise_end = response_window.index[rise_end_idx]
-
         rise_start = response_window.index[rise_start_idx]
         rise_end = response_window.index[rise_end_idx]
 
@@ -1525,15 +1508,6 @@ class JaneCell(object):
                 x=response_window.index, y=response_window, name="event"
             )
         )
-
-        # if rise time is abnormally long, shorten window to root to 80%
-        # if (rise_time > 3) and (data_type == "event"):
-        #     # peak = peak - root
-        #     rise_start = root_time
-        #     rise_time = rise_end - root_time
-        #     # fig.add_trace(
-        #     #     go.Scatter(x=[rise_start], y=[response_window.loc[rise_start]], name="rise start",)
-        #     # )
 
         fig.add_trace(
             go.Scatter(
