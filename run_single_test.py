@@ -49,32 +49,32 @@ def get_both_conditions(dataset, csvfile, cell_name):
 
     # also save avg frequency stats
     # save event stats
-    # save_freqs(
-    #     dataset,
-    #     cell_type,
-    #     cell_name,
-    #     light_cell.freq,
-    #     light_cell.avg_frequency_df,
-    #     spon_cell.freq,
-    #     spon_cell.avg_frequency_df,
-    # )
+    save_freqs(
+        dataset,
+        cell_type,
+        cell_name,
+        light_cell.freq,
+        light_cell.avg_frequency_df,
+        spon_cell.freq,
+        spon_cell.avg_frequency_df,
+    )
 
-    # save_event_stats(
-    #     dataset,
-    #     cell_type,
-    #     cell_name,
-    #     light_cell.event_stats,
-    #     spon_cell.event_stats,
-    # )
+    save_event_stats(
+        dataset,
+        cell_type,
+        cell_name,
+        light_cell.event_stats,
+        spon_cell.event_stats,
+    )
 
-    stats_fig = plot_event_stats(cell_name, cell_type)
-    freqs_fig = plot_both_freqs(cell_name, cell_type, stim_time)
+    stats_fig = plot_event_stats(dataset, cell_name, cell_type)
+    freqs_fig = plot_both_freqs(dataset, cell_name, cell_type, stim_time)
 
     output_html_plots(stats_fig, freqs_fig, dataset, cell_type, cell_name)
 
     response = check_response(dataset, cell_type, cell_name)
 
-    pdb.set_trace()
+    # pdb.set_trace()
 
 
 def check_response(dataset, cell_type, cell_name):
@@ -98,7 +98,9 @@ def save_event_stats(dataset, cell_type, cell_name, light_stats, spon_stats):
     light_stats.drop(labels=cols_to_drop, axis=1, inplace=True)
     spon_stats.drop(labels=cols_to_drop, axis=1, inplace=True)
 
-    base_path = f"{FileSettings.TABLES_FOLDER}/{dataset}/{cell_type}"
+    base_path = (
+        f"{FileSettings.TABLES_FOLDER}/{dataset}/{cell_type}/{cell_name}"
+    )
     if not os.path.exists(base_path):
         os.makedirs(base_path)
 
@@ -151,9 +153,9 @@ def save_freqs(
         index=light_avg_freq.index,
     )
 
-    run_KS_test(avg_freqs_df)
-
-    base_path = f"{FileSettings.TABLES_FOLDER}/{dataset}/{cell_type}"
+    base_path = (
+        f"{FileSettings.TABLES_FOLDER}/{dataset}/{cell_type}/{cell_name}"
+    )
     if not os.path.exists(base_path):
         os.makedirs(base_path)
 
@@ -172,7 +174,10 @@ def run_KS_test(dataset, cell_type, cell_name):
     """
     Runs two-sample Kolmogorov-Smirnov test and returns p-value
     """
-    freqs_file = f"{FileSettings.TABLES_FOLDER}/{dataset}/{cell_type}/{cell_name}_avg_frequency.csv"
+    freqs_file = (
+        f"{FileSettings.TABLES_FOLDER}/{dataset}/{cell_type}/{cell_name}/"
+        f"{cell_name}_avg_frequency.csv"
+    )
     avg_freqs = pd.read_csv(freqs_file, index_col=0)
 
     stats, p_value = scipy.stats.ks_2samp(
@@ -183,12 +188,18 @@ def run_KS_test(dataset, cell_type, cell_name):
     return p_value
 
 
-def plot_event_stats(cell_name, cell_type):
+def plot_event_stats(dataset, cell_name, cell_type):
 
-    light_stats_file = f"{FileSettings.TABLES_FOLDER}/{dataset}/{cell_type}/{cell_name}_light_event_stats.csv"
+    light_stats_file = (
+        f"{FileSettings.TABLES_FOLDER}/{dataset}/{cell_type}/{cell_name}/"
+        f"{cell_name}_light_event_stats.csv"
+    )
     light_stats_df = pd.read_csv(light_stats_file, index_col=0)
 
-    spon_stats_file = f"{FileSettings.TABLES_FOLDER}/{dataset}/{cell_type}/{cell_name}_spontaneous_event_stats.csv"
+    spon_stats_file = (
+        f"{FileSettings.TABLES_FOLDER}/{dataset}/{cell_type}/{cell_name}/"
+        f"{cell_name}_spontaneous_event_stats.csv"
+    )
     spon_stats_df = pd.read_csv(spon_stats_file, index_col=0)
 
     dfs = [light_stats_df, spon_stats_df]
@@ -252,17 +263,23 @@ def plot_event_stats(cell_name, cell_type):
         else names.add(trace.name)
     )
 
-    event_stats_fig.show()
+    # event_stats_fig.show()
 
     return event_stats_fig
 
 
-def plot_both_freqs(cell_name, cell_type, stim_time):
+def plot_both_freqs(dataset, cell_name, cell_type, stim_time):
 
-    avg_freq_csv_file = f"{FileSettings.TABLES_FOLDER}/{dataset}/{cell_type}/{cell_name}_avg_frequency.csv"
+    avg_freq_csv_file = (
+        f"{FileSettings.TABLES_FOLDER}/{dataset}/{cell_type}/{cell_name}/"
+        f"{cell_name}_avg_frequency.csv"
+    )
     avg_freqs_df = pd.read_csv(avg_freq_csv_file, index_col=0)
 
-    raw_freq_csv_file = f"{FileSettings.TABLES_FOLDER}/{dataset}/{cell_type}/{cell_name}_raw_frequency.csv"
+    raw_freq_csv_file = (
+        f"{FileSettings.TABLES_FOLDER}/{dataset}/{cell_type}/{cell_name}/"
+        f"{cell_name}_raw_frequency.csv"
+    )
     raw_freqs_df = pd.read_csv(raw_freq_csv_file, index_col=0)
 
     both_freqs_fig = go.Figure()
@@ -331,7 +348,7 @@ def plot_both_freqs(cell_name, cell_type, stim_time):
         title_x=0.5,
     )
 
-    both_freqs_fig.show()
+    # both_freqs_fig.show()
 
     return both_freqs_fig
 
@@ -340,7 +357,9 @@ def output_html_plots(stats_fig, freqs_fig, dataset, cell_type, cell_name):
     """
     Saves event stats and avg freq stats figs as one html plot
     """
-    base_path = f"{FileSettings.FIGURES_FOLDER}/{dataset}/{cell_type}"
+    base_path = (
+        f"{FileSettings.FIGURES_FOLDER}/{dataset}/{cell_type}/{cell_name}"
+    )
     if not os.path.exists(base_path):
         os.makedirs(base_path)
 
@@ -380,15 +399,23 @@ def run_single(dataset, csvfile, file_name):
     cell.calculate_event_stats()
     cell.calculate_mean_trace_stats()
     cell.plot_annotated_events()
-
-    # cell.plot_event_stats()
+    cell.save_annotated_events_plot()
 
     # cell.plot_events()
-    # cell.analyze_avg_frequency()
+    cell.analyze_avg_frequency()
+    cell.save_annotated_freq()
+
+    # only save annotated histogram plot if condition == light and response
+    # is true
+    # should save raster plot with some form of histogram regardless
+    # or, plot raster + annotated hist if response/light, else plot
+    # raster + smoothed PSTH
+    # if histogram decay_fits fails, then don't plot annotated
 
     # pdb.set_trace()
 
     # cell.plot_mean_trace()
+    # cell.save_mean_trace_plot()   # don't save, each plot is 130 mb
 
     # # cell.make_cell_analysis_dict()
 
@@ -427,8 +454,8 @@ if __name__ == "__main__":
     cell_name = "JH200313_c3"
 
     get_both_conditions(dataset, csvfile, cell_name)
-    file_name = "JH200313_c3_spontaneous_depol.ibw"
+    file_name = "JH200313_c3_light100.ibw"
 
-    run_single(dataset, csvfile, file_name)
+    # run_single(dataset, csvfile, file_name)
 
     print("Analysis for {} done".format(file_name))

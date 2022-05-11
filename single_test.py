@@ -33,7 +33,7 @@ import p2_acq_parameters
 import p14_acq_parameters
 import plotting
 
-# from file_settings import FileSettings
+from file_settings import FileSettings
 import pdb
 
 
@@ -176,6 +176,7 @@ class JaneCell(object):
         self.sweep_info = sweep_info
         self.file = file
         self.file_name = file_name
+        self.drop_ibw = None
         self.time = None
         self.raw_sweep_length = None
         self.sweep_length_ms = None
@@ -190,6 +191,8 @@ class JaneCell(object):
         self.event_stats = None
         self.events_fig = None
         self.bar_bins = None
+
+        self.mean_trace_fig = None
 
         self.freq = None
         self.avg_frequency_df = None
@@ -255,8 +258,12 @@ class JaneCell(object):
         self.num_sweeps = len(self.raw_df.columns)
 
         # gets sweep info for one cell, drops empty values
-        file_split = self.file_name.split(".")
-        self.cell_name = file_split[0]
+        # file_split = self.file_name.split(".")
+        file_split = self.file_name.split("_")
+        self.cell_name = f"{file_split[0]}_{file_split[1]}"
+
+        drop_file_split = self.file_name.split(".")
+        self.drop_ibw = drop_file_split[0]  # used in get mod events
 
         cell_sweep_info = self.sweep_info.loc[
             self.sweep_info["File Path"] == self.file_name
@@ -636,8 +643,6 @@ class JaneCell(object):
         # event_fig.add_trace(go.Scatter(x=x_2, y=y_func, name="ipsc fit"),)
         event_fig.show()
 
-        pdb.set_trace()
-
     def calculate_event_kinetics(self, data, peak, pos, baseline):
         """
         Gets kinetic stats of events
@@ -973,15 +978,6 @@ class JaneCell(object):
         self.decay_fits_dict = decay_fits_dict
         self.event_stats = event_stats
 
-        # def plot_event_stats(self):
-        #     event_stats_fig = make_subplots(rows=1, cols=3)
-
-        #     event_stats_fig.add_trace(
-        #         go.Scatter(
-        #             x =
-        #         )
-        #     )
-
     def plot_annotated_events(self):
         """
         Plots all the events for every sweep, with the decay fits, rise times,
@@ -1316,14 +1312,14 @@ class JaneCell(object):
 
         self.calculate_avg_freq_stats(bin_width, x_plot, avg_frequency)
 
-        if self.condition == "light":
-            self.plot_annotated_freq_histogram(
-                x_stop,
-                x_array=bar_bins,
-                y_array=freq,
-                x_plot=x_plot,
-                smoothed=avg_frequency,
-            )
+        self.plot_annotated_freq_histogram(
+            raster_df,
+            x_stop,
+            x_array=bar_bins,
+            y_array=freq,
+            x_plot=x_plot,
+            smoothed=avg_frequency,
+        )
 
         self.freq = pd.DataFrame(freq, index=bar_bins)
 
@@ -1404,7 +1400,9 @@ class JaneCell(object):
 
         # add main title, x-axis titles
         psth_fig.update_layout(
-            title_text="{}, {} PSTH".format(self.cell_name, self.cell_type),
+            title_text=(
+                f"{self.cell_name}, {self.cell_type}, {self.condition} PSTH"
+            ),
             title_x=0.5,
         )
 
@@ -1452,8 +1450,8 @@ class JaneCell(object):
 
         # add main title, x-axis titles
         smoothed_psth.update_layout(
-            title_text="{}, {} Smoothed PSTH".format(
-                self.cell_name, self.cell_type
+            title_text=(
+                f"{self.cell_name}, {self.cell_type}, {self.condition} PSTH"
             ),
             title_x=0.5,
         )
@@ -1478,7 +1476,7 @@ class JaneCell(object):
             )
         )
 
-        smoothed_psth.show()
+        # smoothed_psth.show()
 
     def replace_avg_extrapolation(self, freq, smoothed):
         # replace tail end of avg trace, if freq = 0, replace with pre-stim
@@ -1730,24 +1728,31 @@ class JaneCell(object):
             std_baseline_freq, response_window
         )
 
-        if self.condition == "light":
-            rise_time, rise_start, rise_end = self.calculate_rise_time(
-                max_freq,
-                freq_peak_time,
-                response_window,
-                polarity="+",
-                data_type="frequency",
-            )
-
-            tau, decay_fit = self.calculate_decay(
-                max_freq,
-                freq_peak_time,
-                response_window["Avg Frequency (Hz)"],
-                data_type="frequency",
-                polarity="+",
-            )
-        elif self.condition == "spontaneous":
+        if self.condition == "spontaneous":
             rise_time, rise_start, rise_end, tau, decay_fit = (None,) * 5
+            self.response = False
+
+        elif self.condition == "light":
+            if (max_freq > 1) and (freq_peak_time < 1000):
+                rise_time, rise_start, rise_end = self.calculate_rise_time(
+                    max_freq,
+                    freq_peak_time,
+                    response_window,
+                    polarity="+",
+                    data_type="frequency",
+                )
+
+                tau, decay_fit = self.calculate_decay(
+                    max_freq,
+                    freq_peak_time,
+                    response_window["Avg Frequency (Hz)"],
+                    data_type="frequency",
+                    polarity="+",
+                )
+                self.response = True
+            else:
+                rise_time, rise_start, rise_end, tau, decay_fit = (None,) * 5
+                self.response = False
 
         avg_freq_stats = pd.DataFrame(
             {
@@ -1767,31 +1772,83 @@ class JaneCell(object):
         self.avg_frequency_stats = avg_freq_stats
 
     def plot_annotated_freq_histogram(
-        self, x_stop, x_array, y_array, x_plot, smoothed
+        self, event_times, x_stop, x_array, y_array, x_plot, smoothed
     ):
+        """
+        Makes raster plot + annotated freq histogram, with decay fit if
+        self.response is True
+        """
+
+        # make sweep numbers go from 1-30 instead of 0-29
+        new_sweeps = event_times["Sweep"] + 1
+
+        # sets background color to white
+        layout = go.Layout(plot_bgcolor="rgba(0,0,0,0)",)
+
+        # make overall fig layout
+        annotated_freq = make_subplots(
+            rows=2,
+            cols=1,
+            row_heights=[0.7, 0.3],
+            vertical_spacing=0.025,
+            x_title="Time (ms)",
+            shared_xaxes=True,
+        )
+
+        # add raster plot
+        annotated_freq.add_trace(
+            go.Scatter(
+                x=event_times["New pos"],
+                y=new_sweeps,
+                mode="markers",
+                marker=dict(symbol="line-ns", line_width=1, size=10),
+                showlegend=False,
+            ),
+            row=1,
+            col=1,
+        )
+
+        annotated_freq.update_yaxes(
+            title_text="Trial",
+            row=1,
+            col=1,
+            tickvals=[1, self.num_sweeps],
+            showgrid=False,
+            zeroline=False,
+        )
+
+        annotated_freq.update_xaxes(
+            row=1, col=1, showticklabels=False, showgrid=False
+        )
 
         x = x_array[:x_stop]
         y = y_array[:x_stop]
 
-        annotated_freq = go.Figure()
+        # annotated_freq = go.Figure()
 
         annotated_freq.add_trace(
             go.Bar(x=x, y=y, marker=dict(color="#D39DDD"), name="PSTH",),
+            row=2,
+            col=1,
         )
 
         # this removes the white outline of the bar graph to emulate histogram
-        annotated_freq.update_traces(marker=dict(line=dict(width=0)),)
+        annotated_freq.update_traces(
+            marker=dict(line=dict(width=0)), row=2, col=1,
+        )
 
-        annotated_freq.update_yaxes(title_text="Frequency (Hz)")
-        annotated_freq.update_xaxes(title_text="Time (ms)")
+        annotated_freq.update_yaxes(
+            title_text="Frequency (Hz)", row=2, col=1,
+        )
 
         # add main title, x-axis titles
         annotated_freq.update_layout(
-            title_text="{}, {} Smoothed PSTH".format(
-                self.cell_name, self.cell_type
+            title_text=(
+                f"{self.cell_name}, {self.cell_type}, {self.condition} PSTH"
             ),
             title_x=0.5,
         )
+
         annotated_freq.update_layout(bargap=0)
 
         # adds blue overlay to show light stim duration
@@ -1802,6 +1859,8 @@ class JaneCell(object):
             opacity=0.5,
             layer="below",
             line_width=0,
+            row="all",
+            col=1,
         )
 
         annotated_freq.add_trace(
@@ -1810,18 +1869,23 @@ class JaneCell(object):
                 y=smoothed,
                 marker=dict(color="#A613C4", size=2),
                 name="spline estimate",
-            )
+            ),
+            row=2,
+            col=1,
         )
 
-        # add decay fit
-        annotated_freq.add_trace(
-            go.Scatter(
-                x=self.frequency_decay_fit["x"],
-                y=self.frequency_decay_fit["y"],
-                marker=dict(color="#57E749", size=2),
-                name="decay fit",
+        if self.response is True:
+            # add decay fit
+            annotated_freq.add_trace(
+                go.Scatter(
+                    x=self.frequency_decay_fit["x"],
+                    y=self.frequency_decay_fit["y"],
+                    marker=dict(color="#A4F258", size=2),
+                    name="decay fit",
+                ),
+                row=2,
+                col=1,
             )
-        )
 
         # add peak frequency
         annotated_freq.add_trace(
@@ -1830,21 +1894,12 @@ class JaneCell(object):
                 y=[self.avg_frequency_stats["Peak Frequency (Hz)"][0]],
                 marker=dict(color="#FFB233", size=4),
                 name="peak frequency",
-            )
+            ),
+            row=2,
+            col=1,
         )
 
-        # make annotation texts, round to two decimal points
-        peak_freq = "{:.2f}".format(
-            self.avg_frequency_stats["Peak Frequency (Hz)"][0]
-        )
-
-        # add peak frequency annotation, baseline subtracted
-        annotated_freq.add_annotation(
-            x=self.avg_frequency_stats["Peak Frequency Time (ms)"][0],
-            y=self.avg_frequency_stats["Peak Frequency (Hz)"][0],
-            text=f"Peak Frequency: {peak_freq}",
-        )
-
+        self.annotated_freq_fig = annotated_freq
         # annotated_freq.show()
 
     # def plot_counts_psth(self):
@@ -1949,16 +2004,16 @@ class JaneCell(object):
             line_width=0,
         )
 
-        mean_trace_fig.show()
-        self.events_fig = events_fig
+        # mean_trace_fig.show()
+        self.mean_trace_fig = mean_trace_fig
 
     def get_mod_events(self):
 
         if self.condition == "light":
-            mod_file = f"{self.cell_name}.mod.w4.e1.h13.minidet.mat"
+            mod_file = f"{self.drop_ibw}.mod.w4.e1.h13.minidet.mat"
 
         elif self.condition == "spontaneous":
-            mod_file = f"{self.cell_name}.mod.w4.e1.h13.minidet.mat"
+            mod_file = f"{self.drop_ibw}.mod.w4.e1.h13.minidet.mat"
 
         mod_events = io.loadmat(
             f"/home/jhuang/Documents/phd_projects/injected_GC_data/mod_events/{self.dataset}/{mod_file}"
@@ -2035,6 +2090,59 @@ class JaneCell(object):
         self.power_curve_df = power_curve_df
         self.all_mean_traces = all_mean_traces
         self.filtered_traces_dict = filtered_traces_dict
+
+    def save_mean_trace_plot(self):
+        base_path = (
+            f"{FileSettings.FIGURES_FOLDER}/{self.dataset}/{self.cell_type}/"
+            f"{self.cell_name}"
+        )
+
+        if not os.path.exists(base_path):
+            os.makedirs(base_path)
+
+        html_filename = f"{self.cell_name}_mean_traces.html"
+        path = os.path.join(base_path, html_filename)
+
+        self.mean_trace_fig.write_html(
+            path, full_html=False, include_plotlyjs="cdn"
+        )
+
+    def save_annotated_events_plot(self):
+        base_path = (
+            f"{FileSettings.FIGURES_FOLDER}/{self.dataset}/{self.cell_type}/"
+            f"{self.cell_name}"
+        )
+
+        if not os.path.exists(base_path):
+            os.makedirs(base_path)
+
+        html_filename = f"{self.cell_name}_{self.condition}_events.html"
+        path = os.path.join(base_path, html_filename)
+
+        self.annotated_events_fig.write_html(
+            path, full_html=False, include_plotlyjs="cdn"
+        )
+
+    def save_annotated_freq(self):
+        """
+        Saves raster plot with annotated freq histogram
+        """
+        base_path = (
+            f"{FileSettings.FIGURES_FOLDER}/{self.dataset}/{self.cell_type}/"
+            f"{self.cell_name}"
+        )
+
+        if not os.path.exists(base_path):
+            os.makedirs(base_path)
+
+        html_filename = (
+            f"{self.cell_name}_{self.condition}_annotated_freq.html"
+        )
+        path = os.path.join(base_path, html_filename)
+
+        self.annotated_freq_fig.write_html(
+            path, full_html=False, include_plotlyjs="cdn"
+        )
 
     # # export analysis values to csv
 
