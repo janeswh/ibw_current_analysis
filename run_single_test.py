@@ -11,7 +11,9 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-from scipy.stats import sem
+# from scipy.stats import sem
+# from scipy import stats
+import scipy
 
 import plotly.io as pio
 
@@ -65,8 +67,26 @@ def get_both_conditions(dataset, csvfile, cell_name):
     #     spon_cell.event_stats,
     # )
 
-    plot_event_stats(cell_name, cell_type)
-    # plot_both_freqs(cell_name, cell_type, stim_time)
+    stats_fig = plot_event_stats(cell_name, cell_type)
+    freqs_fig = plot_both_freqs(cell_name, cell_type, stim_time)
+
+    output_html_plots(stats_fig, freqs_fig, dataset, cell_type, cell_name)
+
+    response = check_response(dataset, cell_type, cell_name)
+
+    pdb.set_trace()
+
+
+def check_response(dataset, cell_type, cell_name):
+    # determine whether cell has response with KS test
+    p_value = run_KS_test(dataset, cell_type, cell_name)
+
+    if p_value <= 0.05:
+        response = True
+    else:
+        response = False
+
+    return response
 
 
 def save_event_stats(dataset, cell_type, cell_name, light_stats, spon_stats):
@@ -131,6 +151,8 @@ def save_freqs(
         index=light_avg_freq.index,
     )
 
+    run_KS_test(avg_freqs_df)
+
     base_path = f"{FileSettings.TABLES_FOLDER}/{dataset}/{cell_type}"
     if not os.path.exists(base_path):
         os.makedirs(base_path)
@@ -146,6 +168,21 @@ def save_freqs(
         dfs[count].to_csv(path, float_format="%8.4f", index=True)
 
 
+def run_KS_test(dataset, cell_type, cell_name):
+    """
+    Runs two-sample Kolmogorov-Smirnov test and returns p-value
+    """
+    freqs_file = f"{FileSettings.TABLES_FOLDER}/{dataset}/{cell_type}/{cell_name}_avg_frequency.csv"
+    avg_freqs = pd.read_csv(freqs_file, index_col=0)
+
+    stats, p_value = scipy.stats.ks_2samp(
+        avg_freqs["Light Avg Frequency (Hz)"].values,
+        avg_freqs["Spontaneous Avg Frequency (Hz)"].values,
+    )
+
+    return p_value
+
+
 def plot_event_stats(cell_name, cell_type):
 
     light_stats_file = f"{FileSettings.TABLES_FOLDER}/{dataset}/{cell_type}/{cell_name}_light_event_stats.csv"
@@ -158,12 +195,7 @@ def plot_event_stats(cell_name, cell_type):
     conditions = ["Light", "Spontaneous"]
     colors = ["#B958F2", "#8A8C89"]
 
-    event_stats_fig = make_subplots(
-        rows=1,
-        cols=3,
-        subplot_titles=["Amplitude (pA)", "Rise time (ms)", "Tau (ms)"],
-        x_title="Condition",
-    )
+    event_stats_fig = make_subplots(rows=1, cols=3, x_title="Condition",)
 
     for count, condition_stats in enumerate(dfs):
 
@@ -180,7 +212,9 @@ def plot_event_stats(cell_name, cell_type):
         )
 
         # reverse y-axis for amplitude
-        event_stats_fig.update_yaxes(autorange="reversed", row=1, col=1)
+        event_stats_fig.update_yaxes(
+            title="Amplitude (pA)", autorange="reversed", row=1, col=1
+        )
 
         # plots rise time
         event_stats_fig.add_trace(
@@ -194,6 +228,8 @@ def plot_event_stats(cell_name, cell_type):
             col=2,
         )
 
+        event_stats_fig.update_yaxes(title="Rise time (ms)", row=1, col=2)
+
         # plots tau
         event_stats_fig.add_trace(
             go.Box(
@@ -206,6 +242,8 @@ def plot_event_stats(cell_name, cell_type):
             col=3,
         )
 
+        event_stats_fig.update_yaxes(title="Tau (ms)", row=1, col=3)
+
     # below is code from stack overflow to hide duplicate legends
     names = set()
     event_stats_fig.for_each_trace(
@@ -215,7 +253,6 @@ def plot_event_stats(cell_name, cell_type):
     )
 
     event_stats_fig.show()
-    pdb.set_trace()
 
     return event_stats_fig
 
@@ -299,6 +336,23 @@ def plot_both_freqs(cell_name, cell_type, stim_time):
     return both_freqs_fig
 
 
+def output_html_plots(stats_fig, freqs_fig, dataset, cell_type, cell_name):
+    """
+    Saves event stats and avg freq stats figs as one html plot
+    """
+    base_path = f"{FileSettings.FIGURES_FOLDER}/{dataset}/{cell_type}"
+    if not os.path.exists(base_path):
+        os.makedirs(base_path)
+
+    html_filename = f"{cell_name}_stats_plots.html"
+    path = os.path.join(base_path, html_filename)
+
+    freqs_fig.write_html(path, full_html=False, include_plotlyjs="cdn")
+
+    with open(path, "a") as f:
+        f.write(stats_fig.to_html(full_html=False, include_plotlyjs=False))
+
+
 def run_single(dataset, csvfile, file_name):
     file = os.path.join(
         "/home/jhuang/Documents/phd_projects/injected_GC_data/data",
@@ -334,7 +388,7 @@ def run_single(dataset, csvfile, file_name):
 
     # pdb.set_trace()
 
-    # # cell.plot_mean_trace()
+    # cell.plot_mean_trace()
 
     # # cell.make_cell_analysis_dict()
 
