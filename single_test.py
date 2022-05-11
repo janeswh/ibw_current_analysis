@@ -165,6 +165,11 @@ def decay_func(time, a, tau, offset):
     return a * np.exp(-time / tau) + offset
 
 
+def ipsc_func(time, peak, peak_time, tau):
+
+    return peak * time * np.exp(-(time - peak_time) / tau)
+
+
 class JaneCell(object):
     def __init__(self, dataset, sweep_info, file, file_name):
         self.dataset = dataset
@@ -585,6 +590,54 @@ class JaneCell(object):
                 raise ValueError("polarity must either be + or -")
             return epsc_peaks
 
+    def calculate_charge(
+        self, peak_time, peak, root_time, root, event_window, tau
+    ):
+        """
+        Calculates the charge transferred of synaptic event by taking its
+        integral from root to extrapolated root (is this sketch?).
+
+        Or integrate using the decay func?
+        """
+        # subtract root from trace
+        event_window = event_window - root
+        integral_start = root_time
+
+        # arbitrarily find end time within 5 ms?
+
+        event_fig = go.Figure()
+        event_fig.add_trace(
+            go.Scatter(x=event_window.index, y=event_window, name="event")
+        )
+
+        # event_fig.add_trace(
+        #     go.Scatter(x=decay_fit["x"], y=decay_fit["y"], name="decay")
+        # )
+
+        # event_fig.show()
+        # normalize
+
+        x = event_window.index
+        y = event_window
+        norm_x = event_window.index.min()
+        norm_y = event_window.min()
+
+        x_2 = x - norm_x + 1  # why +1 here? so values don't start at 0
+        y_2 = y / norm_y
+        peak_time_norm = peak_time - norm_x + 1
+        peak_norm = peak / norm_y
+        # ys = scipy.integrate.odeint(ipsc_func, peak_time, time)
+
+        # this is trying to use decay function
+        y_func = peak_norm * x_2 * np.exp(-(x_2 - peak_time_norm) / tau)
+
+        # event_fig.add_trace(go.Scatter(x=x_2, y=y_2, name="event"))
+
+        # event_fig.add_trace(go.Scatter(x=x_2, y=y_func, name="ipsc fit"),)
+        event_fig.show()
+
+        pdb.set_trace()
+
     def calculate_event_kinetics(self, data, peak, pos, baseline):
         """
         Gets kinetic stats of events
@@ -615,6 +668,10 @@ class JaneCell(object):
         tau, decay_fit = self.calculate_decay(
             peak, pos, event_window, data_type="event", polarity="-"
         )
+
+        # self.calculate_charge(
+        #     peak_time, peak, root_time, root, event_window, tau
+        # )
 
         rise_time, rise_start, rise_end = self.calculate_rise_time(
             peak,
@@ -1893,7 +1950,7 @@ class JaneCell(object):
         )
 
         mean_trace_fig.show()
-        # self.events_fig = events_fig
+        self.events_fig = events_fig
 
     def get_mod_events(self):
 
