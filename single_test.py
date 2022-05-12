@@ -1733,7 +1733,7 @@ class JaneCell(object):
             self.response = False
 
         elif self.condition == "light":
-            if (max_freq > 1) and (freq_peak_time < 1000):
+            if (max_freq > 1) and (freq_peak_time < 1500):
                 rise_time, rise_start, rise_end = self.calculate_rise_time(
                     max_freq,
                     freq_peak_time,
