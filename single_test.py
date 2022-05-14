@@ -568,6 +568,10 @@ class JaneCell(object):
         """
         subtracted_data = data - baseline
 
+        # shorten window width if pos occurs too early
+        if pos < 50:
+            window_width = 20
+
         start = int(pos - window_width / 2)
         end = int(pos + window_width / 2)
 
@@ -580,7 +584,14 @@ class JaneCell(object):
         if index is True:
             if polarity == "-":
                 epsc_peaks = peak_window.min()
-                epsc_peaks_index = peak_window.idxmin()
+                try:
+                    epsc_peaks_index = peak_window.idxmin()
+                except ValueError:
+                    pdb.set_trace()
+                    print(pos)
+                    print(start)
+                    print(end)
+                    raise ValueError()
             elif polarity == "+":
                 epsc_peaks = peak_window.max()
                 epsc_peaks_index = peak_window.idxmax()
