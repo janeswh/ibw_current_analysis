@@ -895,6 +895,9 @@ class JaneCell(object):
         self.mod_events_df.drop(pos_drops_flat, inplace=True)
 
     def calculate_event_stats(self):
+        # truncate traces to start after tp end
+        # traces = self.traces[self.tp_start + self.tp_length :]
+
         traces = self.traces
         self.traces_filtered = self.filter_traces(traces)
 
@@ -923,6 +926,7 @@ class JaneCell(object):
         self.drop_short_isi()
 
         decay_fits_dict = collections.defaultdict(dict)
+        true_index = 0  # for dict key values
 
         for index, row in self.mod_events_df.iterrows():
             sweep = int(row["Sweep"])
@@ -956,17 +960,19 @@ class JaneCell(object):
 
             # don't add decay fits to dict if tau > 100
             if tau < 100:
-                decay_fits_dict[sweep][index] = decay_fit
+                decay_fits_dict[sweep][true_index] = decay_fit
 
-            sweep_number_list.append(sweep)
-            new_amps.append(event_peak)
-            new_pos_list.append(new_pos)
-            tau_list.append(tau)
-            risetime_list.append(rise_time)
-            risestart_list.append(rise_start)
-            riseend_list.append(rise_end)
-            adjusted_peak_list.append(adjusted_peak)
-            roots_list.append(root_time)
+                sweep_number_list.append(sweep)
+                new_amps.append(event_peak)
+                new_pos_list.append(new_pos)
+                tau_list.append(tau)
+                risetime_list.append(rise_time)
+                risestart_list.append(rise_start)
+                riseend_list.append(rise_end)
+                adjusted_peak_list.append(adjusted_peak)
+                roots_list.append(root_time)
+
+                true_index += 1  # makes it so dict keys match up with event_stats indices
 
         event_stats = pd.DataFrame(
             {
@@ -983,8 +989,8 @@ class JaneCell(object):
         )
 
         # drop events with tau greater than 100
-        to_drop = event_stats.loc[event_stats["Tau (ms)"] > 100].index
-        event_stats.drop(to_drop, inplace=True)
+        # to_drop = event_stats.loc[event_stats["Tau (ms)"] > 100].index
+        # event_stats.drop(to_drop, inplace=True)
 
         self.decay_fits_dict = decay_fits_dict
         self.event_stats = event_stats
@@ -999,39 +1005,56 @@ class JaneCell(object):
 
         for sweep in range(self.num_sweeps):
 
+            # need to only plot events with rise times after the start of
+            # window_toplot
+
+            sweep_events = self.event_stats.loc[
+                (self.event_stats["Sweep"] == sweep)
+                & (
+                    self.event_stats["Root time (ms)"]
+                    > (self.tp_start + self.tp_length)
+                )
+            ]
+
             window_toplot = self.traces_filtered_sub[sweep][
                 (self.tp_start + self.tp_length) : :
             ]
 
-            sweep_events_pos = self.event_stats.loc[
-                self.event_stats["Sweep"] == sweep
+            sweep_events_pos = sweep_events.loc[
+                sweep_events["Sweep"] == sweep
             ]["New pos"].values
-            sweep_events_amp = self.event_stats.loc[
-                self.event_stats["Sweep"] == sweep
+            sweep_events_amp = sweep_events.loc[
+                sweep_events["Sweep"] == sweep
             ]["New amplitude (pA)"].values
 
             # gets rise start info
-            rise_starts_pos = self.event_stats.loc[
-                self.event_stats["Sweep"] == sweep
-            ]["Rise start (ms)"].values
-            rise_starts_amp = window_toplot.loc[rise_starts_pos]
+            rise_starts_pos = sweep_events.loc[sweep_events["Sweep"] == sweep][
+                "Rise start (ms)"
+            ].values
+            try:
+                rise_starts_amp = window_toplot.loc[rise_starts_pos]
+            except KeyError:
+                pdb.set_trace()
 
             # gets rise end info
-            rise_ends_pos = self.event_stats.loc[
-                self.event_stats["Sweep"] == sweep
-            ]["Rise end (ms)"].values
+            rise_ends_pos = sweep_events.loc[sweep_events["Sweep"] == sweep][
+                "Rise end (ms)"
+            ].values
             rise_ends_amp = window_toplot.loc[rise_ends_pos]
 
             # gets roots for baseline
-            roots_pos = self.event_stats.loc[
-                self.event_stats["Sweep"] == sweep
-            ]["Root time (ms)"].values
-            roots_amp = window_toplot.loc[roots_pos]
+            roots_pos = sweep_events.loc[sweep_events["Sweep"] == sweep][
+                "Root time (ms)"
+            ].values
+            try:
+                roots_amp = window_toplot.loc[roots_pos]
+            except KeyError:
+                pdb.set_trace()
 
             # gets root-subtracted amplitudes for annotating
-            adj_amplitudes = self.event_stats.loc[
-                self.event_stats["Sweep"] == sweep
-            ]["Adjusted amplitude (pA)"]
+            adj_amplitudes = sweep_events.loc[sweep_events["Sweep"] == sweep][
+                "Adjusted amplitude (pA)"
+            ]
 
             # plots the sweep
             annotated_events_fig.add_trace(
@@ -1101,7 +1124,8 @@ class JaneCell(object):
             )
 
             # plots decay fits
-            for event in self.decay_fits_dict[sweep].keys():
+            # only plot fits for events that are also in sweep_events
+            for event in sweep_events.index:
                 annotated_events_fig.add_trace(
                     go.Scatter(
                         x=self.decay_fits_dict[sweep][event]["x"],
@@ -2066,6 +2090,10 @@ class JaneCell(object):
         # amplitudes from MOD
         mod_events_df["MOD amplitude (pA)"] = mod_events["amplitude"]
 
+        # drop evnts occuring before tp ends
+        # self.mod_events_df = mod_events_df.loc[
+        #     mod_events_df["Event pos (ms)"] > self.tp_start + self.tp_length
+        # ]
         self.mod_events_df = mod_events_df
 
     def make_cell_analysis_dict(self):
