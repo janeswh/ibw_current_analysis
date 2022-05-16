@@ -77,7 +77,7 @@ def run_BARS_smoothing(x_stop, x_array, y_array, x_plot):
     # quantiles = np.linspace(
     #     0, 1, N_KNOT
     # )  # if I want to use quantiles as knots
-    knots = np.linspace(0, x_plot[-1], N_KNOT)  # interior knots
+    knots = np.linspace(x_plot[0], x_plot[-1], N_KNOT)  # interior knots
 
     # feed interior knots to get spline coefficients
     knots, c, k = scipy.interpolate.splrep(x=x, y=y, task=-1, t=knots[1:-1])
@@ -101,7 +101,7 @@ def run_BARS_smoothing(x_stop, x_array, y_array, x_plot):
 
     N_MODEL_KNOTS = 5 * N_KNOT
     # N_MODEL_KNOTS = N_KNOT
-    model_knots = np.linspace(0, x_plot[-1], N_MODEL_KNOTS)
+    model_knots = np.linspace(x_plot[0], x_plot[-1], N_MODEL_KNOTS)
 
     # running model
     basis_funcs = scipy.interpolate.BSpline(
@@ -1311,6 +1311,7 @@ class JaneCell(object):
         """
         bin_width is width of bins in ms
         time_stop is time of last timepoint wanted for BARS, in ms
+        time_start is time when tp finishes
 
         1. Gets the histogram counts and parameters for PSTH
         2. Plots raster plot and PSTH for the entire sweep
@@ -1323,13 +1324,18 @@ class JaneCell(object):
         if time_stop is None:
             time_stop = int(self.sweep_length_ms)
 
-        x_stop = int(time_stop / bin_width)  # number of bins to stop at
+        time_start = self.tp_start + self.tp_length
 
-        raster_df, bins, bar_bins, freq = self.get_bin_parameters(bin_width)
+        raster_df, bins, bar_bins, freq = self.get_bin_parameters(
+            time_start, bin_width
+        )
+
+        x_stop = len(bins)  # number of bins to stop at
+
         self.plot_event_psth(raster_df, x=bar_bins, y=freq)
 
         x_plot = np.linspace(
-            0, bins[x_stop], x_stop
+            bins[0], bins[-1], x_stop
         )  # also time of avg_frequency
         raw_avg_frequency = run_BARS_smoothing(
             x_stop, x_array=bar_bins, y_array=freq, x_plot=x_plot
@@ -1443,7 +1449,7 @@ class JaneCell(object):
 
         # psth_fig.show()
 
-    def get_bin_parameters(self, bin_width):
+    def get_bin_parameters(self, time_start, bin_width):
         """
         Gets the counts, bins, bin widths for PSTH-related plotting and
         calculations. This uses the entire sweep.
@@ -1456,7 +1462,7 @@ class JaneCell(object):
         bin_stop = int(self.sweep_length_ms) + bin_width
 
         counts, bins = np.histogram(
-            psth_df, bins=range(0, bin_stop, bin_width)
+            psth_df, bins=range(time_start, bin_stop, bin_width)
         )
         # this puts bar in between the edges of the bin
         bar_bins = 0.5 * (bins[:-1] + bins[1:])
@@ -1522,7 +1528,7 @@ class JaneCell(object):
         patch_length = len(freq[first_zero:])
 
         # replaces the interpolated frequency of last segment with start segment
-        smoothed[first_zero:] = smoothed[:patch_length]
+        smoothed[first_zero:] = smoothed[: patch_length + 1]
 
         extrapolated_replaced = smoothed
 
