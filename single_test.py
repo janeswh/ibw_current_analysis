@@ -189,6 +189,7 @@ class JaneCell(object):
         self.sweeps_dict = None
         self.mod_events_df = None
         self.event_stats = None
+        self.updated_mod_events = None
         self.events_fig = None
         self.bar_bins = None
 
@@ -912,6 +913,9 @@ class JaneCell(object):
         self.traces_filtered_sub = self.traces_filtered - baseline
 
         # finds the new positions and peaks of identified events using MOD file
+        all_new_amps = []  # for updated mod_events_df
+        all_new_pos = []  # for updated mod_events_df
+
         sweep_number_list = []
         new_amps = []
         new_pos_list = []
@@ -923,7 +927,7 @@ class JaneCell(object):
         roots_list = []
 
         # drops positions with ISI > 5
-        self.drop_short_isi()
+        # self.drop_short_isi()
 
         decay_fits_dict = collections.defaultdict(dict)
         true_index = 0  # for dict key values
@@ -959,20 +963,34 @@ class JaneCell(object):
             )
 
             # don't add decay fits to dict if tau > 100
-            if tau < 100:
-                decay_fits_dict[sweep][true_index] = decay_fit
+            # if tau < 200:
+            decay_fits_dict[sweep][true_index] = decay_fit
 
-                sweep_number_list.append(sweep)
-                new_amps.append(event_peak)
-                new_pos_list.append(new_pos)
-                tau_list.append(tau)
-                risetime_list.append(rise_time)
-                risestart_list.append(rise_start)
-                riseend_list.append(rise_end)
-                adjusted_peak_list.append(adjusted_peak)
-                roots_list.append(root_time)
+            sweep_number_list.append(sweep)
+            new_amps.append(event_peak)
+            new_pos_list.append(new_pos)
+            tau_list.append(tau)
+            risetime_list.append(rise_time)
+            risestart_list.append(rise_start)
+            riseend_list.append(rise_end)
+            adjusted_peak_list.append(adjusted_peak)
+            roots_list.append(root_time)
 
-                true_index += 1  # makes it so dict keys match up with event_stats indices
+            true_index += (
+                1  # makes it so dict keys match up with event_stats indices
+            )
+
+            all_new_amps.append(event_peak)
+            all_new_pos.append(new_pos)
+
+        new_stats = pd.DataFrame(
+            {"New amplitude (pA)": all_new_amps, "New pos": all_new_pos}
+        )
+        self.updated_mod_events = pd.concat(
+            [self.mod_events_df, new_stats], axis=1
+        )
+
+        # self.plot_mod_events()
 
         event_stats = pd.DataFrame(
             {
@@ -1027,6 +1045,10 @@ class JaneCell(object):
                 sweep_events["Sweep"] == sweep
             ]["New amplitude (pA)"].values
 
+            sweep_events_tau = sweep_events.loc[
+                sweep_events["Sweep"] == sweep
+            ]["Tau (ms)"]
+
             # gets rise start info
             rise_starts_pos = sweep_events.loc[sweep_events["Sweep"] == sweep][
                 "Rise start (ms)"
@@ -1068,13 +1090,14 @@ class JaneCell(object):
                 )
             )
 
-            # plots peaks
+            # plots peaks and tau
             annotated_events_fig.add_trace(
                 go.Scatter(
                     x=sweep_events_pos,
                     y=sweep_events_amp,
                     mode="markers + text",
                     marker=dict(color="#E75649", size=12),
+                    # text=f"{adj_amplitudes.round(2)}, tau={sweep_events_tau.round(2)}",
                     text=adj_amplitudes.round(2),
                     textfont=dict(size=18),
                     textposition="bottom center",
@@ -1115,8 +1138,9 @@ class JaneCell(object):
                 go.Scatter(
                     x=roots_pos,
                     y=roots_amp,
-                    mode="markers",
+                    mode="markers +text",
                     marker=dict(color="#993ECF", size=8),
+                    text=sweep_events_tau.round(2),
                     name="sweep {} roots/baseline".format(sweep),
                     legendgroup=sweep,
                     visible="legendonly",
@@ -1158,7 +1182,7 @@ class JaneCell(object):
             line_width=0,
         )
 
-        # annotated_events_fig.show()
+        annotated_events_fig.show()
 
         self.annotated_events_fig = annotated_events_fig
 
@@ -1249,6 +1273,66 @@ class JaneCell(object):
         #     stim_dict,
         # )
 
+    def plot_mod_events(self):
+        """
+        Sanity check; plots all the individual sweeps with identified mod event 
+        peaks marked. By default, all traces are hidden and only shown when
+        selected in figure legends. This includes all events that are later
+        dropped using kinetics criteria.
+        """
+
+        mod_events_fig = go.Figure()
+
+        for sweep in range(self.num_sweeps):
+
+            sweep_events_pos = self.updated_mod_events.loc[
+                self.updated_mod_events["Sweep"] == sweep
+            ]["New pos"].values
+            sweep_events_amp = self.updated_mod_events.loc[
+                self.updated_mod_events["Sweep"] == sweep
+            ]["New amplitude (pA)"].values
+
+            window_toplot = self.traces_filtered_sub[sweep][
+                (self.tp_start + self.tp_length) : :
+            ]
+
+            mod_events_fig.add_trace(
+                go.Scatter(
+                    x=window_toplot.index,
+                    y=window_toplot,
+                    mode="lines",
+                    name="sweep {}".format(sweep),
+                    legendgroup=sweep,
+                    visible="legendonly",
+                )
+            )
+
+            mod_events_fig.add_trace(
+                go.Scatter(
+                    x=sweep_events_pos,
+                    y=sweep_events_amp,
+                    mode="markers",
+                    name="sweep {} peaks".format(sweep),
+                    legendgroup=sweep,
+                    visible="legendonly",
+                )
+            )
+
+        mod_events_fig.update_xaxes(title_text="Time (ms)")
+        mod_events_fig.update_yaxes(title_text="Amplitude (pA)")
+
+        mod_events_fig.add_vrect(
+            x0=self.stim_time,
+            x1=self.stim_time + 100,
+            fillcolor="#33F7FF",
+            opacity=0.5,
+            layer="below",
+            line_width=0,
+        )
+
+        mod_events_fig.show()
+        self.mod_events_fig = mod_events_fig
+
     def plot_events(self):
         """
         Sanity check; plots all the individual sweeps with identified event 
@@ -1337,6 +1421,7 @@ class JaneCell(object):
         x_plot = np.linspace(
             bins[0], bins[-1], x_stop
         )  # also time of avg_frequency
+
         raw_avg_frequency = run_BARS_smoothing(
             x_stop, x_array=bar_bins, y_array=freq, x_plot=x_plot
         )
@@ -1627,17 +1712,46 @@ class JaneCell(object):
         return rise_time, rise_start, rise_end
 
     def calculate_decay(
-        self, max_freq, freq_peak_time, response_window, data_type, polarity
+        self,
+        max_freq,
+        freq_peak_time,
+        response_window,
+        data_type,
+        polarity,
+        freq_baseline=None,
     ):
         # decay window is peak to 90% decay
         decay_array = response_window.loc[freq_peak_time:]
+
+        # baseline subtract if it's frequency
+        if data_type == "frequency":
+            decay_array = decay_array - freq_baseline
+            max_freq = decay_array.iloc[0]
 
         if polarity == "-":
             decay_end_idx = np.argmax(decay_array >= max_freq * 0.1)
         elif polarity == "+":
             decay_end_idx = np.argmax(decay_array <= max_freq * 0.1)
 
-        decay_end_time = decay_array.index[decay_end_idx]
+        # if the 90% decay isn't found within the decay window, use time point
+        # that is 3 ms after peak if event, and first time it returns to
+        # baseline if frequency
+
+        if decay_end_idx == 0:
+            if data_type == "event":
+                decay_end_time = freq_peak_time + 3
+            elif data_type == "frequency":
+                decay_end_time = decay_array.index[-1]
+        else:
+            decay_end_time = decay_array.index[decay_end_idx]
+
+        # if data_type == "event":
+        #     if decay_end_idx == 0:
+        #         decay_end_time = freq_peak_time + 3
+        #     else:
+        #         decay_end_time = decay_array.index[decay_end_idx]
+        # elif data_type == "frequency":
+        #     decay_end_time = decay_array.index[decay_end_idx]
 
         decay_window = response_window.loc[freq_peak_time:decay_end_time]
 
@@ -1671,43 +1785,46 @@ class JaneCell(object):
         except RuntimeError:
             popt = (np.nan, np.nan, np.nan)
 
+        except ValueError:
+            pdb.set_trace()
+
         # if initial fit doesn't work because event is too close to the next
         # event, adjust window
 
         # shorten decay_array to 5 ms, check whether this is sketch
 
-        if (np.inf in pcov) and data_type == "event":
-            new_end = freq_peak_time + 5
-            decay_window = response_window.loc[freq_peak_time:new_end]
+        # if (np.inf in pcov) and data_type == "event":
+        #     new_end = freq_peak_time + 5
+        #     decay_window = response_window.loc[freq_peak_time:new_end]
 
-            if polarity == "-":
-                decay_window = decay_window * -1
+        #     if polarity == "-":
+        #         decay_window = decay_window * -1
 
-            x = decay_window.index.to_numpy()
-            y = decay_window.to_numpy()
-            norm_y = decay_window.min()
-            y_plot = decay_window
-            starting_params = [1, 1, 1]
+        #     x = decay_window.index.to_numpy()
+        #     y = decay_window.to_numpy()
+        #     norm_y = decay_window.min()
+        #     y_plot = decay_window
+        #     starting_params = [1, 1, 1]
 
-            # normalize
-            norm_x = decay_window.index.min()
+        #     # normalize
+        #     norm_x = decay_window.index.min()
 
-            x_2 = x - norm_x + 1  # why +1 here? so values don't start at 0
-            y_2 = y / norm_y
+        #     x_2 = x - norm_x + 1  # why +1 here? so values don't start at 0
+        #     y_2 = y / norm_y
 
-            # fits
-            try:
-                popt, pcov = scipy.optimize.curve_fit(
-                    f=decay_func,
-                    # xdata=decay_window.index.to_numpy(),
-                    xdata=x_2,
-                    ydata=y_2,
-                    p0=starting_params,
-                    bounds=((-np.inf, 0, -np.inf), (np.inf, np.inf, np.inf)),
-                )
+        #     # fits
+        #     try:
+        #         popt, pcov = scipy.optimize.curve_fit(
+        #             f=decay_func,
+        #             # xdata=decay_window.index.to_numpy(),
+        #             xdata=x_2,
+        #             ydata=y_2,
+        #             p0=starting_params,
+        #             bounds=((-np.inf, 0, -np.inf), (np.inf, np.inf, np.inf)),
+        #         )
 
-            except RuntimeError:
-                popt = (np.nan, np.nan, np.nan)
+        #     except RuntimeError:
+        #         popt = (np.nan, np.nan, np.nan)
 
         # if still can't fit, stop this function
 
@@ -1737,6 +1854,9 @@ class JaneCell(object):
 
         decay_fit = pd.DataFrame({"x": x, "y": decay_fit_trace})
 
+        if data_type == "frequency":
+            pdb.set_trace()
+
         return tau, decay_fit
 
     def calculate_avg_freq_stats(self, bin_width, x_plot, avg_frequency):
@@ -1749,11 +1869,20 @@ class JaneCell(object):
         baseline_start_idx = int(self.baseline_start / bin_width)
 
         # window to look for response starts after light stim
-        response_window_start = int(self.stim_time / bin_width)
-        response_window_end = int(self.freq_post_stim / bin_width)
-        response_window = self.avg_frequency_df.iloc[
-            response_window_start:response_window_end
-        ]
+        if self.dataset == "p2":
+            response_window_start = int(self.stim_time / bin_width)
+            response_window_end = int(self.freq_post_stim / bin_width)
+
+            response_window = self.avg_frequency_df.iloc[
+                response_window_start:response_window_end
+            ]
+        elif self.dataset == "p14":
+            response_window_start = self.stim_time
+            response_window_end = self.freq_post_stim
+
+            response_window = self.avg_frequency_df.loc[
+                response_window_start:response_window_end
+            ]
 
         avg_baseline_freq, std_baseline_freq = self.calculate_freq_baseline(
             baseline_start_idx, response_window_start,
@@ -1789,11 +1918,14 @@ class JaneCell(object):
                     response_window["Avg Frequency (Hz)"],
                     data_type="frequency",
                     polarity="+",
+                    freq_baseline=avg_baseline_freq,
                 )
                 self.response = True
             else:
                 rise_time, rise_start, rise_end, tau, decay_fit = (None,) * 5
                 self.response = False
+
+        pdb.set_trace()
 
         avg_freq_stats = pd.DataFrame(
             {
