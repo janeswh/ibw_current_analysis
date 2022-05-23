@@ -24,6 +24,7 @@ import p14_acq_parameters
 import pdb
 from single_test import JaneCell
 from file_settings import FileSettings
+from plotting import *
 
 
 def get_both_conditions(dataset, csvfile, cell_name):
@@ -50,28 +51,36 @@ def get_both_conditions(dataset, csvfile, cell_name):
 
     # also save avg frequency stats
     # save event stats
-    save_freqs(
-        dataset,
-        cell_type,
-        cell_name,
-        light_cell.freq,
-        light_cell.avg_frequency_df,
-        spon_cell.freq,
-        spon_cell.avg_frequency_df,
+    # save_freqs(
+    #     dataset,
+    #     cell_type,
+    #     cell_name,
+    #     light_cell.freq,
+    #     light_cell.avg_frequency_df,
+    #     spon_cell.freq,
+    #     spon_cell.avg_frequency_df,
+    # )
+
+    # save_event_stats(
+    #     dataset,
+    #     cell_type,
+    #     cell_name,
+    #     light_cell.event_stats,
+    #     spon_cell.event_stats,
+    # )
+
+    amplitude_hist, rise_time_hist, tau_hist = plot_event_stats(
+        dataset, cell_name, cell_type
     )
 
-    save_event_stats(
-        dataset,
-        cell_type,
-        cell_name,
-        light_cell.event_stats,
-        spon_cell.event_stats,
-    )
+    hist_list = []
+    hist_list.extend([amplitude_hist, rise_time_hist, tau_hist])
 
-    stats_fig = plot_event_stats(dataset, cell_name, cell_type)
     freqs_fig = plot_both_freqs(dataset, cell_name, cell_type, stim_time)
 
-    output_html_plots(stats_fig, freqs_fig, dataset, cell_type, cell_name)
+    output_html_plots(
+        hist_list, freqs_fig, dataset, cell_type, cell_name,
+    )
 
     response = check_response(dataset, cell_type, cell_name)
     if response is True:
@@ -218,13 +227,24 @@ def plot_event_stats(dataset, cell_name, cell_type):
         stim_time = p14_acq_parameters.STIM_TIME
         post_time = p14_acq_parameters.FREQ_POST_STIM  # time to stop looking
 
-    event_stats_fig = make_subplots(
-        rows=3,
+    # makes the three subplots, one for each measurement
+    amplitude_hist = make_subplots(
+        rows=1,
         cols=2,
+        shared_xaxes=True,
+        shared_yaxes=True,
         subplot_titles=(
             "Response Window Events",
             "Outside Response Window Events",
         ),
+    )
+
+    rise_time_hist = make_subplots(
+        rows=1, cols=2, shared_xaxes=True, shared_yaxes=True
+    )
+
+    tau_hist = make_subplots(
+        rows=1, cols=2, shared_xaxes=True, shared_yaxes=True
     )
 
     for count, df in enumerate(dfs):
@@ -242,113 +262,80 @@ def plot_event_stats(dataset, cell_name, cell_type):
 
         for win_count, condition_stats in enumerate(win_df_list):
 
-            # event_stats_fig.update_xaxes(
-            #     title_text="Response Window Events"
-            #     if win_count == 0
-            #     else "Outside Response Window Events",
-            #     row=1,
-            #     col=win_count + 1,
-            # )
+            # adds traces to amplitude histogram fig
 
-            # plots amplitude as histogram
-            event_stats_fig.add_trace(
-                go.Histogram(
-                    x=condition_stats["New amplitude (pA)"],
-                    marker_color=colors[count],
-                    name=conditions[count],
-                    legendgroup=conditions[count],
-                ),
-                row=1,
-                col=win_count + 1,
+            amp_trace = make_event_hist_trace(
+                colors[count],
+                conditions[count],
+                condition_stats["New amplitude (pA)"],
+            )
+            amplitude_hist.add_trace(amp_trace, row=1, col=win_count + 1)
+            add_median_vline(
+                amplitude_hist,
+                median_colors[count],
+                condition_stats["New amplitude (pA)"],
+                win_count,
+                count,
+                "pA",
             )
 
-            amp_median = condition_stats["New amplitude (pA)"].median()
-
-            event_stats_fig.add_vline(
-                row=1,
-                col=win_count + 1,
-                x=amp_median,
-                line_color=median_colors[count],
-                annotation_text=f"median = {round(amp_median, 2)} pA",
-                annotation_font=dict(color=median_colors[count]),
-                annotation_yshift=-10 if count == 1 else 0,
-                annotation_position="top right",
-            )
-
-            event_stats_fig.update_xaxes(
+            amplitude_hist.update_xaxes(
                 title="Amplitude (pA)",
                 autorange="reversed",
                 row=1,
                 col=win_count + 1,
             )
 
-            # plots rise time as histogram
-            event_stats_fig.add_trace(
-                go.Histogram(
-                    x=condition_stats["Rise time (ms)"],
-                    marker_color=colors[count],
-                    name=conditions[count],
-                    legendgroup=conditions[count],
-                ),
-                row=2,
-                col=win_count + 1,
+            # adds traces to rise time histogram fig
+            rise_time_trace = make_event_hist_trace(
+                colors[count],
+                conditions[count],
+                condition_stats["Rise time (ms)"],
+            )
+            rise_time_hist.add_trace(rise_time_trace, row=1, col=win_count + 1)
+            add_median_vline(
+                rise_time_hist,
+                median_colors[count],
+                condition_stats["Rise time (ms)"],
+                win_count,
+                count,
+                "ms",
             )
 
-            rise_median = condition_stats["Rise time (ms)"].median()
-            event_stats_fig.add_vline(
-                row=2,
-                col=win_count + 1,
-                x=rise_median,
-                line_color=median_colors[count],
-                annotation_text=f"median = {round(rise_median, 2)} ms",
-                annotation_font=dict(color=median_colors[count]),
-                annotation_yshift=-10 if count == 1 else 0,
-                annotation_position="top right",
+            rise_time_hist.update_xaxes(
+                title="Rise time (ms)", row=1, col=win_count + 1,
             )
 
-            event_stats_fig.update_xaxes(
-                title="Rise time (ms)", row=2, col=win_count + 1
+            # adds traces to tau histogram fig
+            tau_trace = make_event_hist_trace(
+                colors[count], conditions[count], condition_stats["Tau (ms)"],
+            )
+            tau_hist.add_trace(tau_trace, row=1, col=win_count + 1)
+            add_median_vline(
+                tau_hist,
+                median_colors[count],
+                condition_stats["Tau (ms)"],
+                win_count,
+                count,
+                "ms",
             )
 
-            # plots tau as histogram
-            event_stats_fig.add_trace(
-                go.Histogram(
-                    x=condition_stats["Tau (ms)"],
-                    marker_color=colors[count],
-                    name=conditions[count],
-                    legendgroup=conditions[count],
-                ),
-                row=3,
-                col=win_count + 1,
+            tau_hist.update_xaxes(
+                title="Tau (ms)", row=1, col=win_count + 1,
             )
 
-            tau_median = condition_stats["Tau (ms)"].median()
-            event_stats_fig.add_vline(
-                row=3,
-                col=win_count + 1,
-                x=tau_median,
-                line_color=median_colors[count],
-                annotation_text=f"median = {round(tau_median, 2)} ms",
-                annotation_font=dict(color=median_colors[count]),
-                annotation_yshift=-10 if count == 1 else 0,
-                annotation_position="top right",
-            )
+    hist_list = []
+    hist_list.extend([amplitude_hist, rise_time_hist, tau_hist])
+    for hist in hist_list:
+        # below is code from stack overflow to hide duplicate legends
+        names = set()
+        hist.for_each_trace(
+            lambda trace: trace.update(showlegend=False)
+            if (trace.name in names)
+            else names.add(trace.name)
+        )
 
-            event_stats_fig.update_xaxes(
-                title="Tau (ms)", row=3, col=win_count + 1
-            )
-
-    # below is code from stack overflow to hide duplicate legends
-    names = set()
-    event_stats_fig.for_each_trace(
-        lambda trace: trace.update(showlegend=False)
-        if (trace.name in names)
-        else names.add(trace.name)
-    )
-
-    # event_stats_fig.show()
-
-    return event_stats_fig
+    return amplitude_hist, rise_time_hist, tau_hist
 
 
 def plot_both_freqs(dataset, cell_name, cell_type, stim_time):
@@ -436,7 +423,9 @@ def plot_both_freqs(dataset, cell_name, cell_type, stim_time):
     return both_freqs_fig
 
 
-def output_html_plots(stats_fig, freqs_fig, dataset, cell_type, cell_name):
+def output_html_plots(
+    hists, freqs_fig, dataset, cell_type, cell_name,
+):
     """
     Saves event stats and avg freq stats figs as one html plot
     """
@@ -451,8 +440,9 @@ def output_html_plots(stats_fig, freqs_fig, dataset, cell_type, cell_name):
 
     freqs_fig.write_html(path, full_html=False, include_plotlyjs="cdn")
 
-    with open(path, "a") as f:
-        f.write(stats_fig.to_html(full_html=False, include_plotlyjs=False))
+    for hist in hists:
+        with open(path, "a") as f:
+            f.write(hist.to_html(full_html=False, include_plotlyjs=False))
 
 
 def run_single(dataset, csvfile, file_name):
@@ -485,8 +475,8 @@ def run_single(dataset, csvfile, file_name):
     cell.save_annotated_events_plot()
 
     # cell.plot_events()
-    cell.analyze_avg_frequency()
-    cell.save_annotated_freq()
+    # cell.analyze_avg_frequency()
+    # cell.save_annotated_freq()
 
     # only save annotated histogram plot if condition == light and response
     # is true
