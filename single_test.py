@@ -1484,7 +1484,21 @@ class JaneCell(object):
         time_start = self.tp_start + self.tp_length
 
         raster_df, bins, bar_bins, freq = self.get_bin_parameters(
-            time_start, bin_width
+            bin_width, time_start,
+        )
+
+        # calculates bins for window
+        (
+            windowed_raster_df,
+            windowed_bins,
+            windowed_bar_bins,
+            windowed_freq,
+        ) = self.get_bin_parameters(bin_width, time_start, 2000)
+
+        # trying to shorten BARS window to 1500 ms after stim time
+        windowed_x_stop = len(windowed_bins)
+        windowed_x_plot = np.linspace(
+            windowed_bins[0], windowed_bins[-1], windowed_x_stop
         )
 
         x_stop = len(bins)  # number of bins to stop at
@@ -1495,32 +1509,68 @@ class JaneCell(object):
             bins[0], bins[-1], x_stop
         )  # also time of avg_frequency
 
-        raw_avg_frequency = run_BARS_smoothing(
-            x_stop, x_array=bar_bins, y_array=freq, x_plot=x_plot
+        # baseline subtract freq counts before smoothing
+        baseline_window = self.stim_time - time_start
+        baseline_bins = int(baseline_window / bin_width)
+        # this stops before bins that would include cts from 500-510 ms
+        baseline_freq = freq[:baseline_bins].mean()
+
+        windowed_freq_sub = windowed_freq
+
+        windowed_raw_avg_frequency = run_BARS_smoothing(
+            windowed_x_stop,
+            x_array=windowed_bar_bins,
+            y_array=windowed_freq,
+            x_plot=windowed_x_plot,
         )
+
         self.plot_smoothed_PSTH(
-            x_stop,
-            x_array=bar_bins,
-            y_array=freq,
-            x_plot=x_plot,
-            smoothed=raw_avg_frequency,
+            windowed_x_stop,
+            x_array=windowed_bar_bins,
+            y_array=windowed_freq,
+            x_plot=windowed_x_plot,
+            smoothed=windowed_raw_avg_frequency,
         )
 
-        # check whether this is sketch
-        avg_frequency = self.replace_avg_extrapolation(freq, raw_avg_frequency)
-
-        self.calculate_avg_freq_stats(bin_width, x_plot, avg_frequency)
+        self.calculate_avg_freq_stats(
+            bin_width, windowed_x_plot, windowed_raw_avg_frequency
+        )
 
         self.plot_annotated_freq_histogram(
             raster_df,
-            x_stop,
-            x_array=bar_bins,
-            y_array=freq,
-            x_plot=x_plot,
-            smoothed=avg_frequency,
+            windowed_x_stop,
+            x_array=windowed_bar_bins,
+            y_array=windowed_freq,
+            x_plot=windowed_x_plot,
+            smoothed=windowed_raw_avg_frequency,
         )
 
-        self.freq = pd.DataFrame(freq, index=bar_bins)
+        # raw_avg_frequency = run_BARS_smoothing(
+        #     x_stop, x_array=bar_bins, y_array=freq, x_plot=x_plot
+        # )
+        # self.plot_smoothed_PSTH(
+        #     x_stop,
+        #     x_array=bar_bins,
+        #     y_array=freq,
+        #     x_plot=x_plot,
+        #     smoothed=raw_avg_frequency,
+        # )
+
+        # # check whether this is sketch
+        # avg_frequency = self.replace_avg_extrapolation(freq, raw_avg_frequency)
+
+        # self.calculate_avg_freq_stats(bin_width, x_plot, avg_frequency)
+
+        # self.plot_annotated_freq_histogram(
+        #     raster_df,
+        #     x_stop,
+        #     x_array=bar_bins,
+        #     y_array=freq,
+        #     x_plot=x_plot,
+        #     smoothed=avg_frequency,
+        # )
+
+        # self.freq = pd.DataFrame(freq, index=bar_bins)
 
     def plot_event_psth(self, event_times, x, y):
         """
@@ -1607,7 +1657,7 @@ class JaneCell(object):
 
         # psth_fig.show()
 
-    def get_bin_parameters(self, time_start, bin_width):
+    def get_bin_parameters(self, bin_width, time_start, time_stop=None):
         """
         Gets the counts, bins, bin widths for PSTH-related plotting and
         calculations. This uses the entire sweep.
@@ -1616,8 +1666,9 @@ class JaneCell(object):
         raster_df = self.event_stats[["Sweep", "New pos"]]
         # make PSTH
         psth_df = raster_df["New pos"]
-
-        bin_stop = int(self.sweep_length_ms) + bin_width
+        if time_stop == None:
+            time_stop = self.sweep_length_ms
+        bin_stop = int(time_stop) + bin_width
 
         counts, bins = np.histogram(
             psth_df, bins=range(time_start, bin_stop, bin_width)
@@ -1708,10 +1759,10 @@ class JaneCell(object):
 
         return avg_baseline_freq, std_baseline_freq
 
-    def calculate_freq_peak(self):
+    def calculate_freq_peak(self, freq_df):
 
-        max_freq = self.avg_frequency_df.max(axis=0)[0]
-        freq_peak_time = self.avg_frequency_df.idxmax(axis=0)[0]
+        max_freq = freq_df.loc[self.stim_time :].max(axis=0)[0]
+        freq_peak_time = freq_df.loc[500:].idxmax(axis=0)[0]
         time_to_peak_freq = freq_peak_time - self.stim_time
 
         return max_freq, freq_peak_time, time_to_peak_freq
@@ -2016,7 +2067,7 @@ class JaneCell(object):
             max_freq,
             freq_peak_time,
             time_to_peak_freq,
-        ) = self.calculate_freq_peak()
+        ) = self.calculate_freq_peak(avg_frequency_df)
 
         onset_time = self.calculate_freq_peak_onset(
             std_baseline_freq, response_window
@@ -2195,7 +2246,9 @@ class JaneCell(object):
         )
 
         self.annotated_freq_fig = annotated_freq
-        # annotated_freq.show()
+        annotated_freq.show()
+
+        pdb.set_trace()
 
     # def plot_counts_psth(self):
     #     """
