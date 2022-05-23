@@ -1074,6 +1074,15 @@ class JaneCell(object):
 
         annotated_events_fig = go.Figure()
 
+        # add main title
+        annotated_events_fig.update_layout(
+            title_text=(
+                f"{self.cell_name}, {self.cell_type}, {self.condition} "
+                f"annotated events"
+            ),
+            title_x=0.5,
+        )
+
         for sweep in range(self.num_sweeps):
 
             # need to only plot events with rise times after the start of
@@ -1337,6 +1346,15 @@ class JaneCell(object):
         """
 
         mod_events_fig = go.Figure()
+
+        # add main title
+        mod_events_fig.update_layout(
+            title_text=(
+                f"{self.cell_name}, {self.cell_type}, {self.condition} "
+                f"all MOD events"
+            ),
+            title_x=0.5,
+        )
 
         for sweep in range(self.num_sweeps):
 
@@ -2235,6 +2253,15 @@ class JaneCell(object):
         """
 
         mean_trace_fig = go.Figure()
+
+        # add main title
+        mean_trace_fig.update_layout(
+            title_text=(
+                f"{self.cell_name}, {self.cell_type}, {self.condition} "
+                f"mean trace"
+            ),
+            title_x=0.5,
+        )
 
         # plots individual sweeps
         for sweep in range(self.num_sweeps):
