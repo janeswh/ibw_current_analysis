@@ -1536,11 +1536,13 @@ class JaneCell(object):
             bin_width, windowed_x_plot, windowed_raw_avg_frequency
         )
 
+        # this plots the BARS smoothing for response window ontop of freq
+        # histogram for the whole sweep
         self.plot_annotated_freq_histogram(
             raster_df,
             windowed_x_stop,
-            x_array=windowed_bar_bins,
-            y_array=windowed_freq,
+            x_array=bar_bins,
+            y_array=freq,
             x_plot=windowed_x_plot,
             smoothed=windowed_raw_avg_frequency,
         )
@@ -2167,13 +2169,19 @@ class JaneCell(object):
             row=1, col=1, showticklabels=False, showgrid=False
         )
 
-        x = x_array[:x_stop]
-        y = y_array[:x_stop]
+        # x = x_array[:x_stop]
+        # y = y_array[:x_stop]
 
         # annotated_freq = go.Figure()
 
+        # this plots the event histogram for the entire sweep
         annotated_freq.add_trace(
-            go.Bar(x=x, y=y, marker=dict(color="#D39DDD"), name="PSTH",),
+            go.Bar(
+                x=x_array,
+                y=y_array,
+                marker=dict(color="#D39DDD"),
+                name="PSTH",
+            ),
             row=2,
             col=1,
         )
