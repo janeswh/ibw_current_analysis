@@ -1572,7 +1572,7 @@ class JaneCell(object):
         #     smoothed=avg_frequency,
         # )
 
-        # self.freq = pd.DataFrame(freq, index=bar_bins)
+        self.freq = pd.DataFrame(freq, index=bar_bins)
 
     def plot_event_psth(self, event_times, x, y):
         """
@@ -2254,9 +2254,7 @@ class JaneCell(object):
         )
 
         self.annotated_freq_fig = annotated_freq
-        annotated_freq.show()
-
-        pdb.set_trace()
+        # annotated_freq.show()
 
     # def plot_counts_psth(self):
     #     """
@@ -2324,23 +2322,23 @@ class JaneCell(object):
             title_x=0.5,
         )
 
-        # plots individual sweeps
-        for sweep in range(self.num_sweeps):
-            indiv_toplot = self.traces_filtered_sub[sweep][
-                (self.tp_start + self.tp_length) : :
-            ]
+        # # plots individual sweeps
+        # for sweep in range(self.num_sweeps):
+        #     indiv_toplot = self.traces_filtered_sub[sweep][
+        #         (self.tp_start + self.tp_length) : :
+        #     ]
 
-            mean_trace_fig.add_trace(
-                go.Scatter(
-                    x=indiv_toplot.index,
-                    y=indiv_toplot,
-                    mode="lines",
-                    marker=dict(color="gray", line_width=1),
-                    name="sweep {}".format(sweep),
-                    legendgroup="indiv_sweeps",
-                    visible="legendonly",
-                )
-            )
+        #     mean_trace_fig.add_trace(
+        #         go.Scatter(
+        #             x=indiv_toplot.index,
+        #             y=indiv_toplot,
+        #             mode="lines",
+        #             marker=dict(color="gray", line_width=1),
+        #             name="sweep {}".format(sweep),
+        #             legendgroup="indiv_sweeps",
+        #             visible="legendonly",
+        #         )
+        #     )
 
         # plots averaged trace second so it shows up on top
         window_toplot = self.sub_mean_trace[
@@ -2351,8 +2349,8 @@ class JaneCell(object):
                 x=window_toplot.index,
                 y=window_toplot.squeeze(),
                 mode="lines",
-                name="Averaged sweep",
-                legendgroup="avg_sweep",
+                # name="Averaged sweep",
+                # legendgroup="avg_sweep",
                 # visible="legendonly",
             )
         )
