@@ -682,9 +682,9 @@ class JaneCell(object):
 
         adjusted_peak = peak - root
 
-        tau, decay_fit = self.calculate_decay(
-            peak, pos, event_window, data_type="event", polarity="-"
-        )
+        # tau, decay_fit = self.calculate_decay(
+        #     peak, pos, event_window, data_type="event", polarity="-"
+        # )
 
         # self.calculate_charge(
         #     peak_time, peak, root_time, root, event_window, tau
@@ -698,7 +698,8 @@ class JaneCell(object):
             root_time=root_time,
             data_type="event",
         )
-
+        tau = None
+        decay_fit = None
         return (
             tau,
             decay_fit,
@@ -964,12 +965,12 @@ class JaneCell(object):
 
             # don't add decay fits to dict if tau > 100
             # if tau < 200:
-            decay_fits_dict[sweep][true_index] = decay_fit
+            # decay_fits_dict[sweep][true_index] = decay_fit
 
             sweep_number_list.append(sweep)
             new_amps.append(event_peak)
             new_pos_list.append(new_pos)
-            tau_list.append(tau)
+            # tau_list.append(tau)
             risetime_list.append(rise_time)
             risestart_list.append(rise_start)
             riseend_list.append(rise_end)
@@ -997,7 +998,7 @@ class JaneCell(object):
                 "Sweep": sweep_number_list,
                 "New amplitude (pA)": new_amps,
                 "New pos": new_pos_list,
-                "Tau (ms)": tau_list,
+                # "Tau (ms)": tau_list,
                 "Rise time (ms)": risetime_list,
                 "Rise start (ms)": risestart_list,
                 "Rise end (ms)": riseend_list,
@@ -1005,6 +1006,55 @@ class JaneCell(object):
                 "Root time (ms)": roots_list,
             }
         )
+
+        # calculate decay fits afterwards so it has access to roots time
+        # of the following event
+        for index, row in event_stats.iterrows():
+
+            sweep = int(row["Sweep"])
+            pos = row["New pos"]
+            amplitude = row["New amplitude (pA)"]
+            sweep_baseline = baseline[sweep]
+
+            if (
+                index
+                != event_stats.loc[event_stats["Sweep"] == sweep].index[-1]
+            ):
+                next_root = event_stats.loc[event_stats["Sweep"] == sweep][
+                    "Root time (ms)"
+                ][index + 1]
+            # else:
+            #     print("last event stop")
+            #     pdb.set_trace()
+            #     next_root = np.nan
+
+            before_window = 5
+            after_window = 20
+            subtracted_data = self.traces_filtered[sweep] - sweep_baseline
+
+            start = int(pos - before_window)
+            end = int(pos + after_window)
+
+            # using .loc here because indices are in ms
+            event_window = subtracted_data.loc[start:end]
+
+            # print(f"running decay fits for sweep {sweep} pos {pos}")
+
+            tau, decay_fit = self.calculate_decay(
+                amplitude,
+                pos,
+                event_window,
+                data_type="event",
+                polarity="-",
+                next_root=next_root,
+            )
+            tau_list.append(tau)
+
+            decay_fits_dict[sweep][index] = decay_fit
+
+        tau_list = pd.DataFrame({"Tau (ms)": tau_list})
+
+        event_stats = pd.concat([event_stats, tau_list], axis=1)
 
         # drop events with tau greater than 100
         # to_drop = event_stats.loc[event_stats["Tau (ms)"] > 100].index
@@ -1149,18 +1199,20 @@ class JaneCell(object):
 
             # plots decay fits
             # only plot fits for events that are also in sweep_events
+            # skips event with nan value for tau/no decay fit
             for event in sweep_events.index:
-                annotated_events_fig.add_trace(
-                    go.Scatter(
-                        x=self.decay_fits_dict[sweep][event]["x"],
-                        y=self.decay_fits_dict[sweep][event]["y"],
-                        line=dict(color="#E89F24"),
-                        mode="lines",
-                        name="sweep {} decay fits".format(sweep),
-                        legendgroup=sweep,
-                        visible="legendonly",
+                if len(self.decay_fits_dict[sweep][event]) != 0:
+                    annotated_events_fig.add_trace(
+                        go.Scatter(
+                            x=self.decay_fits_dict[sweep][event]["x"],
+                            y=self.decay_fits_dict[sweep][event]["y"],
+                            line=dict(color="#E89F24"),
+                            mode="lines",
+                            name="sweep {} decay fits".format(sweep),
+                            legendgroup=sweep,
+                            visible="legendonly",
+                        )
                     )
-                )
 
         # below is code from stack overflow to hide duplicate legends
         names = set()
@@ -1182,7 +1234,7 @@ class JaneCell(object):
             line_width=0,
         )
 
-        annotated_events_fig.show()
+        # annotated_events_fig.show()
 
         self.annotated_events_fig = annotated_events_fig
 
@@ -1711,7 +1763,7 @@ class JaneCell(object):
 
         return rise_time, rise_start, rise_end
 
-    def calculate_decay(
+    def define_decay_parameters(
         self,
         max_freq,
         freq_peak_time,
@@ -1719,12 +1771,27 @@ class JaneCell(object):
         data_type,
         polarity,
         freq_baseline=None,
+        next_root=None,
+        retry=False,
     ):
-        # decay window is peak to 90% decay
-        decay_array = response_window.loc[freq_peak_time:]
+        """
+        Defines window passed into decay fit
+        Tries to find decay end point using:
+        1. 10% of peak, within 20 ms after peak time
+        2. If value doesn't exist within 20 ms, use peak time + 3 ms
+        3. If tau from above end time is too large, use next root as end time
+        4. If next root is more than 20 ms after peak time, give up
+        """
+        # decay window is peak to 90% decay, overall window is peak to 20 ms
+        # after peak for events
+        if data_type == "event":
+            decay_array = response_window.loc[
+                freq_peak_time : freq_peak_time + 20
+            ]
 
         # baseline subtract if it's frequency
         if data_type == "frequency":
+            decay_array = response_window.loc[freq_peak_time:]
             decay_array = decay_array - freq_baseline
             max_freq = decay_array.iloc[0]
 
@@ -1745,31 +1812,34 @@ class JaneCell(object):
         else:
             decay_end_time = decay_array.index[decay_end_idx]
 
-        # if data_type == "event":
-        #     if decay_end_idx == 0:
-        #         decay_end_time = freq_peak_time + 3
-        #     else:
-        #         decay_end_time = decay_array.index[decay_end_idx]
-        # elif data_type == "frequency":
-        #     decay_end_time = decay_array.index[decay_end_idx]
+        # if tau is huge, have the decay end point be the next root pos
+        if data_type == "event" and retry is True:
+            decay_end_time = next_root
 
-        decay_window = response_window.loc[freq_peak_time:decay_end_time]
+            # if revised decay end time occurs 20 ms after event, give up on this
+            # event and return empty decay window
+            if decay_end_time > freq_peak_time + 20:
+                decay_window = pd.Series([])
+            else:
+                decay_window = response_window.loc[
+                    freq_peak_time:decay_end_time
+                ]
+
+        else:
+            decay_window = response_window.loc[freq_peak_time:decay_end_time]
 
         if polarity == "-":
             decay_window = decay_window * -1
             max_freq = max_freq * -1
 
-        x = decay_window.index.to_numpy()
-        y = decay_window.to_numpy()
-        norm_y = decay_window.min()
-        y_plot = decay_window
+        return decay_window
+
+    def do_decay_fit(self, x_2, y_2):
+        """
+        Normalize x and y data and do decay fit
+        """
+
         starting_params = [1, 1, 1]
-
-        # normalize
-        norm_x = decay_window.index.min()
-
-        x_2 = x - norm_x + 1  # why +1 here? so values don't start at 0
-        y_2 = y / norm_y
 
         # fits
         try:
@@ -1785,65 +1855,101 @@ class JaneCell(object):
         except RuntimeError:
             popt = (np.nan, np.nan, np.nan)
 
-        except ValueError:
+        except ValueError as exc:
             pdb.set_trace()
+            print(exc)
 
-        # if initial fit doesn't work because event is too close to the next
-        # event, adjust window
+        return popt
 
-        # shorten decay_array to 5 ms, check whether this is sketch
+    def normalize_arrays(self, decay_window, x, y):
+        """
+        Normalizes x and y arrays for fitting decay exponential
+        """
 
-        # if (np.inf in pcov) and data_type == "event":
-        #     new_end = freq_peak_time + 5
-        #     decay_window = response_window.loc[freq_peak_time:new_end]
+        norm_y = decay_window.min()
+        y_plot = decay_window
 
-        #     if polarity == "-":
-        #         decay_window = decay_window * -1
+        # normalize
+        norm_x = decay_window.index.min()
 
-        #     x = decay_window.index.to_numpy()
-        #     y = decay_window.to_numpy()
-        #     norm_y = decay_window.min()
-        #     y_plot = decay_window
-        #     starting_params = [1, 1, 1]
+        x_2 = x - norm_x + 1  # why +1 here? so values don't start at 0
+        y_2 = y / norm_y
 
-        #     # normalize
-        #     norm_x = decay_window.index.min()
+        return x_2, y_2, y_plot, norm_y
 
-        #     x_2 = x - norm_x + 1  # why +1 here? so values don't start at 0
-        #     y_2 = y / norm_y
+    def calculate_decay(
+        self,
+        max_freq,
+        freq_peak_time,
+        response_window,
+        data_type,
+        polarity,
+        freq_baseline=None,
+        next_root=None,
+    ):
 
-        #     # fits
-        #     try:
-        #         popt, pcov = scipy.optimize.curve_fit(
-        #             f=decay_func,
-        #             # xdata=decay_window.index.to_numpy(),
-        #             xdata=x_2,
-        #             ydata=y_2,
-        #             p0=starting_params,
-        #             bounds=((-np.inf, 0, -np.inf), (np.inf, np.inf, np.inf)),
-        #         )
+        decay_window = self.define_decay_parameters(
+            max_freq,
+            freq_peak_time,
+            response_window,
+            data_type,
+            polarity,
+            freq_baseline=freq_baseline,
+        )
 
-        #     except RuntimeError:
-        #         popt = (np.nan, np.nan, np.nan)
+        x = decay_window.index.to_numpy()
+        y = decay_window.to_numpy()
 
-        # if still can't fit, stop this function
-
+        x_2, y_2, y_plot, norm_y = self.normalize_arrays(decay_window, x, y)
+        popt = self.do_decay_fit(x_2, y_2)
         a, tau, offset = popt
 
-        # if tau is bigger than 100 ms, don't use this event
-
-        decay_fit = decay_func(x_2, *popt)
-
-        decay_fig = go.Figure()
-        decay_fig.add_trace(go.Scatter(x=x, y=y_plot, name="data",))
-        decay_fig.add_trace(
-            go.Scatter(x=x, y=norm_y * decay_fit, name="fit on 90%",)
-        )
-        decay_fig.add_trace(
-            go.Scatter(
-                x=response_window.index, y=response_window * -1, name="event"
+        if tau > 100 and data_type == "event":
+            # print(f"retrying fits for pos: {freq_peak_time}")
+            decay_window = self.define_decay_parameters(
+                max_freq,
+                freq_peak_time,
+                response_window,
+                data_type,
+                polarity,
+                next_root=next_root,
+                retry=True,
             )
-        )
+
+            x = decay_window.index.to_numpy()
+            y = decay_window.to_numpy()
+
+            x_2, y_2, y_plot, norm_y = self.normalize_arrays(
+                decay_window, x, y
+            )
+            # this is what happens when the next root is outside of response
+            # window and then everything sucks and I give up on this tau
+            if len(y) == 0:
+                tau = np.nan
+                decay_fit = np.nan
+            else:
+                popt = self.do_decay_fit(x_2, y_2)
+                a, tau, offset = popt
+
+        # if tau is STILL huge, make it nan
+        if tau > 100:
+            tau = np.nan
+
+        if len(y) != 0 and tau != np.nan:
+            decay_fit = decay_func(x_2, *popt)
+
+            decay_fig = go.Figure()
+            decay_fig.add_trace(go.Scatter(x=x, y=y_plot, name="data",))
+            decay_fig.add_trace(
+                go.Scatter(x=x, y=norm_y * decay_fit, name="fit on 90%",)
+            )
+            decay_fig.add_trace(
+                go.Scatter(
+                    x=response_window.index,
+                    y=response_window * -1,
+                    name="event",
+                )
+            )
 
         # un-normalize y-values before returning
 
@@ -1853,9 +1959,6 @@ class JaneCell(object):
             decay_fit_trace = decay_fit * norm_y
 
         decay_fit = pd.DataFrame({"x": x, "y": decay_fit_trace})
-
-        if data_type == "frequency":
-            pdb.set_trace()
 
         return tau, decay_fit
 
@@ -1924,8 +2027,6 @@ class JaneCell(object):
             else:
                 rise_time, rise_start, rise_end, tau, decay_fit = (None,) * 5
                 self.response = False
-
-        pdb.set_trace()
 
         avg_freq_stats = pd.DataFrame(
             {
