@@ -216,6 +216,7 @@ class JaneCell(object):
         self.cell_type = None
         self.condition = None
         self.response = None
+        self.threshold = None
 
         # set acquisition parameters
         if self.dataset == "p2":
@@ -276,6 +277,8 @@ class JaneCell(object):
             self.condition = "light"
         elif "spontaneous" in self.file_name:
             self.condition = "spontaneous"
+
+        self.threshold = cell_sweep_info["Thresholding"].values[0]
 
         return cell_sweep_info
 
@@ -2283,20 +2286,34 @@ class JaneCell(object):
 
     def get_mod_events(self):
 
-        if self.condition == "light":
-            mod_file = f"{self.drop_ibw}.mod.w4.e1.h13.minidet.mat"
-
-        elif self.condition == "spontaneous":
-            mod_file = f"{self.drop_ibw}.mod.w4.e1.h13.minidet.mat"
-
+        mod_file = f"{self.drop_ibw}.mod.w4.e1.h13.minidet.mat"
         mod_events = io.loadmat(
-            f"/home/jhuang/Documents/phd_projects/injected_GC_data/mod_events/{self.dataset}/{mod_file}"
+            f"/home/jhuang/Documents/phd_projects/injected_GC_data/mod_events/"
+            f"{self.dataset}/{mod_file}"
         )
 
         pos_list = mod_events["pos"]
-        flat_pos = pd.DataFrame(
-            [pos for sublist in pos_list for pos in sublist]
-        )
+        flat_pos = [pos for sublist in pos_list for pos in sublist]
+
+        # get suprathreshold events for MOD files with threshold values
+        if self.threshold == "Yes":
+            suprathreshold_file = f"{self.drop_ibw}_suprathreshold.csv"
+            suprathreshold_csv = pd.read_csv(
+                f"/home/jhuang/Documents/phd_projects/scored_GC_data/original/"
+                f"{self.dataset}/{self.cell_name}/{suprathreshold_file}"
+            )
+            suprathreshold_events_pos = suprathreshold_csv.loc[
+                suprathreshold_csv["type"] == 1
+            ]["position"].values.tolist()
+
+            # add suprathreshold events into main pos list
+            for suprathreshold_pos in suprathreshold_events_pos:
+                flat_pos.append(suprathreshold_pos)
+
+            # sort so all events are in order
+            flat_pos.sort()
+
+        flat_pos = pd.DataFrame(flat_pos)
 
         raw_intervals = np.arange(
             0,
@@ -2325,9 +2342,6 @@ class JaneCell(object):
         mod_events_df["Event pos (ms)"] = (
             mod_events_df["Subtracted pos"] / self.fs
         )
-
-        # amplitudes from MOD
-        mod_events_df["MOD amplitude (pA)"] = mod_events["amplitude"]
 
         # drop evnts occuring before tp ends
         # self.mod_events_df = mod_events_df.loc[
