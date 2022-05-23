@@ -19,7 +19,8 @@ import plotly.io as pio
 
 pio.renderers.default = "browser"
 
-# from acq_parameters import *
+import p2_acq_parameters
+import p14_acq_parameters
 import pdb
 from single_test import JaneCell
 from file_settings import FileSettings
@@ -35,7 +36,7 @@ def get_both_conditions(dataset, csvfile, cell_name):
     """
     file_names = [
         f"{cell_name}_light100.ibw",
-        f"{cell_name}_spontaneous_depol.ibw",
+        f"{cell_name}_spontaneous.ibw",
     ]
 
     light_cell = run_single(dataset, csvfile, file_names[0])
@@ -73,8 +74,10 @@ def get_both_conditions(dataset, csvfile, cell_name):
     output_html_plots(stats_fig, freqs_fig, dataset, cell_type, cell_name)
 
     response = check_response(dataset, cell_type, cell_name)
+    if response is True:
+        print("cell has response")
 
-    # pdb.set_trace()
+    pdb.set_trace()
 
 
 def check_response(dataset, cell_type, cell_name):
@@ -205,55 +208,135 @@ def plot_event_stats(dataset, cell_name, cell_type):
     dfs = [light_stats_df, spon_stats_df]
     conditions = ["Light", "Spontaneous"]
     colors = ["#B958F2", "#8A8C89"]
+    median_colors = ["#D49BF5", "#B9B9B9"]
 
-    event_stats_fig = make_subplots(rows=1, cols=3, x_title="Condition",)
+    if dataset == "p2":
+        stim_time = p2_acq_parameters.STIM_TIME
+        post_time = p2_acq_parameters.FREQ_POST_STIM  # time to stop looking
 
-    for count, condition_stats in enumerate(dfs):
+    if dataset == "p14":
+        stim_time = p14_acq_parameters.STIM_TIME
+        post_time = p14_acq_parameters.FREQ_POST_STIM  # time to stop looking
 
-        # plots amplitude
-        event_stats_fig.add_trace(
-            go.Box(
-                y=condition_stats["New amplitude (pA)"],
-                line=dict(color=colors[count]),
-                name=conditions[count],
-                legendgroup=conditions[count],
-            ),
-            row=1,
-            col=1,
-        )
+    event_stats_fig = make_subplots(
+        rows=3,
+        cols=2,
+        subplot_titles=(
+            "Response Window Events",
+            "Outside Response Window Events",
+        ),
+    )
 
-        # reverse y-axis for amplitude
-        event_stats_fig.update_yaxes(
-            title="Amplitude (pA)", autorange="reversed", row=1, col=1
-        )
+    for count, df in enumerate(dfs):
 
-        # plots rise time
-        event_stats_fig.add_trace(
-            go.Box(
-                y=condition_stats["Rise time (ms)"],
-                line=dict(color=colors[count]),
-                name=conditions[count],
-                legendgroup=conditions[count],
-            ),
-            row=1,
-            col=2,
-        )
+        win_df_list = []
 
-        event_stats_fig.update_yaxes(title="Rise time (ms)", row=1, col=2)
+        response_win_stats = df[
+            df["New pos"].between(stim_time, post_time, inclusive="both")
+        ]
+        outside_win_stats = df[
+            ~df["New pos"].between(stim_time, post_time, inclusive="both")
+        ]
 
-        # plots tau
-        event_stats_fig.add_trace(
-            go.Box(
-                y=condition_stats["Tau (ms)"],
-                line=dict(color=colors[count]),
-                name=conditions[count],
-                legendgroup=conditions[count],
-            ),
-            row=1,
-            col=3,
-        )
+        win_df_list.extend([response_win_stats, outside_win_stats])
 
-        event_stats_fig.update_yaxes(title="Tau (ms)", row=1, col=3)
+        for win_count, condition_stats in enumerate(win_df_list):
+
+            # event_stats_fig.update_xaxes(
+            #     title_text="Response Window Events"
+            #     if win_count == 0
+            #     else "Outside Response Window Events",
+            #     row=1,
+            #     col=win_count + 1,
+            # )
+
+            # plots amplitude as histogram
+            event_stats_fig.add_trace(
+                go.Histogram(
+                    x=condition_stats["New amplitude (pA)"],
+                    marker_color=colors[count],
+                    name=conditions[count],
+                    legendgroup=conditions[count],
+                ),
+                row=1,
+                col=win_count + 1,
+            )
+
+            amp_median = condition_stats["New amplitude (pA)"].median()
+
+            event_stats_fig.add_vline(
+                row=1,
+                col=win_count + 1,
+                x=amp_median,
+                line_color=median_colors[count],
+                annotation_text=f"median = {round(amp_median, 2)} pA",
+                annotation_font=dict(color=median_colors[count]),
+                annotation_yshift=-10 if count == 1 else 0,
+                annotation_position="top right",
+            )
+
+            event_stats_fig.update_xaxes(
+                title="Amplitude (pA)",
+                autorange="reversed",
+                row=1,
+                col=win_count + 1,
+            )
+
+            # plots rise time as histogram
+            event_stats_fig.add_trace(
+                go.Histogram(
+                    x=condition_stats["Rise time (ms)"],
+                    marker_color=colors[count],
+                    name=conditions[count],
+                    legendgroup=conditions[count],
+                ),
+                row=2,
+                col=win_count + 1,
+            )
+
+            rise_median = condition_stats["Rise time (ms)"].median()
+            event_stats_fig.add_vline(
+                row=2,
+                col=win_count + 1,
+                x=rise_median,
+                line_color=median_colors[count],
+                annotation_text=f"median = {round(rise_median, 2)} ms",
+                annotation_font=dict(color=median_colors[count]),
+                annotation_yshift=-10 if count == 1 else 0,
+                annotation_position="top right",
+            )
+
+            event_stats_fig.update_xaxes(
+                title="Rise time (ms)", row=2, col=win_count + 1
+            )
+
+            # plots tau as histogram
+            event_stats_fig.add_trace(
+                go.Histogram(
+                    x=condition_stats["Tau (ms)"],
+                    marker_color=colors[count],
+                    name=conditions[count],
+                    legendgroup=conditions[count],
+                ),
+                row=3,
+                col=win_count + 1,
+            )
+
+            tau_median = condition_stats["Tau (ms)"].median()
+            event_stats_fig.add_vline(
+                row=3,
+                col=win_count + 1,
+                x=tau_median,
+                line_color=median_colors[count],
+                annotation_text=f"median = {round(tau_median, 2)} ms",
+                annotation_font=dict(color=median_colors[count]),
+                annotation_yshift=-10 if count == 1 else 0,
+                annotation_position="top right",
+            )
+
+            event_stats_fig.update_xaxes(
+                title="Tau (ms)", row=3, col=win_count + 1
+            )
 
     # below is code from stack overflow to hide duplicate legends
     names = set()
@@ -414,7 +497,7 @@ def run_single(dataset, csvfile, file_name):
 
     # pdb.set_trace()
 
-    # cell.plot_mean_trace()
+    cell.plot_mean_trace()
     # cell.save_mean_trace_plot()   # don't save, each plot is 130 mb
 
     # # cell.make_cell_analysis_dict()
@@ -451,11 +534,11 @@ if __name__ == "__main__":
         dataset,
         csvfile_name,
     )
-    cell_name = "JH200313_c3"
+    cell_name = "JH200311_c1"
 
     get_both_conditions(dataset, csvfile, cell_name)
-    file_name = "JH200313_c3_light100.ibw"
+    # file_name = "JH200303_c7_light100.ibw"
 
     # run_single(dataset, csvfile, file_name)
 
-    print("Analysis for {} done".format(file_name))
+    print("Analysis for {} done".format(cell_name))
