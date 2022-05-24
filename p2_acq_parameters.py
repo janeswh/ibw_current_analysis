@@ -1,8 +1,10 @@
 """ ################### SET/CHECK THESE PARAMETERS BEFORE RUNNING ################## """
 LOWPASS_FREQ = 500  # Hz
 STIM_TIME = 520  # ms
-POST_STIM = 250  # ms, amount of time after stimulus to look for max value
-FREQ_POST_STIM = 2000 # ms, amount of time after stim to look for max freq
+POST_STIM = (
+    250  # ms, amount of time after stimulus to look for mean trace peak
+)
+FREQ_POST_STIM = 2000  # ms, amount of time after stim to look for max freq
 TP_START = 5  # ms, time of start of test pulse
 TP_LENGTH = 20
 VM_JUMP = 10  # mV, test pulse voltage jump
