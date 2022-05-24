@@ -224,7 +224,7 @@ class JaneCell(object):
             self.lowpass_freq = p2_acq_parameters.LOWPASS_FREQ
             self.stim_time = p2_acq_parameters.STIM_TIME
             self.post_stim = p2_acq_parameters.POST_STIM
-            self.freq_post_stim = p2_acq_parameters.FREQ_POST_STIM
+            self.response_window_end = p2_acq_parameters.RESPONSE_WINDOW_END
             self.tp_start = p2_acq_parameters.TP_START
             self.tp_length = p2_acq_parameters.TP_LENGTH
             self.vm_jump = p2_acq_parameters.VM_JUMP
@@ -239,7 +239,7 @@ class JaneCell(object):
             self.lowpass_freq = p14_acq_parameters.LOWPASS_FREQ
             self.stim_time = p14_acq_parameters.STIM_TIME
             self.post_stim = p14_acq_parameters.POST_STIM
-            self.freq_post_stim = p14_acq_parameters.FREQ_POST_STIM
+            self.response_window_end = p14_acq_parameters.RESPONSE_WINDOW_END
             self.tp_start = p14_acq_parameters.TP_START
             self.tp_length = p14_acq_parameters.TP_LENGTH
             self.vm_jump = p14_acq_parameters.VM_JUMP
@@ -1922,14 +1922,14 @@ class JaneCell(object):
         # window to look for response starts after light stim
         if self.dataset == "p2":
             response_window_start = int(self.stim_time / bin_width)
-            response_window_end = int(self.freq_post_stim / bin_width)
+            response_window_end = int(self.response_window_end / bin_width)
 
             response_window = self.avg_frequency_df.iloc[
                 response_window_start:response_window_end
             ]
         elif self.dataset == "p14":
             response_window_start = self.stim_time
-            response_window_end = self.freq_post_stim
+            response_window_end = self.response_window_end
 
             response_window = self.avg_frequency_df.loc[
                 response_window_start:response_window_end
