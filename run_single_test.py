@@ -86,8 +86,6 @@ def get_both_conditions(dataset, csvfile, cell_name):
     if response is True:
         print("cell has response")
 
-    pdb.set_trace()
-
     save_mean_trace_stats(
         dataset,
         cell_type,

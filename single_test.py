@@ -2274,9 +2274,7 @@ class JaneCell(object):
         )
 
         self.annotated_freq_fig = annotated_freq
-        annotated_freq.show()
-
-        pdb.set_trace()
+        # annotated_freq.show()
 
     # def plot_counts_psth(self):
     #     """
