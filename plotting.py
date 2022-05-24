@@ -1352,6 +1352,7 @@ def plot_response_win_comparison(
     condition_traces,
     win_indices,
     baselines,
+    p_vals,
 ):
     """
     Plots the response windows used for stats comparison to determine whether cell
@@ -1362,12 +1363,36 @@ def plot_response_win_comparison(
         rows=3,
         cols=2,
         subplot_titles=(
-            "Entire response window",
-            "500-1000 ms window",
-            "Entire response window - avg",
-            "500-1000 ms window - avg",
-            "Entire response window - baseline",
-            "500-1000 ms window - baseline",
+            (
+                "Entire response window <br> t-test pval = "
+                f"{p_vals['whole window']['ttest pval']['no sub']}, ks-test  "
+                f"pval = {p_vals['whole window']['ks pval']['no sub']}"
+            ),
+            (
+                "500-1000 ms window <br> t-test pval = "
+                f"{p_vals['500-1000 ms']['ttest pval']['no sub']}, ks-test "
+                f"pval = {p_vals['500-1000 ms']['ks pval']['no sub']}"
+            ),
+            (
+                "Entire response window sub avg <br> t-test pval = "
+                f"{p_vals['whole window']['ttest pval']['sub avg']}, ks-test "
+                f"pval = {p_vals['whole window']['ks pval']['sub avg']}"
+            ),
+            (
+                "500-1000 ms window sub avg <br> t-test pval = "
+                f"{p_vals['500-1000 ms']['ttest pval']['sub avg']}, ks-test "
+                f"pval = {p_vals['500-1000 ms']['ks pval']['sub avg']}"
+            ),
+            (
+                "Entire response window sub baseline <br> t-test pval = "
+                f"{p_vals['whole window']['ttest pval']['sub baseline']}, ks-test "
+                f"pval = {p_vals['whole window']['ks pval']['sub baseline']}"
+            ),
+            (
+                "500-1000 ms window sub baseline <br> t-test pval = "
+                f"{p_vals['500-1000 ms']['ttest pval']['sub baseline']}, ks-test "
+                f"pval = {p_vals['500-1000 ms']['ks pval']['sub baseline']}"
+            ),
         ),
         x_title="Time (ms)",
         y_title="Avg Frequency (Hz)",
@@ -1422,7 +1447,7 @@ def plot_response_win_comparison(
                 col=win_count + 1,
             )
 
-        # adds line for light stim
+    # adds line for light stim
     stats_fig.add_vrect(
         type="rect",
         x0=stim_time,
@@ -1441,3 +1466,5 @@ def plot_response_win_comparison(
         else names.add(trace.name)
     )
     stats_fig.show()
+
+    pdb.set_trace()

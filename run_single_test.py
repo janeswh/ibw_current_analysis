@@ -14,6 +14,7 @@ from plotly.subplots import make_subplots
 # from scipy.stats import sem
 # from scipy import stats
 import scipy
+import collections
 
 import plotly.io as pio
 
@@ -53,39 +54,39 @@ def get_both_conditions(dataset, csvfile, cell_name):
 
     # also save avg frequency stats
     # save event stats
-    save_freqs(
-        dataset,
-        cell_type,
-        cell_name,
-        light_cell.freq,
-        light_cell.avg_frequency_df,
-        spon_cell.freq,
-        spon_cell.avg_frequency_df,
-    )
+    # save_freqs(
+    #     dataset,
+    #     cell_type,
+    #     cell_name,
+    #     light_cell.freq,
+    #     light_cell.avg_frequency_df,
+    #     spon_cell.freq,
+    #     spon_cell.avg_frequency_df,
+    # )
 
-    save_avg_freq_stats(
-        dataset,
-        cell_type,
-        cell_name,
-        light_cell.avg_frequency_stats,
-        spon_cell.avg_frequency_stats,
-    )
+    # save_avg_freq_stats(
+    #     dataset,
+    #     cell_type,
+    #     cell_name,
+    #     light_cell.avg_frequency_stats,
+    #     spon_cell.avg_frequency_stats,
+    # )
 
-    save_event_stats(
-        dataset,
-        cell_type,
-        cell_name,
-        light_cell.event_stats,
-        spon_cell.event_stats,
-    )
+    # save_event_stats(
+    #     dataset,
+    #     cell_type,
+    #     cell_name,
+    #     light_cell.event_stats,
+    #     spon_cell.event_stats,
+    # )
 
-    save_mean_trace_stats(
-        dataset,
-        cell_type,
-        cell_name,
-        light_cell.mean_trace_stats,
-        spon_cell.mean_trace_stats,
-    )
+    # save_mean_trace_stats(
+    #     dataset,
+    #     cell_type,
+    #     cell_name,
+    #     light_cell.mean_trace_stats,
+    #     spon_cell.mean_trace_stats,
+    # )
 
     amplitude_hist, rise_time_hist, tau_hist = plot_event_stats(
         dataset, cell_name, cell_type
@@ -274,6 +275,30 @@ def run_KS_test(dataset, cell_type, cell_name):
         slice(stim_time, 1000),
     ]
 
+    nested_dict = lambda: defaultdict(nested_dict)
+    nest_pval_dict = nested_dict()
+
+    subtracts = ["no sub", "sub avg", "sub baseline"]
+    for window in win_indices:
+        if window == slice(light_freq.index[0], light_freq.index[-1]):
+            window_label = "whole window"
+        else:
+            window_label = "500-1000 ms"
+        for subtract_type in subtracts:
+            ttest_stats, ttest_pval, ks_stats, ks_pval = run_stats(
+                condition_traces, window, baselines, subtract=subtract_type
+            )
+
+            nest_pval_dict[window_label]["ttest stats"][
+                subtract_type
+            ] = ttest_stats
+
+            nest_pval_dict[window_label]["ttest pval"][
+                subtract_type
+            ] = ttest_pval
+            nest_pval_dict[window_label]["ks stats"][subtract_type] = ks_stats
+            nest_pval_dict[window_label]["ks pval"][subtract_type] = ks_pval
+
     plot_response_win_comparison(
         cell_type,
         cell_name,
@@ -283,13 +308,54 @@ def run_KS_test(dataset, cell_type, cell_name):
         condition_traces,
         win_indices,
         baselines,
+        nest_pval_dict,
     )
 
-    # try t-tests
-    avg_sub_stats = pg.ttest(
-        light_freq[win_indices[0]] - light_freq[win_indices[0]].mean(),
-        spon_freq[win_indices[0]] - spon_freq[win_indices[0]].mean(),
-    )
+
+def run_stats(condition_traces, window, baselines, subtract):
+    """
+    Runs t-test and KS test on two arrays, returning p-values. Also performs
+    average or baseline subtractions prior to running test, as needed
+    """
+    x = condition_traces[0][window]
+    y = condition_traces[1][window]
+
+    if subtract == "sub avg":
+        x = x - x.mean()
+        y = y - y.mean()
+
+    elif subtract == "sub baseline":
+        x = x - baselines[0]
+        y = y - baselines[1]
+
+    ttest_stats = pg.ttest(x, y)
+    ttest_pval = np.round(ttest_stats["p-val"][0], 5)
+    # ttest_pval = f"{ttest_pval:.2e}"
+
+    ks_stats, ks_pval = scipy.stats.ks_2samp(x, y)
+    # ks_pval = f"{ks_pval:.2e}"
+    ks_pval = np.round(ks_pval, 5)
+
+    return ttest_stats, ttest_pval, ks_stats, ks_pval
+
+    for win_count, win in enumerate(win_indices):
+        # avg subtract
+
+        ks_stats, ks_pval = scipy.stats.ks_2samp(
+            light_freq[win] - light_freq[win].mean(),
+            spon_freq[win] - spon_freq[win].mean(),
+        )
+
+        # baseline subtract
+        ttest_stats = pg.ttest(
+            light_freq[win] - light_baseline, spon_freq[win] - spon_baseline,
+        )
+        ttest_pval = round(ttest_stats["p-val"][0], 2)
+
+        ks_stats, ks_pval = scipy.stats.ks_2samp(
+            light_freq[win] - light_freq[win].mean(),
+            spon_freq[win] - spon_freq[win].mean(),
+        )
 
     short_avg_sub_stats = pg.ttest(
         light_freq[win_indices[1]] - light_freq[win_indices[1]].mean(),
@@ -312,24 +378,24 @@ def run_KS_test(dataset, cell_type, cell_name):
         spon_freq[win_indices[1]] - spon_baseline,
     )
 
-    print("stats for avg-subtracted whole window t-test:")
-    print(avg_sub_stats)
+    # print("stats for avg-subtracted whole window t-test:")
+    # print(avg_sub_stats)
 
-    print("stats for 500-1000ms avg-subtracted window t-test:")
-    print(short_avg_sub_stats)
+    # print("stats for 500-1000ms avg-subtracted window t-test:")
+    # print(short_avg_sub_stats)
 
-    print("stats for 500-1000ms baseline-subtracted window t-test:")
-    print(short_baseline_sub_stats)
+    # print("stats for 500-1000ms baseline-subtracted window t-test:")
+    # print(short_baseline_sub_stats)
 
-    print(
-        f"KS p-value on 500-1000ms avg-subtracted window: "
-        f"{short_avg_sub_p_value}"
-    )
+    # print(
+    #     f"KS p-value on 500-1000ms avg-subtracted window: "
+    #     f"{short_avg_sub_p_value}"
+    # )
 
-    print(
-        f"KS p-value on 500-1000ms baseline-subtracted window: "
-        f"{short_baseline_sub_p_value}"
-    )
+    # print(
+    #     f"KS p-value on 500-1000ms baseline-subtracted window: "
+    #     f"{short_baseline_sub_p_value}"
+    # )
 
     pdb.set_trace()
 
@@ -610,8 +676,8 @@ def run_single(dataset, csvfile, file_name):
     cell.save_annotated_events_plot()
 
     # cell.plot_events()
-    cell.analyze_avg_frequency()
-    cell.save_annotated_freq()
+    # cell.analyze_avg_frequency()
+    # cell.save_annotated_freq()
 
     # only save annotated histogram plot if condition == light and response
     # is true
@@ -660,7 +726,7 @@ if __name__ == "__main__":
         dataset,
         csvfile_name,
     )
-    cell_name = "JH200303_c3"
+    cell_name = "JH200303_c1"
     # cell_name = "JH190905_c7"
 
     get_both_conditions(dataset, csvfile, cell_name)
