@@ -1342,3 +1342,102 @@ def add_median_vline(hist, annotation_color, data, win_count, count, unit):
         annotation_position="top right",
     )
 
+
+def plot_response_win_comparison(
+    cell_type,
+    cell_name,
+    stim_time,
+    colors,
+    conditions,
+    condition_traces,
+    win_indices,
+    baselines,
+):
+    """
+    Plots the response windows used for stats comparison to determine whether cell
+    has a response or not.
+    """
+
+    stats_fig = make_subplots(
+        rows=3,
+        cols=2,
+        subplot_titles=(
+            "Entire response window",
+            "500-1000 ms window",
+            "Entire response window - avg",
+            "500-1000 ms window - avg",
+            "Entire response window - baseline",
+            "500-1000 ms window - baseline",
+        ),
+        x_title="Time (ms)",
+        y_title="Avg Frequency (Hz)",
+        shared_xaxes=True,
+        shared_yaxes=True,
+    )
+
+    stats_fig.update_layout(
+        title_text=f"Response window comparisons for {cell_name}, {cell_type}",
+        title_x=0.5,
+    )
+
+    for condition_count, freq in enumerate(condition_traces):
+        for win_count, win in enumerate(win_indices):
+
+            # non-sub freq
+            stats_fig.add_trace(
+                go.Scatter(
+                    x=freq[win].index,
+                    y=freq[win],
+                    name=f"{conditions[condition_count]} freq",
+                    marker=dict(color=colors[condition_count]),
+                    legendgroup=conditions[condition_count],
+                ),
+                row=1,
+                col=win_count + 1,
+            )
+
+            # avg sub freq
+            stats_fig.add_trace(
+                go.Scatter(
+                    x=freq[win].index,
+                    y=freq[win] - freq[win].mean(),
+                    name=f"{conditions[condition_count]} freq",
+                    marker=dict(color=colors[condition_count]),
+                    legendgroup=conditions[condition_count],
+                ),
+                row=2,
+                col=win_count + 1,
+            )
+
+            # baseline sub freq
+            stats_fig.add_trace(
+                go.Scatter(
+                    x=freq[win].index,
+                    y=freq[win] - baselines[condition_count],
+                    name=f"{conditions[condition_count]} freq",
+                    marker=dict(color=colors[condition_count]),
+                    legendgroup=conditions[condition_count],
+                ),
+                row=3,
+                col=win_count + 1,
+            )
+
+        # adds line for light stim
+    stats_fig.add_vrect(
+        type="rect",
+        x0=stim_time,
+        x1=stim_time + 100,
+        fillcolor="#33F7FF",
+        opacity=0.5,
+        layer="below",
+        line_width=0,
+    )
+
+    # below is code from stack overflow to hide duplicate legends
+    names = set()
+    stats_fig.for_each_trace(
+        lambda trace: trace.update(showlegend=False)
+        if (trace.name in names)
+        else names.add(trace.name)
+    )
+    stats_fig.show()

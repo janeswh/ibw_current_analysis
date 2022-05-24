@@ -19,6 +19,8 @@ import plotly.io as pio
 
 pio.renderers.default = "browser"
 
+import pingouin as pg  # stats package
+
 import p2_acq_parameters
 import p14_acq_parameters
 import pdb
@@ -61,6 +63,14 @@ def get_both_conditions(dataset, csvfile, cell_name):
         spon_cell.avg_frequency_df,
     )
 
+    save_avg_freq_stats(
+        dataset,
+        cell_type,
+        cell_name,
+        light_cell.avg_frequency_stats,
+        spon_cell.avg_frequency_stats,
+    )
+
     save_event_stats(
         dataset,
         cell_type,
@@ -81,8 +91,7 @@ def get_both_conditions(dataset, csvfile, cell_name):
         dataset, cell_name, cell_type
     )
 
-    hist_list = []
-    hist_list.extend([amplitude_hist, rise_time_hist, tau_hist])
+    hist_list = [amplitude_hist, rise_time_hist, tau_hist]
 
     freqs_fig = plot_both_freqs(dataset, cell_name, cell_type, stim_time)
 
@@ -119,6 +128,23 @@ def save_mean_trace_stats(
     if not os.path.exists(base_path):
         os.makedirs(base_path)
     file_name = f"{cell_name}_mean_trace_stats.csv"
+    path = os.path.join(base_path, file_name)
+
+    combined_df.to_csv(path, float_format="%8.4f", index=True)
+
+
+def save_avg_freq_stats(
+    dataset, cell_type, cell_name, light_stats, spon_stats
+):
+    combined_df = pd.concat([light_stats, spon_stats])
+    combined_df.index = ["Light", "Spontaneous"]
+
+    base_path = (
+        f"{FileSettings.TABLES_FOLDER}/{dataset}/{cell_type}/{cell_name}"
+    )
+    if not os.path.exists(base_path):
+        os.makedirs(base_path)
+    file_name = f"{cell_name}_avg_freq_stats.csv"
     path = os.path.join(base_path, file_name)
 
     combined_df.to_csv(path, float_format="%8.4f", index=True)
@@ -217,18 +243,99 @@ def run_KS_test(dataset, cell_type, cell_name):
     )
     avg_freqs = pd.read_csv(freqs_file, index_col=0)
 
-    # subtract the means from the averages
-    light_avg = avg_freqs["Light Avg Frequency (Hz)"].mean()
-    spon_avg = avg_freqs["Spontaneous Avg Frequency (Hz)"].mean()
+    if dataset == "p2":
+        stim_time = p2_acq_parameters.STIM_TIME
+    if dataset == "p14":
+        stim_time = p14_acq_parameters.STIM_TIME
 
-    light_freq_sub = avg_freqs["Light Avg Frequency (Hz)"] - light_avg
-    spon_freq_sub = avg_freqs["Spontaneous Avg Frequency (Hz)"] - spon_avg
+    light_freq = avg_freqs["Light Avg Frequency (Hz)"][stim_time:]
+    spon_freq = avg_freqs["Spontaneous Avg Frequency (Hz)"][stim_time:]
 
-    stats, p_value = scipy.stats.ks_2samp(light_freq_sub, spon_freq_sub,)
+    # subtract the baseline from the averages???
+    freq_stats_file = (
+        f"{FileSettings.TABLES_FOLDER}/{dataset}/{cell_type}/{cell_name}/"
+        f"{cell_name}_avg_freq_stats.csv"
+    )
+    freq_stats = pd.read_csv(freq_stats_file, index_col=0)
+
+    light_baseline = freq_stats.loc["Light"]["Baseline Frequency (Hz)"]
+    spon_baseline = freq_stats.loc["Spontaneous"]["Baseline Frequency (Hz)"]
+
+    # stats, p_value = scipy.stats.ks_2samp(light_freq_sub, spon_freq_sub,)
+
+    # plot traces to see what's going on
+    colors = ["#B958F2", "#8A8C89"]
+    conditions = ["Light", "Spontaneous"]
+    condition_traces = [light_freq, spon_freq]
+    baselines = [light_baseline, spon_baseline]
+
+    win_indices = [
+        slice(light_freq.index[0], light_freq.index[-1]),
+        slice(stim_time, 1000),
+    ]
+
+    plot_response_win_comparison(
+        cell_type,
+        cell_name,
+        stim_time,
+        colors,
+        conditions,
+        condition_traces,
+        win_indices,
+        baselines,
+    )
+
+    # try t-tests
+    avg_sub_stats = pg.ttest(
+        light_freq[win_indices[0]] - light_freq[win_indices[0]].mean(),
+        spon_freq[win_indices[0]] - spon_freq[win_indices[0]].mean(),
+    )
+
+    short_avg_sub_stats = pg.ttest(
+        light_freq[win_indices[1]] - light_freq[win_indices[1]].mean(),
+        spon_freq[win_indices[1]] - spon_freq[win_indices[1]].mean(),
+    )
+
+    short_baseline_sub_stats = pg.ttest(
+        light_freq[win_indices[1]] - light_baseline,
+        spon_freq[win_indices[1]] - spon_baseline,
+    )
+
+    # try KS test on short avg-subtracted
+    stats, short_avg_sub_p_value = scipy.stats.ks_2samp(
+        light_freq[win_indices[1]] - light_freq[win_indices[1]].mean(),
+        spon_freq[win_indices[1]] - spon_freq[win_indices[1]].mean(),
+    )
+
+    stats, short_baseline_sub_p_value = scipy.stats.ks_2samp(
+        light_freq[win_indices[1]] - light_baseline,
+        spon_freq[win_indices[1]] - spon_baseline,
+    )
+
+    print("stats for avg-subtracted whole window t-test:")
+    print(avg_sub_stats)
+
+    print("stats for 500-1000ms avg-subtracted window t-test:")
+    print(short_avg_sub_stats)
+
+    print("stats for 500-1000ms baseline-subtracted window t-test:")
+    print(short_baseline_sub_stats)
+
+    print(
+        f"KS p-value on 500-1000ms avg-subtracted window: "
+        f"{short_avg_sub_p_value}"
+    )
+
+    print(
+        f"KS p-value on 500-1000ms baseline-subtracted window: "
+        f"{short_baseline_sub_p_value}"
+    )
 
     pdb.set_trace()
 
-    return p_value
+    # effect_size = pg.compute_effsize(
+    #     light_freq_sub, spon_freq_sub, eftype="cohen"
+    # )
 
 
 def plot_event_stats(dataset, cell_name, cell_type):
@@ -280,8 +387,6 @@ def plot_event_stats(dataset, cell_name, cell_type):
 
     for count, df in enumerate(dfs):
 
-        win_df_list = []
-
         response_win_stats = df[
             df["New pos"].between(stim_time, post_time, inclusive="both")
         ]
@@ -289,7 +394,7 @@ def plot_event_stats(dataset, cell_name, cell_type):
             ~df["New pos"].between(stim_time, post_time, inclusive="both")
         ]
 
-        win_df_list.extend([response_win_stats, outside_win_stats])
+        win_df_list = [response_win_stats, outside_win_stats]
 
         for win_count, condition_stats in enumerate(win_df_list):
 
@@ -355,8 +460,7 @@ def plot_event_stats(dataset, cell_name, cell_type):
                 title="Tau (ms)", row=1, col=win_count + 1,
             )
 
-    hist_list = []
-    hist_list.extend([amplitude_hist, rise_time_hist, tau_hist])
+    hist_list = [amplitude_hist, rise_time_hist, tau_hist]
     for hist in hist_list:
         # below is code from stack overflow to hide duplicate legends
         names = set()
@@ -548,14 +652,16 @@ def run_single(dataset, csvfile, file_name):
 
 
 if __name__ == "__main__":
-    dataset = "p14"
+    dataset = "p2"
+    # dataset = "p14"
     csvfile_name = "{}_data_notes.csv".format(dataset)
     csvfile = os.path.join(
         "/home/jhuang/Documents/phd_projects/injected_GC_data/tables",
         dataset,
         csvfile_name,
     )
-    cell_name = "JH190905_c7"
+    cell_name = "JH200303_c3"
+    # cell_name = "JH190905_c7"
 
     get_both_conditions(dataset, csvfile, cell_name)
     # file_name = "JH200303_c7_light100.ibw"
