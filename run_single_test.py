@@ -54,39 +54,39 @@ def get_both_conditions(dataset, csvfile, cell_name):
 
     # also save avg frequency stats
     # save event stats
-    # save_freqs(
-    #     dataset,
-    #     cell_type,
-    #     cell_name,
-    #     light_cell.freq,
-    #     light_cell.avg_frequency_df,
-    #     spon_cell.freq,
-    #     spon_cell.avg_frequency_df,
-    # )
+    save_freqs(
+        dataset,
+        cell_type,
+        cell_name,
+        light_cell.freq,
+        light_cell.avg_frequency_df,
+        spon_cell.freq,
+        spon_cell.avg_frequency_df,
+    )
 
-    # save_avg_freq_stats(
-    #     dataset,
-    #     cell_type,
-    #     cell_name,
-    #     light_cell.avg_frequency_stats,
-    #     spon_cell.avg_frequency_stats,
-    # )
+    save_avg_freq_stats(
+        dataset,
+        cell_type,
+        cell_name,
+        light_cell.avg_frequency_stats,
+        spon_cell.avg_frequency_stats,
+    )
 
-    # save_event_stats(
-    #     dataset,
-    #     cell_type,
-    #     cell_name,
-    #     light_cell.event_stats,
-    #     spon_cell.event_stats,
-    # )
+    save_event_stats(
+        dataset,
+        cell_type,
+        cell_name,
+        light_cell.event_stats,
+        spon_cell.event_stats,
+    )
 
-    # save_mean_trace_stats(
-    #     dataset,
-    #     cell_type,
-    #     cell_name,
-    #     light_cell.mean_trace_stats,
-    #     spon_cell.mean_trace_stats,
-    # )
+    save_mean_trace_stats(
+        dataset,
+        cell_type,
+        cell_name,
+        light_cell.mean_trace_stats,
+        spon_cell.mean_trace_stats,
+    )
 
     amplitude_hist, rise_time_hist, tau_hist = plot_event_stats(
         dataset, cell_name, cell_type
@@ -662,57 +662,20 @@ def run_single(dataset, csvfile, file_name):
     # 1 checks whether cell has a response before proceeding
     response = cell.check_response()
 
-    # # 2 drops depolarized and esc AP sweeps from VC data if applicable
-    # cell.drop_sweeps()
-
-    # # 3 makes a dict for each cell, with stim condition as keys and all sweeps per stimulus as values
-    # cell.make_sweeps_dict()
-
     # 4 runs stats on sweeps and creates a dict for each stim condition
     cell.get_mod_events()
     cell.calculate_event_stats()
+    # cell.plot_mod_events  # sanity check only
     cell.calculate_mean_trace_stats()
     cell.plot_annotated_events()
     cell.save_annotated_events_plot()
 
-    # cell.plot_events()
-    # cell.analyze_avg_frequency()
-    # cell.save_annotated_freq()
-
-    # only save annotated histogram plot if condition == light and response
-    # is true
-    # should save raster plot with some form of histogram regardless
-    # or, plot raster + annotated hist if response/light, else plot
-    # raster + smoothed PSTH
-    # if histogram decay_fits fails, then don't plot annotated
-
-    # pdb.set_trace()
+    # cell.plot_events()    # sanity check only
+    cell.analyze_avg_frequency()
+    cell.save_annotated_freq()
 
     cell.plot_mean_trace()
     # cell.save_mean_trace_plot()   # don't save, each plot is 130 mb
-
-    # # cell.make_cell_analysis_dict()
-
-    # # 5 calculates power curve for plotting
-    # cell.make_power_curve_stats_df()
-
-    # # 6 calculates response stats for plotting
-    # cell.make_stats_df()
-
-    # # 7 plots mean traces
-    # cell.make_mean_traces_df()
-    # cell.graph_response_trace()
-
-    # # 8 makes plots for power curve and response stats if cell responds
-    # if response == True:
-
-    #     summary_plots = cell.graph_curve_stats()
-    #     cell.export_stats_csv()
-    # else:
-    #     print("Cell doesn't have response, no response stats plotted")
-
-    # # 9 saves combined plots as html file, exports stats as csv
-    # cell.output_html_plots()
 
     return cell
 
@@ -726,7 +689,7 @@ if __name__ == "__main__":
         dataset,
         csvfile_name,
     )
-    cell_name = "JH200303_c1"
+    cell_name = "JH200313_c2"
     # cell_name = "JH190905_c7"
 
     get_both_conditions(dataset, csvfile, cell_name)
