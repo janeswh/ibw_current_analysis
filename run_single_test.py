@@ -69,6 +69,14 @@ def get_both_conditions(dataset, csvfile, cell_name):
         spon_cell.event_stats,
     )
 
+    save_mean_trace_stats(
+        dataset,
+        cell_type,
+        cell_name,
+        light_cell.mean_trace_stats,
+        spon_cell.mean_trace_stats,
+    )
+
     amplitude_hist, rise_time_hist, tau_hist = plot_event_stats(
         dataset, cell_name, cell_type
     )
@@ -85,14 +93,6 @@ def get_both_conditions(dataset, csvfile, cell_name):
     response = check_response(dataset, cell_type, cell_name)
     if response is True:
         print("cell has response")
-
-    save_mean_trace_stats(
-        dataset,
-        cell_type,
-        cell_name,
-        light_cell.mean_trace_stats,
-        spon_cell.mean_trace_stats,
-    )
 
 
 def check_response(dataset, cell_type, cell_name):
@@ -149,17 +149,19 @@ def save_event_stats(dataset, cell_type, cell_name, light_stats, spon_stats):
         path = os.path.join(base_path, file_name)
         dfs[count].to_csv(path, float_format="%8.4f", index=True)
 
-    # saves avgs from both conditions in one csv
-    avg_event_stats = pd.DataFrame(
-        {"Light": light_stats.mean(), "Spontaneous": spon_stats.mean()},
+    # saves medians from both conditions in one csv
+    median_event_stats = pd.DataFrame(
+        {"Light": light_stats.mean(), "Spontaneous": spon_stats.median()},
         index=light_stats.columns,
     )
 
-    avg_event_stats.drop(labels=["Sweep", "New pos"], axis=0, inplace=True)
+    median_event_stats.drop(labels=["Sweep", "New pos"], axis=0, inplace=True)
 
-    avg_stats_file_name = f"{cell_name}_avg_event_stats.csv"
-    avg_stats_path = os.path.join(base_path, avg_stats_file_name)
-    avg_event_stats.to_csv(avg_stats_path, float_format="%8.4f", index=True)
+    median_stats_file_name = f"{cell_name}_median_event_stats.csv"
+    median_stats_path = os.path.join(base_path, median_stats_file_name)
+    median_event_stats.to_csv(
+        median_stats_path, float_format="%8.4f", index=True
+    )
 
 
 def save_freqs(
@@ -215,10 +217,16 @@ def run_KS_test(dataset, cell_type, cell_name):
     )
     avg_freqs = pd.read_csv(freqs_file, index_col=0)
 
-    stats, p_value = scipy.stats.ks_2samp(
-        avg_freqs["Light Avg Frequency (Hz)"].values,
-        avg_freqs["Spontaneous Avg Frequency (Hz)"].values,
-    )
+    # subtract the means from the averages
+    light_avg = avg_freqs["Light Avg Frequency (Hz)"].mean()
+    spon_avg = avg_freqs["Spontaneous Avg Frequency (Hz)"].mean()
+
+    light_freq_sub = avg_freqs["Light Avg Frequency (Hz)"] - light_avg
+    spon_freq_sub = avg_freqs["Spontaneous Avg Frequency (Hz)"] - spon_avg
+
+    stats, p_value = scipy.stats.ks_2samp(light_freq_sub, spon_freq_sub,)
+
+    pdb.set_trace()
 
     return p_value
 
@@ -547,7 +555,7 @@ if __name__ == "__main__":
         dataset,
         csvfile_name,
     )
-    cell_name = "JH191008_c3"
+    cell_name = "JH190905_c7"
 
     get_both_conditions(dataset, csvfile, cell_name)
     # file_name = "JH200303_c7_light100.ibw"
