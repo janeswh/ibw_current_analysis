@@ -51,23 +51,23 @@ def get_both_conditions(dataset, csvfile, cell_name):
 
     # also save avg frequency stats
     # save event stats
-    # save_freqs(
-    #     dataset,
-    #     cell_type,
-    #     cell_name,
-    #     light_cell.freq,
-    #     light_cell.avg_frequency_df,
-    #     spon_cell.freq,
-    #     spon_cell.avg_frequency_df,
-    # )
+    save_freqs(
+        dataset,
+        cell_type,
+        cell_name,
+        light_cell.freq,
+        light_cell.avg_frequency_df,
+        spon_cell.freq,
+        spon_cell.avg_frequency_df,
+    )
 
-    # save_event_stats(
-    #     dataset,
-    #     cell_type,
-    #     cell_name,
-    #     light_cell.event_stats,
-    #     spon_cell.event_stats,
-    # )
+    save_event_stats(
+        dataset,
+        cell_type,
+        cell_name,
+        light_cell.event_stats,
+        spon_cell.event_stats,
+    )
 
     amplitude_hist, rise_time_hist, tau_hist = plot_event_stats(
         dataset, cell_name, cell_type
@@ -88,6 +88,14 @@ def get_both_conditions(dataset, csvfile, cell_name):
 
     pdb.set_trace()
 
+    save_mean_trace_stats(
+        dataset,
+        cell_type,
+        cell_name,
+        light_cell.mean_trace_stats,
+        spon_cell.mean_trace_stats,
+    )
+
 
 def check_response(dataset, cell_type, cell_name):
     # determine whether cell has response with KS test
@@ -99,6 +107,23 @@ def check_response(dataset, cell_type, cell_name):
         response = False
 
     return response
+
+
+def save_mean_trace_stats(
+    dataset, cell_type, cell_name, light_stats, spon_stats
+):
+    combined_df = pd.concat([light_stats, spon_stats])
+    combined_df.index = ["Light", "Spontaneous"]
+
+    base_path = (
+        f"{FileSettings.TABLES_FOLDER}/{dataset}/{cell_type}/{cell_name}"
+    )
+    if not os.path.exists(base_path):
+        os.makedirs(base_path)
+    file_name = f"{cell_name}_mean_trace_stats.csv"
+    path = os.path.join(base_path, file_name)
+
+    combined_df.to_csv(path, float_format="%8.4f", index=True)
 
 
 def save_event_stats(dataset, cell_type, cell_name, light_stats, spon_stats):
@@ -475,8 +500,8 @@ def run_single(dataset, csvfile, file_name):
     cell.save_annotated_events_plot()
 
     # cell.plot_events()
-    # cell.analyze_avg_frequency()
-    # cell.save_annotated_freq()
+    cell.analyze_avg_frequency()
+    cell.save_annotated_freq()
 
     # only save annotated histogram plot if condition == light and response
     # is true
@@ -517,14 +542,14 @@ def run_single(dataset, csvfile, file_name):
 
 
 if __name__ == "__main__":
-    dataset = "p2"
+    dataset = "p14"
     csvfile_name = "{}_data_notes.csv".format(dataset)
     csvfile = os.path.join(
         "/home/jhuang/Documents/phd_projects/injected_GC_data/tables",
         dataset,
         csvfile_name,
     )
-    cell_name = "JH200311_c1"
+    cell_name = "JH191008_c3"
 
     get_both_conditions(dataset, csvfile, cell_name)
     # file_name = "JH200303_c7_light100.ibw"

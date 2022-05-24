@@ -207,6 +207,7 @@ class JaneCell(object):
         self.traces_filtered = None
         self.traces_filtered_sub = None
         self.sub_mean_trace = None
+        self.mean_trace_stats = None
         self.cell_analysis_dict = None
         self.power_curve_df = None
         self.tuples = None
@@ -775,9 +776,7 @@ class JaneCell(object):
 
         return time_to_peak
 
-    def calculate_responses(
-        self, baseline_std, peak_mean, timetopeak, threshold=None
-    ):
+    def calculate_responses(self, baseline_std, peak_mean, threshold=None):
         """
             Decides on whether there is a response above 2x, 3x above the baseline std,
             or a user-selectable cutoff.
@@ -787,8 +786,6 @@ class JaneCell(object):
                 The std of the baseline of the mean filtered trace.
             peak_mean: int or float
                 The current peak of the mean filtered trace.
-            timetopeak: int or float
-                The time to current peak. Usually uses the mean trace time to peak
             threshold: int, float (optional)
                 If supplied, will provide another threshold in addition to the 2x and 3x
                 above the baseline std to threshold the response checker.
@@ -1270,6 +1267,13 @@ class JaneCell(object):
             mean_trace_filtered, mean_baseline, polarity="-"
         )
 
+        # find peak time
+        mean_trace_peak_time = (
+            self.sub_mean_trace[0]
+            .loc[self.sub_mean_trace[0] == mean_trace_peak[0]]
+            .index[0]
+        )
+
         # find latency to response onset and jitter, in ms
         # onset, latency, jitter = self.calculate_latency_jitter(
         #     peak_window, current_peaks, mean_trace=False
@@ -1291,51 +1295,26 @@ class JaneCell(object):
         # )
         # time_to_peak_mean = time_to_peak.mean()
 
-        # # determines whether the cell is responding, using mean_trace_filtered
-        # responses = self.calculate_responses(
-        #     mean_std_baseline, mean_trace_peak, mean_trace_time_to_peak[0]
-        # )
+        # determines whether the cell is responding, using mean_trace_filtered
+        responses = self.calculate_responses(
+            mean_std_baseline, mean_trace_peak
+        )
 
-        # # collects measurements into cell dict, nested dict for each stim condition
-        # mean_trace_dict = {
-        #     "Cell name": self.cell_name,
-        #     "Dataset": self.dataset,
-        #     "Cell Type": self.cell_type,
-        #     "Mean Trace Peak (pA)": mean_trace_peak[0],
-        #     "Mean Trace Onset Latency (ms)": mean_trace_latency[0],
-        #     "Mean Trace Time to Peak (ms)": mean_trace_time_to_peak[0],
-        #     "Response 2x STD": responses["Response 2x STD"][0],
-        #     "Response 3x STD": responses["Response 3x STD"][0],
-        # }
-        # print(pd.DataFrame(mean_trace_dict, index=[0]))
-
-        # stim_dict = {
-        #     "Cell name": self.cell_name,
-        #     "Dataset": self.dataset,
-        #     "Cell Type": self.cell_type,
-        #     "Raw Peaks (pA)": current_peaks.tolist(),
-        #     "Mean Raw Peaks (pA)": current_peaks_mean,
-        #     "Mean Trace Peak (pA)": mean_trace_peak[0],
-        #     "Onset Times (ms)": onset,
-        #     "Onset Latencies (ms)": latency,
-        #     "Onset Jitter": jitter,
-        #     "Mean Onset Latency (ms)": latency_mean,
-        #     "Onset SEM": sem(latency),
-        #     "Mean Trace Onset Latency (ms)": mean_trace_latency[0],
-        #     "Time to Peaks (ms)": time_to_peak.tolist(),
-        #     "Mean Time to Peak (ms)": time_to_peak_mean,
-        #     "Time to Peak SEM": sem(time_to_peak),
-        #     "Mean Trace Time to Peak (ms)": mean_trace_time_to_peak[0],
-        #     "Response 2x STD": responses["Response 2x STD"][0],
-        #     "Response 3x STD": responses["Response 3x STD"][0],
-        # }
-
-        # return (
-        #     self.traces_filtered_sub,
-        #     sub_mean_trace,
-        #     current_peaks,
-        #     stim_dict,
-        # )
+        # collects measurements into cell dict, nested dict for each stim condition
+        self.mean_trace_stats = pd.DataFrame(
+            {
+                "Cell name": self.cell_name,
+                "Dataset": self.dataset,
+                "Cell Type": self.cell_type,
+                "Mean Trace Peak (pA)": mean_trace_peak[0],
+                "Mean Trace Peak Time (ms)": mean_trace_peak_time,
+                # "Mean Trace Onset Latency (ms)": mean_trace_latency[0],
+                # "Mean Trace Time to Peak (ms)": mean_trace_time_to_peak[0],
+                "Response 2x STD": responses["Response 2x STD"][0],
+                "Response 3x STD": responses["Response 3x STD"][0],
+            },
+            index=[0],
+        )
 
     def plot_mod_events(self):
         """
@@ -2125,6 +2104,8 @@ class JaneCell(object):
         """
         Makes raster plot + annotated freq histogram, with decay fit if
         self.response is True
+
+        Then adds mean trace below, shared axes, with peak annotated
         """
 
         # make sweep numbers go from 1-30 instead of 0-29
@@ -2135,9 +2116,9 @@ class JaneCell(object):
 
         # make overall fig layout
         annotated_freq = make_subplots(
-            rows=2,
+            rows=3,
             cols=1,
-            row_heights=[0.7, 0.3],
+            row_heights=[0.6, 0.2, 0.2],
             vertical_spacing=0.025,
             x_title="Time (ms)",
             shared_xaxes=True,
@@ -2253,8 +2234,49 @@ class JaneCell(object):
             col=1,
         )
 
+        # plots mean trace with annotations
+        window_toplot = self.sub_mean_trace[
+            (self.tp_start + self.tp_length) : :
+        ]
+        annotated_freq.add_trace(
+            go.Scatter(
+                x=window_toplot.index,
+                y=window_toplot.squeeze(),
+                mode="lines",
+                marker=dict(color="#5EC320", size=2),
+                name="averaged sweep",
+                # legendgroup="avg_sweep",
+                # visible="legendonly",
+            ),
+            row=3,
+            col=1,
+        )
+
+        # add mean trace peak
+        annotated_freq.add_trace(
+            go.Scatter(
+                x=[self.mean_trace_stats["Mean Trace Peak Time (ms)"][0]],
+                y=[self.mean_trace_stats["Mean Trace Peak (pA)"][0]],
+                marker=dict(color="#3338FF", size=4),
+                name="mean trace peak",
+            ),
+            row=3,
+            col=1,
+        )
+
+        annotated_freq.add_vrect(
+            x0=self.stim_time,
+            x1=self.stim_time + 100,
+            fillcolor="#33F7FF",
+            opacity=0.5,
+            layer="below",
+            line_width=0,
+        )
+
         self.annotated_freq_fig = annotated_freq
-        # annotated_freq.show()
+        annotated_freq.show()
+
+        pdb.set_trace()
 
     # def plot_counts_psth(self):
     #     """
