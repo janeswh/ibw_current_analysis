@@ -1344,7 +1344,7 @@ def add_median_vline(hist, annotation_color, data, win_count, count, unit):
 
 
 def plot_response_win_comparison(
-    cell_type, cell_name, stim_time, colors, stats_dict
+    dataset, cell_type, cell_name, stim_time, colors, stats_dict
 ):
     """
     Plots the response windows used for stats comparison to determine whether cell
@@ -1359,6 +1359,18 @@ def plot_response_win_comparison(
         for subtraction_type in list(stats_dict[comparison]):
             ttest_pval = stats_dict[comparison][subtraction_type]["ttest pval"]
             ks_pval = stats_dict[comparison][subtraction_type]["ks pval"]
+
+            # rounds p-values for easier readaibility
+            if ttest_pval < 0.01:
+                ttest_pval = f"{ttest_pval:.2e}"
+            else:
+                ttest_pval = np.round(ttest_pval, 4)
+
+            if ks_pval < 0.01:
+                ks_pval = f"{ks_pval:.2e}"
+            else:
+                ks_pval = np.round(ks_pval, 4)
+
             title = (
                 f"{comparison}, {subtraction_type} <br>"
                 f"t-test pval = {ttest_pval}, ks pval = {ks_pval}"
@@ -1381,7 +1393,7 @@ def plot_response_win_comparison(
     )
 
     stats_fig.update_layout(
-        title_text=f"Response comparisons for {cell_name}, {cell_type}",
+        title_text=(f"{dataset} {cell_type} {cell_name} Response Comparisons"),
         title_x=0.5,
     )
 
@@ -1452,6 +1464,7 @@ def plot_response_win_comparison(
         if (trace.name in names)
         else names.add(trace.name)
     )
-    stats_fig.show()
+    # stats_fig.show()
 
-    pdb.set_trace()
+    return stats_fig
+

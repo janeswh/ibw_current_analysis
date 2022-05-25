@@ -47,6 +47,10 @@ class BothConditions(object):
         self.both_freqs_fig = None
 
         self.response_pvals = None
+        self.stats_fig = None
+        self.light_freq_response = None
+        self.spon_freq_response = None
+        self.mean_trace_response = None
 
     def get_both_conditions(self):
         """
@@ -491,8 +495,9 @@ class BothConditions(object):
 
         # add main title, x-axis titles
         both_freqs_fig.update_layout(
-            title_text="{}, {} Frequency Comparisons".format(
-                self.cell_name, self.cell_type
+            title_text=(
+                f"{self.dataset} {self.cell_type} {self.cell_name} "
+                f"Frequency Comparisons"
             ),
             title_x=0.5,
         )
@@ -631,7 +636,8 @@ class BothConditions(object):
         # plot traces to see what's going on
         colors = {"light": "#B958F2", "spon": "#8A8C89", "baseline": "#ECA238"}
 
-        plot_response_win_comparison(
+        self.stats_fig = plot_response_win_comparison(
+            self.dataset,
             self.cell_type,
             self.cell_name,
             self.stim_time,
@@ -641,23 +647,95 @@ class BothConditions(object):
 
     def run_freq_stats(self, x, y):
         """
-        Runs t-test and KS test on two arrays, returning p-values. 
+        Runs t-test and KS test on two arrays, returning p-values. Runs paired
+        t-test.
         """
 
         ttest_stats = pg.ttest(x, y, paired=True)
         ttest_pval = ttest_stats["p-val"][0]
-        if ttest_pval < 0.01:
-            ttest_pval = f"{ttest_pval:.2e}"
-        else:
-            ttest_pval = np.round(ttest_stats["p-val"][0], 4)
+        # if ttest_pval < 0.01:
+        #     ttest_pval = f"{ttest_pval:.2e}"
+        # else:
+        #     ttest_pval = np.round(ttest_stats["p-val"][0], 4)
 
         ks_stats, ks_pval = scipy.stats.ks_2samp(x, y)
-        if ks_pval < 0.01:
-            ks_pval = f"{ks_pval:.2e}"
-        else:
-            ks_pval = np.round(ks_pval, 4)
+        # if ks_pval < 0.01:
+        #     ks_pval = f"{ks_pval:.2e}"
+        # else:
+        #     ks_pval = np.round(ks_pval, 4)
 
         return ttest_stats, ttest_pval, ks_stats, ks_pval
+
+    def check_light_response(self):
+        """
+        Uses ttest p-value of light vs. baseline, no sub comparison AND 
+        whether mean trace peak exceeds 3 std of baseline to determine whether 
+        cell has light-evoked response.
+        """
+
+        light_pval = self.response_pvals["light vs. baseline"]["no sub"][
+            "ttest pval"
+        ]
+
+        if light_pval < 0.05:
+            self.light_freq_response = True
+        else:
+            self.light_freq_response = False
+
+        spon_pval = self.response_pvals["spon vs. baseline"]["no sub"][
+            "ttest pval"
+        ]
+
+        if spon_pval < 0.05:
+            self.spon_freq_response = True
+        else:
+            self.spon_freq_response = False
+
+        # gets mean trace peak info
+        file_name = f"{self.cell_name}_mean_trace_stats.csv"
+        mean_trace_stats_file = os.path.join(self.tables_folder, file_name)
+
+        mean_trace_stats = pd.read_csv(mean_trace_stats_file, index_col=0)
+
+        self.mean_trace_response = mean_trace_stats.loc["Light"][
+            "Response 3x STD"
+        ]
+
+    def save_light_response(self):
+        """
+        Saves checked frequency and mean trace responses to csv
+        """
+        responses_df = pd.DataFrame(
+            {
+                "timepoint": self.dataset,
+                "cell name": self.cell_name,
+                "cell type": self.cell_type,
+                "light freq response": self.light_freq_response,
+                "mean trace response": self.mean_trace_response,
+                "spon freq response": self.spon_freq_response,
+            },
+            index=[0],
+        )
+        responses_df = responses_df.T
+
+        file_name = f"{self.cell_name}_responses.csv"
+        path = os.path.join(self.tables_folder, file_name)
+
+        responses_df.to_csv(
+            path, float_format="%8.4f", index=True, header=False
+        )
+
+    def save_stats_fig(self):
+        """
+        Saves the response comparisons plot with t-tests and KS-tests
+        """
+
+        html_filename = f"{self.cell_name}_comparison_pval_plots.html"
+        path = os.path.join(self.figs_folder, html_filename)
+
+        self.stats_fig.write_html(
+            path, full_html=False, include_plotlyjs="cdn"
+        )
 
 
 def run_single(dataset, csvfile, file_name):
@@ -715,21 +793,24 @@ def run_both_conditions(dataset, csvfile, cell_name):
     # compares avg freqs between light and spon condition to determine
     # whether or not cell has response
     cell.compare_avg_freqs()
+    cell.check_light_response()
+    cell.save_light_response()
+    cell.save_stats_fig()
 
     pdb.set_trace()
 
 
 if __name__ == "__main__":
-    dataset = "p2"
-    # dataset = "p14"
+    # dataset = "p2"
+    dataset = "p14"
     csvfile_name = "{}_data_notes.csv".format(dataset)
     csvfile = os.path.join(
         "/home/jhuang/Documents/phd_projects/injected_GC_data/tables",
         dataset,
         csvfile_name,
     )
-    cell_name = "JH200313_c2"
-    # cell_name = "JH190905_c7"
+    # cell_name = "JH200313_c2"
+    cell_name = "JH190905_c7"
 
     run_both_conditions(dataset, csvfile, cell_name)
 

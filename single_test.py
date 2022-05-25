@@ -969,8 +969,8 @@ class JaneCell(object):
         # add main title
         annotated_events_fig.update_layout(
             title_text=(
-                f"{self.cell_name}, {self.cell_type}, {self.condition} "
-                f"annotated events"
+                f"{self.dataset} {self.cell_type} {self.cell_name}, "
+                f"{self.condition} annotated events"
             ),
             title_x=0.5,
         )
@@ -2074,7 +2074,8 @@ class JaneCell(object):
         # add main title, x-axis titles
         annotated_freq.update_layout(
             title_text=(
-                f"{self.cell_name}, {self.cell_type}, {self.condition} PSTH"
+                f"{self.dataset} {self.cell_type} {self.cell_name}, "
+                f"{self.condition} PSTH"
             ),
             title_x=0.5,
         )
