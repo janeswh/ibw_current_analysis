@@ -1,19 +1,16 @@
-from cProfile import run
-from pickle import FALSE
-from urllib import response
+# hide  warnings
+import warnings
+
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+warnings.filterwarnings("ignore", category=FutureWarning)
+
 import pandas as pd
-import matplotlib.pyplot as plt
-import pynwb
 import os
 import numpy as np
 from neo.io import IgorIO
-from neo.core import SpikeTrain
-from quantities import ms, s, Hz
-from pynwb import NWBHDF5IO
 import elephant
 import scipy
-import seaborn as sns
-import plotly.express as px
+
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
@@ -126,7 +123,7 @@ def run_BARS_smoothing(x_stop, x_array, y_array, x_plot):
     with model:
         trace = pm.sample(target_accept=0.95)
 
-    pm.energyplot(trace)
+    # pm.plot_energy(trace)
 
     Bx_.set_value(basis_funcs(x_plot))
 
@@ -1767,7 +1764,7 @@ class JaneCell(object):
             # if revised decay end time occurs 20 ms after event, give up on this
             # event and return empty decay window
             if decay_end_time > freq_peak_time + 20:
-                decay_window = pd.Series([])
+                decay_window = pd.Series([], dtype="float64")
             else:
                 decay_window = response_window.loc[
                     freq_peak_time:decay_end_time
