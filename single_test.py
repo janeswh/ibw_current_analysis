@@ -916,7 +916,7 @@ class JaneCell(object):
                     "Root time (ms)"
                 ][index + 1]
             else:
-                print("last event stop")
+                # print("last event stop")
                 next_root = np.nan
 
             before_window = 5
