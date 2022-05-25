@@ -46,6 +46,8 @@ class BothConditions(object):
         self.amplitude_hist = self.rise_time_hist = self.tau_hist = None
         self.both_freqs_fig = None
 
+        self.response_pvals = None
+
     def get_both_conditions(self):
         """
         Gets the cell objects for both conditions and sets parameters
@@ -525,15 +527,31 @@ class BothConditions(object):
         )
         avg_freqs = pd.read_csv(freqs_file, index_col=0)
 
-        # window of comparison is the 100 ms during light stim
+        # window of comparison is different for p14 and p2 because of tp end
+        # time differences  (in ms)
+        if self.dataset == "p14":
+            time_after_light = 90
+        elif self.dataset == "p2":
+            time_after_light = 100
         light_freq = avg_freqs["Light Avg Frequency (Hz)"][
-            self.stim_time : self.stim_time + 100
+            self.stim_time : self.stim_time + time_after_light
         ]
         spon_freq = avg_freqs["Spontaneous Avg Frequency (Hz)"][
-            self.stim_time : self.stim_time + 100
+            self.stim_time : self.stim_time + time_after_light
         ]
 
-        # subtract the baseline from the averages???
+        # takes 150 ms window/15 points of pre-stim as baseline
+        response_start = light_freq.index[0]
+
+        # baseline windown ends right before stim onset
+        light_baseline_win = avg_freqs["Light Avg Frequency (Hz)"].loc[
+            response_start - 100 : response_start - 10
+        ]
+        spon_baseline_win = avg_freqs["Spontaneous Avg Frequency (Hz)"].loc[
+            response_start - 100 : response_start - 10
+        ]
+
+        # gets avg baseline
         freq_stats_file = os.path.join(
             self.tables_folder, f"{cell_name}_avg_freq_stats.csv"
         )
@@ -544,81 +562,100 @@ class BothConditions(object):
             "Baseline Frequency (Hz)"
         ]
 
-        conditions = ["Light", "Spontaneous"]
-        condition_traces = [light_freq, spon_freq]
-        baselines = [light_baseline, spon_baseline]
-
-        win_indices = [
-            slice(light_freq.index[0], light_freq.index[-1]),
-            slice(self.stim_time, 1000),
-        ]
-
         nested_dict = lambda: defaultdict(nested_dict)
         nest_pval_dict = nested_dict()
 
         subtracts = ["no sub", "sub avg", "sub baseline"]
-        for window in win_indices:
-            if window == slice(light_freq.index[0], light_freq.index[-1]):
-                window_label = "whole window"
-            else:
-                window_label = "500-1000 ms"
-            for subtract_type in subtracts:
-                ttest_stats, ttest_pval, ks_stats, ks_pval = self.run_stats(
-                    condition_traces, window, baselines, subtract=subtract_type
-                )
+        comparison_types = [
+            "light vs. spon",
+            "light vs. baseline",
+            "spon vs. baseline",
+        ]
 
-                nest_pval_dict[window_label]["ttest stats"][
-                    subtract_type
+        for comparison in comparison_types:
+            if comparison == "light vs. spon":
+                x = light_freq
+                y = spon_freq
+            elif comparison == "light vs. baseline":
+                x = light_freq
+                y = light_baseline_win
+            elif comparison == "spon vs. baseline":
+                x = spon_freq
+                y = spon_baseline_win
+
+            if x.equals(light_freq):
+                x_baseline = light_baseline
+            elif x.equals(spon_freq):
+                x_baseline = spon_baseline
+
+            if y.equals(light_freq):
+                y_baseline = light_baseline
+            if y.equals(spon_freq):
+                y_baseline = spon_baseline
+
+            for subtract_type in subtracts:
+
+                if subtract_type == "sub avg":
+                    x = x - x.mean()
+                    y = y - y.mean()
+
+                elif subtract_type == "sub baseline":
+                    x = x - x_baseline
+                    y = y - y_baseline
+
+                (
+                    ttest_stats,
+                    ttest_pval,
+                    ks_stats,
+                    ks_pval,
+                ) = self.run_freq_stats(x, y)
+
+                nest_pval_dict[comparison][subtract_type][
+                    "ttest stats"
                 ] = ttest_stats
 
-                nest_pval_dict[window_label]["ttest pval"][
-                    subtract_type
+                nest_pval_dict[comparison][subtract_type][
+                    "ttest pval"
                 ] = ttest_pval
-                nest_pval_dict[window_label]["ks stats"][
-                    subtract_type
+                nest_pval_dict[comparison][subtract_type][
+                    "ks stats"
                 ] = ks_stats
-                nest_pval_dict[window_label]["ks pval"][
-                    subtract_type
-                ] = ks_pval
+                nest_pval_dict[comparison][subtract_type]["ks pval"] = ks_pval
+
+                freqs_used = pd.DataFrame({"x": x.values, "y": y.values})
+                freqs_used.index = x.index  # add time indices back in
+                nest_pval_dict[comparison][subtract_type]["freqs"] = freqs_used
+
+        self.response_pvals = nest_pval_dict
 
         # plot traces to see what's going on
-        colors = ["#B958F2", "#8A8C89"]
+        colors = {"light": "#B958F2", "spon": "#8A8C89", "baseline": "#ECA238"}
 
         plot_response_win_comparison(
             self.cell_type,
             self.cell_name,
             self.stim_time,
             colors,
-            conditions,
-            condition_traces,
-            win_indices,
-            baselines,
-            nest_pval_dict,
+            self.response_pvals,
         )
 
-    def run_stats(condition_traces, window, baselines, subtract):
+    def run_freq_stats(self, x, y):
         """
-        Runs t-test and KS test on two arrays, returning p-values. Also performs
-        average or baseline subtractions prior to running test, as needed
+        Runs t-test and KS test on two arrays, returning p-values. 
         """
-        x = condition_traces[0][window]
-        y = condition_traces[1][window]
 
-        if subtract == "sub avg":
-            x = x - x.mean()
-            y = y - y.mean()
-
-        elif subtract == "sub baseline":
-            x = x - baselines[0]
-            y = y - baselines[1]
-
-        ttest_stats = pg.ttest(x, y)
-        ttest_pval = np.round(ttest_stats["p-val"][0], 5)
-        # ttest_pval = f"{ttest_pval:.2e}"
+        ttest_stats = pg.ttest(x, y, paired=True)
+        ttest_pval = ttest_stats["p-val"][0]
+        if ttest_pval < 0.01:
+            ttest_pval = f"{ttest_pval:.2e}"
+        else:
+            ttest_pval = np.round(ttest_stats["p-val"][0], 4)
 
         ks_stats, ks_pval = scipy.stats.ks_2samp(x, y)
-        # ks_pval = f"{ks_pval:.2e}"
-        ks_pval = np.round(ks_pval, 5)
+        if ks_pval < 0.01:
+            ks_pval = f"{ks_pval:.2e}"
+        else:
+            ks_pval = np.round(ks_pval, 4)
 
         return ttest_stats, ttest_pval, ks_stats, ks_pval
 
@@ -675,20 +712,24 @@ def run_both_conditions(dataset, csvfile, cell_name):
     cell.plot_both_freqs()
     cell.save_freq_event_stats_plots()
 
+    # compares avg freqs between light and spon condition to determine
+    # whether or not cell has response
+    cell.compare_avg_freqs()
+
     pdb.set_trace()
 
 
 if __name__ == "__main__":
-    # dataset = "p2"
-    dataset = "p14"
+    dataset = "p2"
+    # dataset = "p14"
     csvfile_name = "{}_data_notes.csv".format(dataset)
     csvfile = os.path.join(
         "/home/jhuang/Documents/phd_projects/injected_GC_data/tables",
         dataset,
         csvfile_name,
     )
-    # cell_name = "JH200311_c1"
-    cell_name = "JH190905_c7"
+    cell_name = "JH200313_c2"
+    # cell_name = "JH190905_c7"
 
     run_both_conditions(dataset, csvfile, cell_name)
 

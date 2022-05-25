@@ -1344,56 +1344,36 @@ def add_median_vline(hist, annotation_color, data, win_count, count, unit):
 
 
 def plot_response_win_comparison(
-    cell_type,
-    cell_name,
-    stim_time,
-    colors,
-    conditions,
-    condition_traces,
-    win_indices,
-    baselines,
-    p_vals,
+    cell_type, cell_name, stim_time, colors, stats_dict
 ):
     """
     Plots the response windows used for stats comparison to determine whether cell
     has a response or not.
     """
 
+    nested_dict = lambda: defaultdict(
+        nested_dict
+    )  # put titles in dict instead
+    titles_dict = nested_dict()
+    for comparison in list(stats_dict):
+        for subtraction_type in list(stats_dict[comparison]):
+            ttest_pval = stats_dict[comparison][subtraction_type]["ttest pval"]
+            ks_pval = stats_dict[comparison][subtraction_type]["ks pval"]
+            title = (
+                f"{comparison}, {subtraction_type} <br>"
+                f"t-test pval = {ttest_pval}, ks pval = {ks_pval}"
+            )
+            titles_dict[comparison][subtraction_type]["title"] = title
+
     stats_fig = make_subplots(
         rows=3,
-        cols=2,
-        subplot_titles=(
-            (
-                "Entire response window <br> t-test pval = "
-                f"{p_vals['whole window']['ttest pval']['no sub']}, ks-test  "
-                f"pval = {p_vals['whole window']['ks pval']['no sub']}"
-            ),
-            (
-                "500-1000 ms window <br> t-test pval = "
-                f"{p_vals['500-1000 ms']['ttest pval']['no sub']}, ks-test "
-                f"pval = {p_vals['500-1000 ms']['ks pval']['no sub']}"
-            ),
-            (
-                "Entire response window sub avg <br> t-test pval = "
-                f"{p_vals['whole window']['ttest pval']['sub avg']}, ks-test "
-                f"pval = {p_vals['whole window']['ks pval']['sub avg']}"
-            ),
-            (
-                "500-1000 ms window sub avg <br> t-test pval = "
-                f"{p_vals['500-1000 ms']['ttest pval']['sub avg']}, ks-test "
-                f"pval = {p_vals['500-1000 ms']['ks pval']['sub avg']}"
-            ),
-            (
-                "Entire response window sub baseline <br> t-test pval = "
-                f"{p_vals['whole window']['ttest pval']['sub baseline']}, ks-test "
-                f"pval = {p_vals['whole window']['ks pval']['sub baseline']}"
-            ),
-            (
-                "500-1000 ms window sub baseline <br> t-test pval = "
-                f"{p_vals['500-1000 ms']['ttest pval']['sub baseline']}, ks-test "
-                f"pval = {p_vals['500-1000 ms']['ks pval']['sub baseline']}"
-            ),
-        ),
+        cols=3,
+        subplot_titles=[
+            "temp subtitle"
+            for subplot in range(
+                len(list(stats_dict)) * len(list(stats_dict[comparison]))
+            )
+        ],
         x_title="Time (ms)",
         y_title="Avg Frequency (Hz)",
         shared_xaxes=True,
@@ -1401,51 +1381,58 @@ def plot_response_win_comparison(
     )
 
     stats_fig.update_layout(
-        title_text=f"Response window comparisons for {cell_name}, {cell_type}",
+        title_text=f"Response comparisons for {cell_name}, {cell_type}",
         title_x=0.5,
     )
 
-    for condition_count, freq in enumerate(condition_traces):
-        for win_count, win in enumerate(win_indices):
+    subplot_index = 0
+    for comp_count, comparison in enumerate(list(stats_dict)):
+        for sub_count, subtraction_type in enumerate(
+            list(stats_dict[comparison])
+        ):
+            x_name = comparison.split(" vs. ")[0]
+            y_name = comparison.split(" vs. ")[1]
 
-            # non-sub freq
+            # plots x freq
             stats_fig.add_trace(
                 go.Scatter(
-                    x=freq[win].index,
-                    y=freq[win],
-                    name=f"{conditions[condition_count]} freq",
-                    marker=dict(color=colors[condition_count]),
-                    legendgroup=conditions[condition_count],
+                    x=stats_dict[comparison][subtraction_type]["freqs"][
+                        "x"
+                    ].index,
+                    y=stats_dict[comparison][subtraction_type]["freqs"]["x"],
+                    name=x_name,
+                    marker=dict(color=colors[x_name]),
+                    legendgroup=x_name,
                 ),
-                row=1,
-                col=win_count + 1,
+                row=comp_count + 1,
+                col=sub_count + 1,
             )
 
-            # avg sub freq
+            # plots y freq
             stats_fig.add_trace(
                 go.Scatter(
-                    x=freq[win].index,
-                    y=freq[win] - freq[win].mean(),
-                    name=f"{conditions[condition_count]} freq",
-                    marker=dict(color=colors[condition_count]),
-                    legendgroup=conditions[condition_count],
+                    x=stats_dict[comparison][subtraction_type]["freqs"][
+                        "y"
+                    ].index,
+                    y=stats_dict[comparison][subtraction_type]["freqs"]["y"],
+                    name=y_name,
+                    marker=dict(color=colors[y_name]),
+                    legendgroup=y_name,
                 ),
-                row=2,
-                col=win_count + 1,
+                row=comp_count + 1,
+                col=sub_count + 1,
             )
 
-            # baseline sub freq
-            stats_fig.add_trace(
-                go.Scatter(
-                    x=freq[win].index,
-                    y=freq[win] - baselines[condition_count],
-                    name=f"{conditions[condition_count]} freq",
-                    marker=dict(color=colors[condition_count]),
-                    legendgroup=conditions[condition_count],
-                ),
-                row=3,
-                col=win_count + 1,
-            )
+            # updates subplot title using titles_dict
+            stats_fig.layout.annotations[subplot_index]["text"] = titles_dict[
+                comparison
+            ][subtraction_type]["title"]
+            subplot_index += 1
+            # stats_fig.update_layout(
+            #     title=titles_dict[comparison][subtraction_type]["title"],
+            #     row=sub_count + 1,
+            #     col=comp_count + 1,
+            # )
 
     # adds line for light stim
     stats_fig.add_vrect(
