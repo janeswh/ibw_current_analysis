@@ -915,10 +915,9 @@ class JaneCell(object):
                 next_root = event_stats.loc[event_stats["Sweep"] == sweep][
                     "Root time (ms)"
                 ][index + 1]
-            # else:
-            #     print("last event stop")
-            #     pdb.set_trace()
-            #     next_root = np.nan
+            else:
+                print("last event stop")
+                next_root = np.nan
 
             before_window = 5
             after_window = 20
@@ -1763,8 +1762,11 @@ class JaneCell(object):
 
             # if revised decay end time occurs 20 ms after event, give up on this
             # event and return empty decay window
-            if decay_end_time > freq_peak_time + 20:
+            if next_root == np.nan:  # if this is last event in sweep
                 decay_window = pd.Series([], dtype="float64")
+            elif decay_end_time > freq_peak_time + 20:
+                decay_window = pd.Series([], dtype="float64")
+
             else:
                 decay_window = response_window.loc[
                     freq_peak_time:decay_end_time
