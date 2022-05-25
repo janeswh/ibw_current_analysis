@@ -692,7 +692,7 @@ class BothConditions(object):
             "Response 4x STD"
         ]
 
-        if self.light_freq_response is True & self.mean_trace_response is True:
+        if self.light_freq_response & self.mean_trace_response:
             self.overall_response = True
         else:
             self.overall_response = False
@@ -807,7 +807,7 @@ if __name__ == "__main__":
         csvfile_name,
     )
     # cell_name = "JH200313_c2"
-    cell_name = "JH190905_c7"
+    cell_name = "JH190903_c2"
 
     run_both_conditions(dataset, csvfile, cell_name)
 
