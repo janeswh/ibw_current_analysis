@@ -58,8 +58,8 @@ class BothConditions(object):
         Gets the cell objects for both conditions and sets parameters
         """
         file_names = [
-            f"{cell_name}_light100.ibw",
-            f"{cell_name}_spontaneous.ibw",
+            f"{self.cell_name}_light100.ibw",
+            f"{self.cell_name}_spontaneous.ibw",
         ]
 
         self.light_sweeps = run_single(
@@ -529,7 +529,7 @@ class BothConditions(object):
         determine whether the cell has light-evoked response
         """
         freqs_file = os.path.join(
-            self.tables_folder, f"{cell_name}_avg_frequency.csv"
+            self.tables_folder, f"{self.cell_name}_avg_frequency.csv"
         )
         avg_freqs = pd.read_csv(freqs_file, index_col=0)
 
@@ -559,7 +559,7 @@ class BothConditions(object):
 
         # gets avg baseline
         freq_stats_file = os.path.join(
-            self.tables_folder, f"{cell_name}_avg_freq_stats.csv"
+            self.tables_folder, f"{self.cell_name}_avg_freq_stats.csv"
         )
         freq_stats = pd.read_csv(freq_stats_file, index_col=0)
 
@@ -794,20 +794,18 @@ def run_both_conditions(dataset, csvfile, cell_name):
     cell.save_light_response()
     cell.save_stats_fig()
 
-    pdb.set_trace()
-
 
 if __name__ == "__main__":
-    # dataset = "p2"
-    dataset = "p14"
+    dataset = "p2"
+    # dataset = "p14"
     csvfile_name = "{}_data_notes.csv".format(dataset)
     csvfile = os.path.join(
         "/home/jhuang/Documents/phd_projects/injected_GC_data/tables",
         dataset,
         csvfile_name,
     )
-    # cell_name = "JH200313_c2"
-    cell_name = "JH190903_c2"
+    cell_name = "JH200303_c4"
+    # cell_name = "JH190903_c2"
 
     run_both_conditions(dataset, csvfile, cell_name)
 

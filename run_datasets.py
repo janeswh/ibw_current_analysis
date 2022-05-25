@@ -9,12 +9,12 @@ import pdb
 
 
 def get_datasets():
-    # dataset_list = ["5dpi"]
-    dataset_list = [
-        dataset
-        for dataset in os.listdir(FileSettings.DATA_FOLDER)
-        if dataset not in FileSettings.IGNORED
-    ]
+    dataset_list = ["p2"]
+    # dataset_list = [
+    #     dataset
+    #     for dataset in os.listdir(FileSettings.DATA_FOLDER)
+    #     if dataset not in FileSettings.IGNORED
+    # ]
     return dataset_list
 
 
