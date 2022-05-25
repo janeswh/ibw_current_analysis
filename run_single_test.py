@@ -650,19 +650,9 @@ class BothConditions(object):
         Runs t-test and KS test on two arrays, returning p-values. Runs paired
         t-test.
         """
-
         ttest_stats = pg.ttest(x, y, paired=True)
         ttest_pval = ttest_stats["p-val"][0]
-        # if ttest_pval < 0.01:
-        #     ttest_pval = f"{ttest_pval:.2e}"
-        # else:
-        #     ttest_pval = np.round(ttest_stats["p-val"][0], 4)
-
         ks_stats, ks_pval = scipy.stats.ks_2samp(x, y)
-        # if ks_pval < 0.01:
-        #     ks_pval = f"{ks_pval:.2e}"
-        # else:
-        #     ks_pval = np.round(ks_pval, 4)
 
         return ttest_stats, ttest_pval, ks_stats, ks_pval
 
@@ -698,7 +688,7 @@ class BothConditions(object):
         mean_trace_stats = pd.read_csv(mean_trace_stats_file, index_col=0)
 
         self.mean_trace_response = mean_trace_stats.loc["Light"][
-            "Response 3x STD"
+            "Response 4x STD"
         ]
 
     def save_light_response(self):

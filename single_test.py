@@ -693,13 +693,13 @@ class JaneCell(object):
         baseline_std = baseline_std[0]
         peak_mean = peak_mean[0]
 
-        response_2x = abs(peak_mean) > baseline_std * 2  # and timetopeak < 10
+        response_4x = abs(peak_mean) > baseline_std * 4  # and timetopeak < 10
         response_3x = abs(peak_mean) > baseline_std * 3  # and timetopeak < 10
 
         if threshold is None:
             responses = pd.DataFrame(
                 {
-                    "Response 2x STD": response_2x,
+                    "Response 4x STD": response_4x,
                     "Response 3x STD": response_3x,
                 },
                 index=range(1),
@@ -710,7 +710,7 @@ class JaneCell(object):
 
             responses = pd.DataFrame(
                 {
-                    "Response 2x STD": response_2x,
+                    "Response 4x STD": response_4x,
                     "Response 3x STD": response_3x,
                     response_string: response_threshold,
                 },
@@ -1205,7 +1205,7 @@ class JaneCell(object):
                 "Mean Trace Peak Time (ms)": mean_trace_peak_time,
                 # "Mean Trace Onset Latency (ms)": mean_trace_latency[0],
                 # "Mean Trace Time to Peak (ms)": mean_trace_time_to_peak[0],
-                "Response 2x STD": responses["Response 2x STD"][0],
+                "Response 4x STD": responses["Response 4x STD"][0],
                 "Response 3x STD": responses["Response 3x STD"][0],
             },
             index=[0],
