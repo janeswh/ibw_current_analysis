@@ -51,6 +51,7 @@ class BothConditions(object):
         self.light_freq_response = None
         self.spon_freq_response = None
         self.mean_trace_response = None
+        self.overall_response = None
 
     def get_both_conditions(self):
         """
@@ -691,6 +692,11 @@ class BothConditions(object):
             "Response 4x STD"
         ]
 
+        if self.light_freq_response is True & self.mean_trace_response is True:
+            self.overall_response = True
+        else:
+            self.overall_response = False
+
     def save_light_response(self):
         """
         Saves checked frequency and mean trace responses to csv
@@ -703,6 +709,7 @@ class BothConditions(object):
                 "light freq response": self.light_freq_response,
                 "mean trace response": self.mean_trace_response,
                 "spon freq response": self.spon_freq_response,
+                "overall respnse": self.overall_response,
             },
             index=[0],
         )
