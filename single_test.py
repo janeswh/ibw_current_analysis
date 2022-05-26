@@ -284,10 +284,13 @@ class JaneCell(object):
         """
         Checks whether cell is determined to have response or not (from sweep_info)
         """
-        if self.cell_sweep_info["Response"].values[0] == "No":
+        if self.condition == "spontaneous":
             response = False
         else:
-            response = True
+            if self.cell_sweep_info["Response"].values[0] == "No":
+                response = False
+            else:
+                response = True
 
         self.response = response
 
