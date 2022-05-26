@@ -1351,7 +1351,7 @@ class JaneCell(object):
         if time_stop is None:
             time_stop = int(self.sweep_length_ms)
 
-        time_start = self.tp_start + self.tp_length
+        time_start = self.baseline_start
 
         raster_df, bins, bar_bins, freq = self.get_bin_parameters(
             bin_width, time_start,
@@ -1920,20 +1920,23 @@ class JaneCell(object):
         baseline_start_idx = int(self.baseline_start / bin_width)
 
         # window to look for response starts after light stim
-        if self.dataset == "p2":
-            response_window_start = int(self.stim_time / bin_width)
-            response_window_end = int(self.response_window_end / bin_width)
+        # if self.dataset == "p2":
+        #     pdb.set_trace()
+        #     response_window_start = int(self.stim_time / bin_width)
+        #     response_window_end = int(self.response_window_end / bin_width)
 
-            response_window = self.avg_frequency_df.iloc[
-                response_window_start:response_window_end
-            ]
-        elif self.dataset == "p14":
-            response_window_start = self.stim_time
-            response_window_end = self.response_window_end
+        #     response_window = self.avg_frequency_df.iloc[
+        #         response_window_start:response_window_end
+        #     ]
+        #     pdb.set_trace()
+        # elif self.dataset == "p14":
 
-            response_window = self.avg_frequency_df.loc[
-                response_window_start:response_window_end
-            ]
+        response_window_start = self.stim_time
+        response_window_end = self.response_window_end
+
+        response_window = self.avg_frequency_df.loc[
+            response_window_start:response_window_end
+        ]
 
         avg_baseline_freq, std_baseline_freq = self.calculate_freq_baseline(
             baseline_start_idx, response_window_start,
