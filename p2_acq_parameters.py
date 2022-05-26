@@ -2,7 +2,7 @@
 LOWPASS_FREQ = 500  # Hz
 STIM_TIME = 520  # ms
 POST_STIM = 150  # ms, amount of time after stimulus to look for freq and mean trace peak
-RESPONSE_WINDOW_END = 2000  # ms, time response window ends
+RESPONSE_WINDOW_END = 2000  # ms, time response window end (shorter for p2)
 TP_START = 5  # ms, time of start of test pulse
 TP_LENGTH = 20
 VM_JUMP = 10  # mV, test pulse voltage jump
@@ -13,5 +13,5 @@ FS = 25  # kHz, the sampling frequency
 BASELINE_START = (
     TP_START + TP_LENGTH + 5
 )  # starts when tp ends, adds 5 to be even like p14, easier binning
-BASELINE_END = STIM_TIME  # ends with stim starts
+BASELINE_END = STIM_TIME - 10  # ends 10 s before stim starts
 

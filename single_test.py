@@ -1334,7 +1334,7 @@ class JaneCell(object):
         events_fig.show()
         self.events_fig = events_fig
 
-    def analyze_avg_frequency(self, bin_width=10, time_stop=None):
+    def analyze_avg_frequency(self, bin_width=10):
         """
         bin_width is width of bins in ms
         time_stop is time of last timepoint wanted for BARS, in ms
@@ -1348,22 +1348,17 @@ class JaneCell(object):
         6. Plots smoothed PSTH with stats annotated if light condition
         
         """
-        if time_stop is None:
-            time_stop = int(self.sweep_length_ms)
-
-        time_start = self.baseline_start
-
         raster_df, bins, bar_bins, freq = self.get_bin_parameters(
-            bin_width, time_start,
+            bin_width, window="whole sweep"
         )
 
-        # calculates bins for window
+        # calculates bins for response window
         (
             windowed_raster_df,
             windowed_bins,
             windowed_bar_bins,
             windowed_freq,
-        ) = self.get_bin_parameters(bin_width, time_start, 2000)
+        ) = self.get_bin_parameters(bin_width, window="response window")
 
         # trying to shorten BARS window to 1500 ms after stim time
         windowed_x_stop = len(windowed_bins)
@@ -1379,13 +1374,12 @@ class JaneCell(object):
             bins[0], bins[-1], x_stop
         )  # also time of avg_frequency
 
-        # baseline subtract freq counts before smoothing
-        baseline_window = self.stim_time - time_start
-        baseline_bins = int(baseline_window / bin_width)
-        # this stops before bins that would include cts from 500-510 ms
-        baseline_freq = freq[:baseline_bins].mean()
-
-        windowed_freq_sub = windowed_freq
+        # # baseline subtract freq counts before smoothing
+        # baseline_window_length = self.stim_time - self.baseline_start
+        # baseline_bins = int(baseline_window_length / bin_width)
+        # # this stops before bins that would include cts from 500-510 ms
+        # baseline_freq = freq[:baseline_bins].mean()
+        # windowed_freq_sub = windowed_freq
 
         windowed_raw_avg_frequency = run_BARS_smoothing(
             windowed_x_stop,
@@ -1529,21 +1523,23 @@ class JaneCell(object):
 
         # psth_fig.show()
 
-    def get_bin_parameters(self, bin_width, time_start, time_stop=None):
+    def get_bin_parameters(self, bin_width, window):
         """
         Gets the counts, bins, bin widths for PSTH-related plotting and
-        calculations. This uses the entire sweep.
+        calculations. Starts when baseline starts.
         """
         # gets event positions for raster plot
         raster_df = self.event_stats[["Sweep", "New pos"]]
         # make PSTH
         psth_df = raster_df["New pos"]
-        if time_stop == None:
+        if window == "whole sweep":
             time_stop = self.sweep_length_ms
+        elif window == "response window":
+            time_stop = self.response_window_end
         bin_stop = int(time_stop) + bin_width
 
         counts, bins = np.histogram(
-            psth_df, bins=range(time_start, bin_stop, bin_width)
+            psth_df, bins=range(self.baseline_start, bin_stop, bin_width)
         )
         # this puts bar in between the edges of the bin
         bar_bins = 0.5 * (bins[:-1] + bins[1:])
@@ -1615,27 +1611,24 @@ class JaneCell(object):
 
         return smoothed
 
-    def calculate_freq_baseline(
-        self, baseline_start_idx, response_window_start, window="pre-stim"
-    ):
+    def calculate_freq_baseline(self):
 
-        if window == "second half":
-            # this is using latter half of sweep as baseline
-            baseline_freq = self.avg_frequency_df.iloc[baseline_start_idx:]
-        elif window == "pre-stim":
-            # this is using pre-stim time as baseline
-            baseline_freq = self.avg_frequency_df.iloc[:response_window_start]
+        baseline_freq = self.avg_frequency_df.loc[: self.baseline_end]
 
         avg_baseline_freq = baseline_freq.mean()[0]
         std_baseline_freq = baseline_freq.std()
 
         return avg_baseline_freq, std_baseline_freq
 
-    def calculate_freq_peak(self, freq_df):
+    def calculate_freq_peak(self):
         window_start = self.stim_time
         window_end = self.stim_time + self.post_stim
-        max_freq = freq_df.loc[window_start:window_end].max(axis=0)[0]
-        freq_peak_time = freq_df.loc[window_start:window_end].idxmax(axis=0)[0]
+        max_freq = self.avg_frequency_df.loc[window_start:window_end].max(
+            axis=0
+        )[0]
+        freq_peak_time = self.avg_frequency_df.loc[
+            window_start:window_end
+        ].idxmax(axis=0)[0]
         time_to_peak_freq = freq_peak_time - self.stim_time
 
         return max_freq, freq_peak_time, time_to_peak_freq
@@ -1917,8 +1910,6 @@ class JaneCell(object):
         avg_frequency_df.index = x_plot
         self.avg_frequency_df = avg_frequency_df
 
-        baseline_start_idx = int(self.baseline_start / bin_width)
-
         # window to look for response starts after light stim
         # if self.dataset == "p2":
         #     pdb.set_trace()
@@ -1931,33 +1922,30 @@ class JaneCell(object):
         #     pdb.set_trace()
         # elif self.dataset == "p14":
 
-        response_window_start = self.stim_time
-        response_window_end = self.response_window_end
-
         response_window = self.avg_frequency_df.loc[
-            response_window_start:response_window_end
+            self.stim_time : self.response_window_end
         ]
 
-        avg_baseline_freq, std_baseline_freq = self.calculate_freq_baseline(
-            baseline_start_idx, response_window_start,
-        )
+        avg_baseline_freq, std_baseline_freq = self.calculate_freq_baseline()
 
         (
             max_freq,
             freq_peak_time,
             time_to_peak_freq,
-        ) = self.calculate_freq_peak(avg_frequency_df)
+        ) = self.calculate_freq_peak()
 
         onset_time = self.calculate_freq_peak_onset(
             std_baseline_freq, response_window
         )
 
         if self.condition == "spontaneous":
-            rise_time, rise_start, rise_end, tau, decay_fit = (None,) * 5
+            rise_time, rise_start, rise_end, tau, decay_fit = (np.nan,) * 5
             self.response = False
 
         elif self.condition == "light":
-            if (max_freq > 1) and (freq_peak_time < 1500):
+            if (max_freq > 1) and (
+                freq_peak_time < self.stim_time + self.post_stim
+            ):
                 rise_time, rise_start, rise_end = self.calculate_rise_time(
                     max_freq,
                     freq_peak_time,
@@ -1976,7 +1964,7 @@ class JaneCell(object):
                 )
                 self.response = True
             else:
-                rise_time, rise_start, rise_end, tau, decay_fit = (None,) * 5
+                rise_time, rise_start, rise_end, tau, decay_fit = (np.nan,) * 5
                 self.response = False
 
         avg_freq_stats = pd.DataFrame(
