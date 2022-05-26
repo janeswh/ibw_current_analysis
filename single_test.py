@@ -1634,7 +1634,7 @@ class JaneCell(object):
     def calculate_freq_peak(self, freq_df):
 
         max_freq = freq_df.loc[self.stim_time :].max(axis=0)[0]
-        freq_peak_time = freq_df.loc[500:].idxmax(axis=0)[0]
+        freq_peak_time = freq_df.loc[self.stim_time :].idxmax(axis=0)[0]
         time_to_peak_freq = freq_peak_time - self.stim_time
 
         return max_freq, freq_peak_time, time_to_peak_freq
