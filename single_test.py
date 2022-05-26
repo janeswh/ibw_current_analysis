@@ -1972,6 +1972,9 @@ class JaneCell(object):
 
         avg_freq_stats = pd.DataFrame(
             {
+                "Cell name": self.cell_name,
+                "Dataset": self.dataset,
+                "Cell Type": self.cell_type,
                 "Peak Frequency (Hz)": max_freq,
                 "Peak Frequency Time (ms)": freq_peak_time,
                 "Time to Peak Frequency (ms)": time_to_peak_freq,

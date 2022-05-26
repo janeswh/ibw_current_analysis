@@ -46,12 +46,24 @@ class BothConditions(object):
         self.amplitude_hist = self.rise_time_hist = self.tau_hist = None
         self.both_freqs_fig = None
 
+        self.light_response_win_stats = None
+        self.spon_response_win_stats = None
+        self.light_outside_win_stats = None
+        self.spon_outside_win_stats = None
+
         self.response_pvals = None
         self.stats_fig = None
         self.light_freq_response = None
         self.spon_freq_response = None
         self.mean_trace_response = None
         self.overall_response = None
+        self.response_mismatch = None
+        self.spon_false_positive = None
+
+        if self.dataset == "p2":
+            self.baseline_end = p2_acq_parameters.BASELINE_END
+        elif self.dataset == "p14":
+            self.baseline_end = p14_acq_parameters.BASELINE_END
 
     def get_both_conditions(self):
         """
@@ -144,7 +156,7 @@ class BothConditions(object):
 
         combined_df.to_csv(path, float_format="%8.4f", index=True)
 
-    def save_event_stats(self):
+    def save_all_events_stats(self):
         """
         Saves individual event stats for both conditions, one file each for
         within response window (500-2000 ms) and outside
@@ -159,23 +171,23 @@ class BothConditions(object):
             labels=cols_to_drop, axis=1
         )
 
-        light_response_win_stats = light_stats[
+        self.light_response_win_stats = light_stats[
             light_stats["New pos"].between(
                 self.stim_time, self.response_window_end, inclusive="both"
             )
         ]
-        light_outside_win_stats = light_stats[
+        self.light_outside_win_stats = light_stats[
             ~light_stats["New pos"].between(
                 self.stim_time, self.response_window_end, inclusive="both"
             )
         ]
 
-        spon_response_win_stats = spon_stats[
+        self.spon_response_win_stats = spon_stats[
             spon_stats["New pos"].between(
                 self.stim_time, self.response_window_end, inclusive="both"
             )
         ]
-        spon_outside_win_stats = spon_stats[
+        self.spon_outside_win_stats = spon_stats[
             ~spon_stats["New pos"].between(
                 self.stim_time, self.response_window_end, inclusive="both"
             )
@@ -188,27 +200,47 @@ class BothConditions(object):
             f"{self.cell_name}_outside_spontaneous_event_stats.csv",
         ]
         dfs = [
-            light_response_win_stats,
-            spon_response_win_stats,
-            light_outside_win_stats,
-            spon_outside_win_stats,
+            self.light_response_win_stats,
+            self.spon_response_win_stats,
+            self.light_outside_win_stats,
+            self.spon_outside_win_stats,
         ]
 
         for count, file_name in enumerate(file_names):
             path = os.path.join(self.tables_folder, file_name)
             dfs[count].to_csv(path, float_format="%8.4f", index=True)
 
+    def save_median_event_stats(self):
+
+        # makes cell info data to add to csvs
+        cell_info = pd.DataFrame(
+            {
+                "Cell name": self.cell_name,
+                "Dataset": self.dataset,
+                "Cell Type": self.cell_type,
+            },
+            index=[0],
+        )
+
+        cell_info = pd.concat([cell_info, cell_info], ignore_index=True)
+        cell_info.index = ["Light", "Spontaneous"]
+
         # saves medians from both conditions in one csv, for within window
         window_median_event_stats = pd.DataFrame(
             {
-                "Light": light_response_win_stats.median(),
-                "Spontaneous": spon_response_win_stats.median(),
+                "Light": self.light_response_win_stats.median(),
+                "Spontaneous": self.spon_response_win_stats.median(),
             },
-            index=light_response_win_stats.columns,
+            index=self.light_response_win_stats.columns,
         )
 
         window_median_event_stats.drop(
             labels=["Sweep", "New pos"], axis=0, inplace=True
+        )
+
+        window_median_event_stats = window_median_event_stats.T
+        window_median_event_stats = pd.concat(
+            [cell_info, window_median_event_stats], axis=1
         )
 
         window_median_stats_file_name = (
@@ -224,14 +256,18 @@ class BothConditions(object):
         # saves medians from both conditions in one csv, for outside window
         outside_median_event_stats = pd.DataFrame(
             {
-                "Light": light_outside_win_stats.median(),
-                "Spontaneous": spon_outside_win_stats.median(),
+                "Light": self.light_outside_win_stats.median(),
+                "Spontaneous": self.spon_outside_win_stats.median(),
             },
-            index=light_outside_win_stats.columns,
+            index=self.light_outside_win_stats.columns,
         )
-
         outside_median_event_stats.drop(
             labels=["Sweep", "New pos"], axis=0, inplace=True
+        )
+
+        outside_median_event_stats = outside_median_event_stats.T
+        outside_median_event_stats = pd.concat(
+            [cell_info, outside_median_event_stats], axis=1
         )
 
         outside_median_stats_file_name = (
@@ -269,7 +305,8 @@ class BothConditions(object):
 
         self.save_freqs()
         self.save_avg_freq_stats()
-        self.save_event_stats()
+        self.save_all_events_stats()
+        self.save_median_event_stats()
         self.save_mean_trace_stats()
 
     def plot_event_stats_histograms(self):
@@ -533,12 +570,8 @@ class BothConditions(object):
         )
         avg_freqs = pd.read_csv(freqs_file, index_col=0)
 
-        # window of comparison is different for p14 and p2 because of tp end
-        # time differences  (in ms)
-        if self.dataset == "p14":
-            time_after_light = 90
-        elif self.dataset == "p2":
-            time_after_light = 100
+        time_after_light = 100
+
         light_freq = avg_freqs["Light Avg Frequency (Hz)"][
             self.stim_time : self.stim_time + time_after_light
         ]
@@ -551,10 +584,10 @@ class BothConditions(object):
 
         # baseline windown ends right before stim onset
         light_baseline_win = avg_freqs["Light Avg Frequency (Hz)"].loc[
-            response_start - 100 : response_start - 10
+            response_start - (time_after_light + 10) : self.baseline_end
         ]
         spon_baseline_win = avg_freqs["Spontaneous Avg Frequency (Hz)"].loc[
-            response_start - 100 : response_start - 10
+            response_start - (time_after_light + 10) : self.baseline_end
         ]
 
         # gets avg baseline
@@ -628,7 +661,10 @@ class BothConditions(object):
                 ] = ks_stats
                 nest_pval_dict[comparison][subtract_type]["ks pval"] = ks_pval
 
-                freqs_used = pd.DataFrame({"x": x.values, "y": y.values})
+                try:
+                    freqs_used = pd.DataFrame({"x": x.values, "y": y.values})
+                except ValueError:
+                    pdb.set_trace()
                 freqs_used.index = x.index  # add time indices back in
                 nest_pval_dict[comparison][subtract_type]["freqs"] = freqs_used
 
@@ -697,29 +733,62 @@ class BothConditions(object):
         else:
             self.overall_response = False
 
+        # checks overall response with eye-determined response
+        if self.overall_response == self.light_sweeps.response:
+            self.response_mismatch = False
+        else:
+            self.response_mismatch = True
+
     def save_light_response(self):
         """
         Saves checked frequency and mean trace responses to csv
         """
+        # responses_df = pd.DataFrame(
+        #     {
+        #         "cell name": self.cell_name,
+        #         "timepoint": self.dataset,
+        #         "cell type": self.cell_type,
+        #         "light freq response": self.light_freq_response,
+        #         "mean trace response": self.mean_trace_response,
+        #         "spon freq response": self.spon_freq_response,
+        #         "overall response": self.overall_response,
+        #     },
+        #     columns=["cell name", "timepoint", "cell type", ]
+        #     index=[0],
+        # )
+
         responses_df = pd.DataFrame(
-            {
-                "cell name": self.cell_name,
-                "timepoint": self.dataset,
-                "cell type": self.cell_type,
-                "light freq response": self.light_freq_response,
-                "mean trace response": self.mean_trace_response,
-                "spon freq response": self.spon_freq_response,
-                "overall response": self.overall_response,
-            },
-            index=[0],
+            [
+                [
+                    self.cell_name,
+                    self.dataset,
+                    self.cell_type,
+                    self.light_freq_response,
+                    self.mean_trace_response,
+                    self.spon_freq_response,
+                    self.overall_response,
+                    self.response_mismatch,
+                    self.spon_freq_response,
+                ]
+            ],
+            columns=[
+                "cell_name",
+                "timepoint",
+                "cell type",
+                "light freq response",
+                "mean trace response",
+                "spon freq response",
+                "overall response",
+                "vs. eye mismatch",
+                "spon false positive",
+            ],
         )
-        responses_df = responses_df.T
 
         file_name = f"{self.cell_name}_responses.csv"
         path = os.path.join(self.tables_folder, file_name)
 
         responses_df.to_csv(
-            path, float_format="%8.4f", index=True, header=False
+            path, float_format="%8.4f", index=False, header=True
         )
 
     def save_stats_fig(self):
@@ -748,8 +817,8 @@ def run_single(dataset, csvfile, file_name):
     # 0 initializes JaneCell class
     condition_sweeps = JaneCell(dataset, sweep_info, file, file_name)
 
-    # 1 checks whether cell has a response before proceeding
-    response = condition_sweeps.check_response()
+    # 1 checks whether cell has a data_notes response before proceeding
+    condition_sweeps.check_response()
 
     # 4 runs stats on sweeps and creates a dict for each stim condition
     condition_sweeps.get_mod_events()
@@ -796,16 +865,16 @@ def run_both_conditions(dataset, csvfile, cell_name):
 
 
 if __name__ == "__main__":
-    dataset = "p2"
-    # dataset = "p14"
+    # dataset = "p2"
+    dataset = "p14"
     csvfile_name = "{}_data_notes.csv".format(dataset)
     csvfile = os.path.join(
         "/home/jhuang/Documents/phd_projects/injected_GC_data/tables",
         dataset,
         csvfile_name,
     )
-    cell_name = "JH200303_c4"
-    # cell_name = "JH190903_c2"
+    # cell_name = "JH200313_c4"
+    cell_name = "JH190904_c2"
 
     run_both_conditions(dataset, csvfile, cell_name)
 
