@@ -703,13 +703,13 @@ class BothConditions(object):
         """
         responses_df = pd.DataFrame(
             {
-                "timepoint": self.dataset,
                 "cell name": self.cell_name,
+                "timepoint": self.dataset,
                 "cell type": self.cell_type,
                 "light freq response": self.light_freq_response,
                 "mean trace response": self.mean_trace_response,
                 "spon freq response": self.spon_freq_response,
-                "overall respnse": self.overall_response,
+                "overall response": self.overall_response,
             },
             index=[0],
         )
