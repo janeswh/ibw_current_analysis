@@ -380,13 +380,13 @@ class BothConditions(object):
                 amp_trace = make_event_hist_trace(
                     colors[count],
                     conditions[count],
-                    condition_stats["New amplitude (pA)"],
+                    condition_stats["Adjusted amplitude (pA)"],
                 )
                 amplitude_hist.add_trace(amp_trace, row=1, col=win_count + 1)
                 add_median_vline(
                     amplitude_hist,
                     median_colors[count],
-                    condition_stats["New amplitude (pA)"],
+                    condition_stats["Adjusted amplitude (pA)"],
                     win_count,
                     count,
                     "pA",
@@ -865,16 +865,16 @@ def run_both_conditions(dataset, csvfile, cell_name):
 
 
 if __name__ == "__main__":
-    # dataset = "p2"
-    dataset = "p14"
+    dataset = "p2"
+    # dataset = "p14"
     csvfile_name = "{}_data_notes.csv".format(dataset)
     csvfile = os.path.join(
         "/home/jhuang/Documents/phd_projects/injected_GC_data/tables",
         dataset,
         csvfile_name,
     )
-    # cell_name = "JH200313_c4"
-    cell_name = "JH190904_c2"
+    cell_name = "JH200311_c2"
+    # cell_name = "JH190904_c2"
 
     run_both_conditions(dataset, csvfile, cell_name)
 
