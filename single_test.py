@@ -837,8 +837,6 @@ class JaneCell(object):
 
             # sets new event window to do kinetics analyses
             (
-                tau,
-                decay_fit,
                 rise_time,
                 rise_start,
                 rise_end,
@@ -1873,7 +1871,7 @@ class JaneCell(object):
                 a, tau, offset = popt
 
         # if tau is STILL huge, make it nan
-        if tau > 100:
+        if tau > 100 and data_type == "event":
             tau = np.nan
 
         if len(y) != 0 and tau != np.nan:
