@@ -194,6 +194,7 @@ class JaneCell(object):
 
         self.freq = None
         self.avg_frequency_df = None
+        self.max_freq = None
         self.avg_frequency_stats = None
         self.frequency_decay_fit = None
 
@@ -1978,7 +1979,7 @@ class JaneCell(object):
             },
             index=[0],
         )
-
+        self.max_freq = max_freq
         self.frequency_decay_fit = decay_fit
         self.avg_frequency_stats = avg_freq_stats
 
@@ -2094,7 +2095,7 @@ class JaneCell(object):
             col=1,
         )
 
-        if self.response is True:
+        if (self.response == True) & (self.max_freq > 1):
             # add decay fit
             annotated_freq.add_trace(
                 go.Scatter(
