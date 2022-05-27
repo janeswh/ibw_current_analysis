@@ -217,7 +217,7 @@ class JaneCell(object):
         self.threshold = None
 
         # set acquisition parameters
-        if self.dataset == "p2":
+        if self.dataset in {"p2", "p2_4wpi", "p2_6wpi"}:
             self.lowpass_freq = p2_acq_parameters.LOWPASS_FREQ
             self.stim_time = p2_acq_parameters.STIM_TIME
             self.post_stim = p2_acq_parameters.POST_STIM
@@ -285,16 +285,12 @@ class JaneCell(object):
         Checks whether cell is determined to have response or not (from sweep_info)
         """
         if self.condition == "spontaneous":
-            response = False
-        else:
+            self.response = False
+        elif self.condition == "light":
             if self.cell_sweep_info["Response"].values[0] == "No":
-                response = False
-            else:
-                response = True
-
-        self.response = response
-
-        return response
+                self.response = False
+            elif self.cell_sweep_info["Response"].values[0] == "Yes":
+                self.response = True
 
     # def check_exceptions(self, stim_sweep_info):
     #     """
@@ -1947,7 +1943,6 @@ class JaneCell(object):
 
         if self.condition == "spontaneous":
             rise_time, rise_start, rise_end, tau, decay_fit = (np.nan,) * 5
-            self.response = False
 
         elif self.condition == "light":
             if (max_freq > 1) and (
@@ -1969,10 +1964,8 @@ class JaneCell(object):
                     polarity="+",
                     freq_baseline=avg_baseline_freq,
                 )
-                self.response = True
             else:
                 rise_time, rise_start, rise_end, tau, decay_fit = (np.nan,) * 5
-                self.response = False
 
         avg_freq_stats = pd.DataFrame(
             {

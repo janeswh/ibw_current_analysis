@@ -60,7 +60,7 @@ class BothConditions(object):
         self.response_mismatch = None
         self.spon_false_positive = None
 
-        if self.dataset == "p2":
+        if self.dataset in {"p2", "p2_4wpi", "p2_6wpi"}:
             self.baseline_end = p2_acq_parameters.BASELINE_END
         elif self.dataset == "p14":
             self.baseline_end = p14_acq_parameters.BASELINE_END
@@ -739,6 +739,8 @@ class BothConditions(object):
         else:
             self.response_mismatch = True
 
+        pdb.set_trace()
+
     def save_light_response(self):
         """
         Saves checked frequency and mean trace responses to csv
@@ -865,7 +867,7 @@ def run_both_conditions(dataset, csvfile, cell_name):
 
 
 if __name__ == "__main__":
-    dataset = "p2"
+    dataset = "p2_6wpi"
     # dataset = "p14"
     csvfile_name = "{}_data_notes.csv".format(dataset)
     csvfile = os.path.join(
@@ -873,7 +875,7 @@ if __name__ == "__main__":
         dataset,
         csvfile_name,
     )
-    cell_name = "JH200311_c2"
+    cell_name = "JH20210730_c1"
     # cell_name = "JH190904_c2"
 
     run_both_conditions(dataset, csvfile, cell_name)
