@@ -1932,9 +1932,9 @@ class JaneCell(object):
             time_to_peak_freq,
         ) = self.calculate_freq_peak()
 
-        onset_time = self.calculate_freq_peak_onset(
-            std_baseline_freq, response_window
-        )
+        # onset_time = self.calculate_freq_peak_onset(
+        #     std_baseline_freq, response_window
+        # )
 
         if self.condition == "spontaneous":
             rise_time, rise_start, rise_end, tau, decay_fit = (np.nan,) * 5
@@ -1972,7 +1972,7 @@ class JaneCell(object):
                 "Time to Peak Frequency (ms)": time_to_peak_freq,
                 "Baseline Frequency (Hz)": avg_baseline_freq,
                 "Baseline-sub Peak Freq (Hz)": max_freq - avg_baseline_freq,
-                "Response Onset Latency (ms)": onset_time - self.stim_time,
+                # "Response Onset Latency (ms)": onset_time - self.stim_time,
                 "Rise Time (ms)": rise_time,
                 "Decay tau": tau,
             },
