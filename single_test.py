@@ -950,9 +950,13 @@ class JaneCell(object):
 
         event_stats = pd.concat([event_stats, tau_list], axis=1)
 
-        # drop events with tau greater than 100
-        # to_drop = event_stats.loc[event_stats["Tau (ms)"] > 100].index
-        # event_stats.drop(to_drop, inplace=True)
+        # drop events with duplicate pos in the same sweep
+        event_stats.drop_duplicates(subset=["New pos", "Sweep"], inplace=True)
+
+        # drop events with root-subtracted amplitudes less than 10
+        event_stats = event_stats[
+            event_stats["Adjusted amplitude (pA)"].abs() > 10
+        ]
 
         self.decay_fits_dict = decay_fits_dict
         self.event_stats = event_stats
