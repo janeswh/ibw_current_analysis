@@ -739,8 +739,6 @@ class BothConditions(object):
         else:
             self.response_mismatch = True
 
-        pdb.set_trace()
-
     def save_light_response(self):
         """
         Saves checked frequency and mean trace responses to csv
