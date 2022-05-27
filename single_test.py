@@ -1946,7 +1946,7 @@ class JaneCell(object):
 
         elif self.condition == "light":
             if (max_freq > 1) and (
-                freq_peak_time < self.stim_time + self.post_stim
+                freq_peak_time <= self.stim_time + self.post_stim
             ):
                 rise_time, rise_start, rise_end = self.calculate_rise_time(
                     max_freq,
