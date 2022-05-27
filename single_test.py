@@ -593,11 +593,8 @@ class JaneCell(object):
             root_time=root_time,
             data_type="event",
         )
-        tau = None
-        decay_fit = None
+
         return (
-            tau,
-            decay_fit,
             rise_time,
             rise_start,
             rise_end,
