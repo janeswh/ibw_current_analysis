@@ -9,7 +9,7 @@ import pdb
 
 
 def get_datasets():
-    dataset_list = ["p2"]
+    dataset_list = ["p2_4wpi"]
     # dataset_list = [
     #     dataset
     #     for dataset in os.listdir(FileSettings.DATA_FOLDER)
@@ -46,11 +46,12 @@ def run_dataset_analysis(dataset):
 
     for file_count, ibwfile_name in enumerate(ibwfile_list):
         cell_name = ibwfile_name.split("_light")[0]
-        run_both_conditions(dataset, csvfile, cell_name)
+        # run_both_conditions(dataset, csvfile, cell_name)
         print(
             f"Analysis for {cell_name} done, "
             f"{file_count+1}/{len(ibwfile_list)} cells"
         )
+
     pdb.set_trace()
 
 
@@ -61,9 +62,9 @@ def main():
     for dataset_count, dataset in enumerate(dataset_list):
         print("***Starting analysis for {} dataset.***".format(dataset))
         run_dataset_analysis(dataset)
-        genotypes_list = get_genotypes(dataset)
-        monosyn_cell_counts = get_genotype_summary(dataset, genotypes_list)
-
+        cell_types_list = get_cell_types(dataset)
+        response_cell_counts = get_cell_type_summary(dataset, cell_types_list)
+        pdb.set_trace()
         dataset_cell_counts[dataset] = monosyn_cell_counts
         print(
             "***Analysis for {} dataset done, #{}/{} datasets.***".format(
