@@ -9,7 +9,7 @@ import pdb
 
 
 def get_datasets():
-    dataset_list = ["p2_4wpi"]
+    dataset_list = ["p2", "p14"]
     # dataset_list = [
     #     dataset
     #     for dataset in os.listdir(FileSettings.DATA_FOLDER)
@@ -52,29 +52,63 @@ def run_dataset_analysis(dataset):
             f"{file_count+1}/{len(ibwfile_list)} cells"
         )
 
-    pdb.set_trace()
+    # pdb.set_trace()
 
 
 def main():
     dataset_list, all_patched = get_data_info()
     dataset_cell_counts = {}
+    dataset_median_stats = {}
+    dataset_freq_stats = {}
 
     for dataset_count, dataset in enumerate(dataset_list):
         print("***Starting analysis for {} dataset.***".format(dataset))
         run_dataset_analysis(dataset)
         cell_types_list = get_cell_types(dataset)
-        response_cell_counts = get_cell_type_summary(dataset, cell_types_list)
-        pdb.set_trace()
-        dataset_cell_counts[dataset] = monosyn_cell_counts
+        (
+            response_cells_list,
+            response_counts,
+            median_stats,
+            freq_stats,
+        ) = get_cell_type_summary(dataset, cell_types_list)
+
+        dataset_cell_counts[dataset] = response_counts
+        dataset_median_stats[dataset] = median_stats
+        dataset_freq_stats[dataset] = freq_stats
+
+        (
+            dataset_counts_df,
+            win_median_stats_df,
+            outside_median_stats_df,
+            freq_stats_df,
+        ) = make_cell_type_summary_dfs(
+            dataset, response_counts, median_stats, freq_stats
+        )
+
+        save_dataset_stats(
+            dataset,
+            response_cells_list,
+            dataset_counts_df,
+            win_median_stats_df,
+            outside_median_stats_df,
+            freq_stats_df,
+        )
+
         print(
             "***Analysis for {} dataset done, #{}/{} datasets.***".format(
                 dataset, dataset_count + 1, len(dataset_list)
             )
         )
-    # pdb.set_trace()
-    do_cell_counts(dataset_cell_counts, all_patched)
+        pdb.set_trace()
 
-    collect_selected_averages(dataset_cell_counts)
+    # saves all the cell counts
+    # counts_df = do_cell_counts(dataset_cell_counts, all_patched)
+    # make_all_dataset_dfs(
+    #     dataset_cell_counts, dataset_median_stats, dataset_freq_stats
+    # )
+    # save_response_counts(counts_df)
+
+    pdb.set_trace()
 
 
 if __name__ == "__main__":

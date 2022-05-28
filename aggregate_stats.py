@@ -15,70 +15,155 @@ import pdb
 import glob
 
 
-class GenotypeSummary(object):
-    def __init__(self, dataset, genotype):
+class CellTypeSummary(object):
+    def __init__(self, dataset, cell_type):
         self.dataset = dataset
-        self.genotype = genotype
-        self.genotype_stats_folder = os.path.join(
-            FileSettings.TABLES_FOLDER, dataset, genotype
+        self.cell_type = cell_type
+        self.cell_type_stats_folder = os.path.join(
+            FileSettings.TABLES_FOLDER, dataset, cell_type
         )
-        self.genotype_figures_folder = os.path.join(
-            FileSettings.FIGURES_FOLDER, dataset, genotype
+        self.cell_type_figures_folder = os.path.join(
+            FileSettings.FIGURES_FOLDER, dataset, cell_type
         )
-        self.concat_df = self.get_summary_stats()
 
         self.threshold = None
         self.stim_conditions = None
         self.cell_counts = None
 
-    def get_summary_stats(self):
-        # reads in all the summary stats values
-        file_paths = []
-        for filename in os.listdir(os.path.join(self.genotype_stats_folder)):
-            if filename.endswith("response_stats.csv"):
-                file_paths.append(
-                    os.path.join(self.genotype_stats_folder, filename)
-                )
-        concat_df = pd.concat(
+        self.raw_responses_df = None
+        self.responding_cells = None
+        self.responding_cells_num = None
+        self.non_responding_cells = None
+        self.nonresponding_cells_num = None
+        self.mismatch_cells = None
+
+        self.win_median_stats_df = None
+        self.outsid_median_stats_df = None
+
+        self.respon_avg_freq_stats = None
+
+    def get_responding_cells(self):
+        """
+        Loops through each cell's responses.csv to check its "overall response"
+        value to see whether it has a response.
+        """
+        responses_list = []
+
+        for cell_name in os.listdir(os.path.join(self.cell_type_stats_folder)):
+            for filename in os.listdir(
+                os.path.join(self.cell_type_stats_folder, cell_name)
+            ):
+                if filename.endswith("responses.csv"):
+                    responses_list.append(
+                        os.path.join(
+                            self.cell_type_stats_folder, cell_name, filename
+                        )
+                    )
+
+        self.raw_responses_df = pd.concat(
             [
-                pd.read_csv(file, index_col=None, header=0)
-                for file in file_paths
+                pd.read_csv(file, header=0)  # cell_name is idx
+                for file in responses_list
+            ],
+            axis=0,
+        )
+
+        self.responding_cells = list(
+            self.raw_responses_df.loc[
+                self.raw_responses_df["overall response"] == True
+            ]["cell_name"]
+        )
+        self.non_responding_cells = list(
+            self.raw_responses_df.loc[
+                self.raw_responses_df["overall response"] == False
+            ]["cell_name"]
+        )
+
+        self.responding_cells_num = len(self.responding_cells)
+        self.nonresponding_cells_num = len(self.non_responding_cells)
+
+    def get_response_mismatches(self):
+        """
+        Compares the response values from each file with those determined by
+        eye in data_notes
+        """
+
+        self.mismatch_cells = list(
+            self.raw_responses_df.loc[
+                self.raw_responses_df["vs. eye mismatch"] == True
+            ]["cell_name"]
+        )
+
+    def get_event_median_stats(self):
+        # reads in median event stats for within response window and outside
+        win_file_paths = []
+        outside_file_paths = []
+
+        # this is all the cells
+        # cell_list = os.listdir(os.path.join(self.cell_type_stats_folder))
+
+        # this is responding cells only
+        cell_list = self.responding_cells
+
+        for cell_name in cell_list:
+            for filename in os.listdir(
+                os.path.join(self.cell_type_stats_folder, cell_name)
+            ):
+                if filename.endswith("median_window_event_stats.csv"):
+                    win_file_paths.append(
+                        os.path.join(
+                            self.cell_type_stats_folder, cell_name, filename
+                        )
+                    )
+                elif filename.endswith("median_outside_event_stats.csv"):
+                    outside_file_paths.append(
+                        os.path.join(
+                            self.cell_type_stats_folder, cell_name, filename
+                        )
+                    )
+        self.win_median_stats_df = pd.concat(
+            [
+                pd.read_csv(file, index_col=0, header=0)
+                for file in win_file_paths
             ]
         )
 
-        return concat_df
-
-    def set_latency_threshold(self, threshold):
-        # drops values from concat_df with mean onset latencies above threshold
-
-        if threshold is None or threshold is "nothresh":
-            self.thresh_concat = self.concat_df.copy()
-        else:
-            self.thresh_concat = self.concat_df[
-                self.concat_df["Mean Onset Latency (ms)"] < threshold
+        self.outside_median_stats_df = pd.concat(
+            [
+                pd.read_csv(file, index_col=0, header=0)
+                for file in outside_file_paths
             ]
+        )
 
-        self.threshold = threshold
+    def get_avg_freq_stats(self):
+        """
+        Reads in the average frequency kinetics values
+        """
+        cell_list = self.responding_cells
+        freq_stats_files = []
 
-    def calc_summary_avgs(self):
-        # this calculates stats grouped by stim conditions
-        self.mean_df = self.thresh_concat.groupby(
-            ["Light Intensity", "Light Duration"]
-        ).mean()
-        self.sem_df = self.thresh_concat.groupby(
-            ["Light Intensity", "Light Duration"]
-        ).sem()
+        for cell_name in cell_list:
+            for filename in os.listdir(
+                os.path.join(self.cell_type_stats_folder, cell_name)
+            ):
+                if filename.endswith("avg_freq_stats.csv"):
+                    freq_stats_files.append(
+                        os.path.join(
+                            self.cell_type_stats_folder, cell_name, filename
+                        )
+                    )
 
-    def get_summary_avgs(self):
-        # gets avg values for the selected stim condition
-        selected_intensity, selected_duration = FileSettings.SELECTED_CONDITION
+        respon_avg_freq_stats = pd.concat(
+            [
+                pd.read_csv(file, index_col=0, header=0)
+                for file in freq_stats_files
+            ]
+        )
 
-        self.selected_avgs = self.thresh_concat[
-            (self.thresh_concat["Light Intensity"] == selected_intensity)
-            & (self.thresh_concat["Light Duration"] == selected_duration)
-        ].copy()
-
-        return self.selected_avgs
+        # only saves the stats for light conditions
+        self.respon_avg_freq_stats = respon_avg_freq_stats.loc[
+            respon_avg_freq_stats["Condition"] == "Light"
+        ]
 
     def save_summary_avgs(self):
         csv_filename = "{}_{}_{}_thresh_summary_averages.csv".format(
@@ -86,44 +171,6 @@ class GenotypeSummary(object):
         )
         path = os.path.join(self.genotype_stats_folder, csv_filename)
         self.selected_avgs.to_csv(path, float_format="%8.4f", index=False)
-
-    def count_monosyn_cells(self):
-        # count the number of cells with monosynaptic response used for each
-        # stimulus condition after thresholding with mean onset latency
-
-        # this creates a list of unique stim condition combinations and allows iteration
-        self.stim_conditions = (
-            self.thresh_concat[["Light Intensity", "Light Duration"]]
-            .drop_duplicates(ignore_index=True)
-            .copy()
-        )
-
-        conditions_tuples = list(
-            zip(
-                self.stim_conditions["Light Intensity"],
-                self.stim_conditions["Light Duration"],
-            )
-        )
-
-        cell_counts = pd.DataFrame()
-        counts_list = []
-        # this allows display of individual cell values matching each stim condition
-        for condition in conditions_tuples:
-            indiv_cells_df = self.thresh_concat[
-                (self.thresh_concat["Light Intensity"] == condition[0])
-                & (self.thresh_concat["Light Duration"] == condition[1])
-            ].copy()
-            num_cells = len(indiv_cells_df)
-
-            counts_list.append(num_cells)
-
-        cell_counts = pd.DataFrame(
-            {(self.dataset + "/" + self.genotype): counts_list}
-        )
-
-        cell_counts.index = pd.MultiIndex.from_tuples(conditions_tuples)
-
-        return cell_counts
 
 
 def get_patched_counts(dataset_list):
@@ -172,339 +219,281 @@ def make_patched_counts_df(recorded_counts):
     return all_patched
 
 
-def get_genotypes(dataset):
+def get_cell_types(dataset):
     # listing the genotypes in each dataset
     stats_folder = os.path.join(FileSettings.TABLES_FOLDER, dataset)
-    genotypes_list = [
-        genotype.name
-        for genotype in os.scandir(stats_folder)
-        if genotype.is_dir()
+    cell_types_list = [
+        cell_type.name
+        for cell_type in os.scandir(stats_folder)
+        if cell_type.is_dir()
     ]
 
-    if len(genotypes_list) == 0:
-        print(
-            "{} dataset has no cells with responses, no summary stats calculated.".format(
-                dataset
-            )
-        )
+    # if len(cell_types_list) == 0:
+    #     print(
+    #         "{} dataset has no cells with responses, no summary stats calculated.".format(
+    #             dataset
+    #         )
+    #     )
 
-    return genotypes_list
+    return cell_types_list
 
 
 # has threshold for loop leave
-def get_genotype_summary(dataset, genotypes_list):
-    monosyn_count_dict = defaultdict(dict)
+def get_cell_type_summary(dataset, cell_types_list):
+
+    response_cells_list = pd.DataFrame()
+    response_count_dict = defaultdict(dict)
+    median_stats_dict = defaultdict(dict)
+    freq_stats_dict = defaultdict(dict)
+
     # genotypes_list = ["OMP"]
-    for genotype in genotypes_list:
-        genotype_summary = GenotypeSummary(dataset, genotype)
-        genotype_summary.get_summary_stats()
+    for cell_type in cell_types_list:
+        cell_type_summary = CellTypeSummary(dataset, cell_type)
 
-        # counts_dict = {}  # one cell_counts df for each threshold
-        # for threshold in [None, 2]:
-        for threshold in FileSettings.THRESHOLD_LIST:
-            if threshold is None:
-                threshold = "nothresh"
-            genotype_summary.set_latency_threshold(threshold)
+        # gets responding cell counts
+        cell_type_summary.get_responding_cells()
+        response_cells_list = pd.concat(
+            [response_cells_list, cell_type_summary.raw_responses_df]
+        )
 
-            # this creates empty template cell_counts df for when no cells
-            # exist
-            if len(genotype_summary.thresh_concat) == 0:
-                monosyn_cell_counts = monosyn_count_dict[genotype][
-                    "nothresh"
-                ].copy()
-                monosyn_cell_counts.iloc[:, 0] = 0
-            else:
-                monosyn_cell_counts = genotype_summary.count_monosyn_cells()
+        response_count_dict[cell_type][
+            "response"
+        ] = cell_type_summary.responding_cells_num
+        response_count_dict[cell_type][
+            "no response"
+        ] = cell_type_summary.nonresponding_cells_num
 
-                averages_fig = plot_averages(
-                    genotype_summary.dataset,
-                    genotype_summary.genotype,
-                    threshold,
-                    genotype_summary.thresh_concat,
-                )
+        # gets median event stats
+        cell_type_summary.get_event_median_stats()
+        median_stats_dict[cell_type][
+            "response win"
+        ] = cell_type_summary.win_median_stats_df
+        median_stats_dict[cell_type][
+            "outside win"
+        ] = cell_type_summary.outside_median_stats_df
 
-                save_summary_stats_fig(
-                    genotype_summary.genotype,
-                    threshold,
-                    genotype_summary.genotype_figures_folder,
-                    averages_fig,
-                )
+        # gets avg frequency stats
+        cell_type_summary.get_avg_freq_stats()
+        freq_stats_dict[cell_type][
+            "avg freq stats"
+        ] = cell_type_summary.respon_avg_freq_stats
 
-                genotype_summary.get_summary_avgs()
+        # # this creates empty template cell_counts df for when no cells
+        # # exist
+        # if len(genotype_summary.thresh_concat) == 0:
+        #     monosyn_cell_counts = monosyn_count_dict[genotype][
+        #         "nothresh"
+        #     ].copy()
+        #     monosyn_cell_counts.iloc[:, 0] = 0
+        # else:
+        #     monosyn_cell_counts = genotype_summary.count_monosyn_cells()
 
-                # genotype_summary.calc_summary_avgs()
-                genotype_summary.save_summary_avgs()
+        #     averages_fig = plot_averages(
+        #         genotype_summary.dataset,
+        #         genotype_summary.genotype,
+        #         threshold,
+        #         genotype_summary.thresh_concat,
+        #     )
 
-            monosyn_count_dict[genotype][threshold] = monosyn_cell_counts
-            # print("{} threshold finished".format(threshold))
+        #     save_summary_stats_fig(
+        #         genotype_summary.genotype,
+        #         threshold,
+        #         genotype_summary.genotype_figures_folder,
+        #         averages_fig,
+        #     )
+
+        #     genotype_summary.get_summary_avgs()
+
+        #     # genotype_summary.calc_summary_avgs()
+        #     genotype_summary.save_summary_avgs()
+
+        # monosyn_count_dict[genotype][threshold] = monosyn_cell_counts
+        # print("{} threshold finished".format(threshold))
 
         # print("{} threshold finished".format(threshold))
 
-    return monosyn_count_dict
+    return (
+        response_cells_list,
+        response_count_dict,
+        median_stats_dict,
+        freq_stats_dict,
+    )
 
 
-def collect_selected_averages(counts_dict):
-    all_selected_averages = {}
-    for threshold in FileSettings.THRESHOLD_LIST:
-        if threshold is None:
-            threshold = "nothresh"
-        file_paths = []
-        for dataset in counts_dict.keys():
-            # use the genotypes found in dict
-            for genotype in counts_dict[dataset].keys():
-                # pdb.set_trace()
-                for filename in os.listdir(
-                    os.path.join(FileSettings.TABLES_FOLDER, dataset, genotype)
-                ):
-                    if filename.endswith(
-                        "{}_thresh_summary_averages.csv".format(
-                            thresh_prefix(threshold)
-                        )
-                    ):
-                        file_paths.append(
-                            os.path.join(
-                                FileSettings.TABLES_FOLDER,
-                                dataset,
-                                genotype,
-                                filename,
-                            )
-                        )
+def make_cell_type_summary_dfs(dataset, counts, median_stats, freq_stats):
+    """
+    Collects info from dicts and combines both cell types into one df per
+    dataset
+    """
 
-        concat_avgs = pd.concat(
-            [
-                pd.read_csv(file, index_col=None, header=0)
-                for file in file_paths
-            ]
+    # makes cell counts df
+    dataset_counts = pd.DataFrame()
+    win_median_stats_df = pd.DataFrame()
+    outside_median_stats_df = pd.DataFrame()
+    freq_stats_df = pd.DataFrame()
+
+    for cell_type in counts.keys():
+        info_col = pd.DataFrame(
+            {"timepoint": dataset, "cell type": cell_type}, index=[0]
         )
-        all_selected_averages[threshold] = concat_avgs
 
-        # new things
-        selected_summary_fig = plot_selected_averages(threshold, concat_avgs)
-        save_selected_summary_fig(threshold, selected_summary_fig)
+        # collects cell counts
+        cell_type_counts = pd.DataFrame(counts[cell_type], index=[0])
+        cell_type_counts = pd.concat([info_col, cell_type_counts], axis=1)
+        dataset_counts = pd.concat([dataset_counts, cell_type_counts])
 
-    return all_selected_averages
+        # collects median stats
+        win_stats = pd.DataFrame(median_stats[cell_type]["response win"])
+        outside_stats = pd.DataFrame(median_stats[cell_type]["outside win"])
 
-
-def get_monosyn_cell_counts(threshold, monosyn_counts_dict):
-    """
-    Takes the monosynaptic cell counts from all genotypes/datasets and 
-    compiles into one df.
-    """
-
-    all_counts = pd.DataFrame()
-    for dataset in monosyn_counts_dict.keys():
-        # use the genotypes found in dict
-        for genotype in monosyn_counts_dict[dataset].keys():
-            all_counts = pd.concat(
-                [
-                    all_counts,
-                    monosyn_counts_dict[dataset][genotype][threshold],
-                ],
-                axis=1,
-            )
-
-    all_counts.fillna(0, inplace=True)
-    all_counts = all_counts.astype(int)
-
-    save_cell_counts(all_counts, threshold)
-
-
-def save_cell_counts(all_counts, threshold):
-    """
-    Takes the monosyn cell counts from specified threshold and saves as csv.
-    """
-    csv_filename = "{}_thresh_cell_counts.csv".format(thresh_prefix(threshold))
-    path = os.path.join(FileSettings.TABLES_FOLDER, csv_filename)
-    all_counts.to_csv(path, float_format="%8.4f")
-
-
-def get_response_counts(threshold, all_counts, response_counts):
-    """
-    For each threshold, calculates:
-    - % of cells that had a response / total # cells recorded in a dataset
-    - % of cells that had a response / total # of cells that had a response 
-    """
-    csv_filename = "{}_thresh_cell_counts.csv".format(thresh_prefix(threshold))
-    csvfile = os.path.join(FileSettings.TABLES_FOLDER, csv_filename)
-    counts_df = pd.read_csv(csvfile, index_col=[0, 1])
-    response_counts = pd.DataFrame(
-        counts_df.loc[FileSettings.SELECTED_CONDITION]
-    ).T
-    response_counts.index = [0]  # reset index for division
-    no_response_counts = all_counts - response_counts
-    response_dict = {}
-
-    response_dict["response"] = response_counts
-    response_dict["no response"] = no_response_counts
-
-    return response_dict
-
-
-def get_response_counts_df(threshold, response_counts_dict):
-    """
-    Puts all the counts for total recorded cells and monosynaptic responding
-    cells for each latency into one df, then export as csv.
-    """
-
-    for response in response_counts_dict.keys():
-        info = pd.DataFrame(
-            {
-                "Onset Latency Threshold (ms)": threshold,
-                "Count Type": response,
-            },
-            index=[0],
+        win_median_stats_df = pd.concat([win_median_stats_df, win_stats])
+        outside_median_stats_df = pd.concat(
+            [outside_median_stats_df, outside_stats]
         )
-        temp_df = pd.concat([info, response_counts_dict[response]], axis=1)
 
-    return temp_df
+        # collects freq stats
+        avg_freq_stats = pd.DataFrame(freq_stats[cell_type]["avg freq stats"])
+        freq_stats_df = pd.concat([freq_stats_df, avg_freq_stats])
+
+    return (
+        dataset_counts,
+        win_median_stats_df,
+        outside_median_stats_df,
+        freq_stats_df,
+    )
+
+
+def save_dataset_stats(
+    dataset,
+    response_cells_list,
+    dataset_counts_df,
+    win_stats,
+    outside_stats,
+    freq_stats,
+):
+    """
+    Saves the response window and outside window median stats and avg freq
+    stat dfs as csvs. Not saving dataset_counts because overall count is saved
+    for all the datasets.
+    """
+    filenames = [
+        f"{dataset}_response_cells_list.csv",
+        f"{dataset}_response_counts.csv",
+        f"{dataset}_window_median_stats.csv",
+        f"{dataset}_outside_median_stats.csv",
+        f"{dataset}_avg_frequency_stats.csv",
+    ]
+    dfs = [
+        response_cells_list,
+        dataset_counts_df,
+        win_stats,
+        outside_stats,
+        freq_stats,
+    ]
+
+    for count, df in enumerate(dfs):
+        filename = filenames[count]
+        path = os.path.join(FileSettings.TABLES_FOLDER, dataset, filename)
+        df.to_csv(path, float_format="%8.4f")
 
 
 def save_response_counts(df_counts):
 
-    csv_filename = "monosynaptic_response_counts.csv"
+    csv_filename = "response_counts.csv"
     path = os.path.join(FileSettings.TABLES_FOLDER, csv_filename)
     df_counts.to_csv(path, float_format="%8.4f")
 
 
-def save_response_proportions(all_counts):
-
-    response_proportions = pd.DataFrame()
-
-    all_patched = all_counts[
-        (all_counts["Count Type"] == "All patched")
-        & (all_counts["Onset Latency Threshold (ms)"] == "N/A")
-    ].copy()
-    # drop str columns for division
-    all_patched.drop(
-        ["Onset Latency Threshold (ms)", "Count Type"], axis=1, inplace=True
-    )
-
-    nothresh_row = all_counts[
-        (all_counts["Count Type"] == "response")
-        & (all_counts["Onset Latency Threshold (ms)"] == "nothresh")
-    ].copy()
-    # drop str columns for division
-    nothresh_row.drop(
-        ["Onset Latency Threshold (ms)", "Count Type"], axis=1, inplace=True
-    )
-
-    for threshold in all_counts["Onset Latency Threshold (ms)"].unique():
-
-        if not threshold in ["nothresh", "N/A"]:
-            response_row = all_counts[
-                (all_counts["Count Type"] == "response")
-                & (all_counts["Onset Latency Threshold (ms)"] == threshold)
-            ]
-            #
-            temp_response = response_row.drop(
-                ["Onset Latency Threshold (ms)", "Count Type"], axis=1
-            ).copy()
-
-            response_allpatched = temp_response / all_patched
-            response_allpatched[
-                "Count Type"
-            ] = "% responses out of all patched"
-            response_allpatched["Onset Latency Threshold (ms)"] = threshold
-
-            response_nothresh = temp_response / nothresh_row
-            response_nothresh[
-                "Count Type"
-            ] = "% responses out of nothresh responses"
-            response_nothresh["Onset Latency Threshold (ms)"] = threshold
-
-            temp_proportions = pd.concat(
-                [response_allpatched, response_nothresh]
-            )
-
-            response_proportions = pd.concat(
-                [response_proportions, temp_proportions]
-            )
-
-    response_proportions = response_proportions[
-        [
-            "Onset Latency Threshold (ms)",
-            "Count Type",
-            "non-injected/OMP",
-            "non-injected/Gg8",
-            "3dpi/Gg8",
-            "5dpi/OMP",
-            "5dpi/Gg8",
-            "dox_3dpi/Gg8",
-            "dox_4dpi/Gg8",
-            "dox_5dpi/Gg8",
-        ]
-    ]
-
-    csv_filename = "monosynaptic_response_proportions.csv"
-    path = os.path.join(FileSettings.TABLES_FOLDER, csv_filename)
-    response_proportions.to_csv(path, float_format="%8.4f")
-
-
-def do_cell_counts(monosyn_cell_counts, all_patched):
+def do_cell_counts(response_cell_counts, all_patched):
     """
-    All the functions for counting cells with monosynaptic responses
+    Collects all the response cell counts from all datasets and puts it into
+    a df
     """
-    # counts how many cells had monosynaptic responses after thresholding
-    # with onset latency
 
-    all_patched.drop("dox_3dpi_ctrl/Gg8", axis=1, inplace=True)
+    response_counts_df = pd.DataFrame()
 
-    response_counts_dict = defaultdict(dict)
+    for dataset in list(response_cell_counts.keys()):
+        dataset_counts = pd.DataFrame()
+        for cell_type in list(response_cell_counts[dataset].keys()):
+            cell_type_col = pd.DataFrame({"cell type": cell_type}, index=[0])
+            cell_type_counts = pd.DataFrame(
+                response_cell_counts[dataset][cell_type], index=[0]
+            )
+            cell_type_counts = pd.concat(
+                [cell_type_col, cell_type_counts], axis=1
+            )
+            dataset_counts = pd.concat([dataset_counts, cell_type_counts])
 
-    all_counts = pd.DataFrame()
+        dataset_col = pd.DataFrame({"timepoint": dataset}, index=[0])
+        dataset_col = pd.concat([dataset_col, dataset_col])
+        dataset_counts = pd.concat([dataset_col, dataset_counts], axis=1)
 
-    all_patched_copy = all_patched.copy()
-    buffer_info = pd.DataFrame(
-        {"Onset Latency Threshold (ms)": "N/A", "Count Type": "All patched",},
-        index=[0],
-    )
-    all_patched_copy = pd.concat([buffer_info, all_patched_copy], axis=1)
-
-    for threshold in FileSettings.THRESHOLD_LIST:
-        threshold = threshold if threshold else "nothresh"
-        # threshold = "nothresh" if threshold is None else threshold
-
-        get_monosyn_cell_counts(threshold, monosyn_cell_counts)
-        response_dict = get_response_counts(
-            threshold, all_patched, monosyn_cell_counts
-        )
-        response_counts_dict[threshold] = response_dict
-
-        # saves the counts and the calculated proportions for all datasets
-        temp_df = get_response_counts_df(
-            threshold, response_counts_dict[threshold]
-        )
-        all_counts = pd.concat([all_counts, temp_df])
-
-    all_counts = pd.concat([all_patched_copy, all_counts])
-
-    all_counts = all_counts[
-        [
-            "Onset Latency Threshold (ms)",
-            "Count Type",
-            "non-injected/OMP",
-            "non-injected/Gg8",
-            "3dpi/Gg8",
-            "5dpi/OMP",
-            "5dpi/Gg8",
-            "dox_3dpi/Gg8",
-            "dox_4dpi/Gg8",
-            "dox_5dpi/Gg8",
-        ]
-    ]
-
-    save_response_counts(all_counts)
-    save_response_proportions(all_counts)
-
-    # plots and save the cell counts
-    response_counts_fig = plot_response_counts(response_counts_dict)
-    save_response_counts_fig(response_counts_fig)
+        response_counts_df = pd.concat([response_counts_df, dataset_counts])
 
 
-def thresh_prefix(threshold):
-    if threshold == "nothresh" or threshold is None:
-        prefix = "no_threshold"
-    else:
-        prefix = "{}ms".format(threshold)
+def make_all_dataset_dfs(counts, median_stats, freq_stats):
+    """
+    Collects all the dict info and puts in dfs
+    """
+    response_counts_df = pd.DataFrame()
+    freq_stats_df = pd.DataFrame()
 
-    return prefix
+    win_median_stats_df = pd.DataFrame()
+    for dataset in counts.keys():
+        for cell_type in counts[dataset].keys():
+            cell_type_col = pd.DataFrame({"cell type": cell_type}, index=[0])
+            pdb.set_trace()
+
+    # # all_patched.drop("dox_3dpi_ctrl/Gg8", axis=1, inplace=True)
+
+    # response_counts_dict = defaultdict(dict)
+
+    # all_counts = pd.DataFrame()
+
+    # all_patched_copy = all_patched.copy()
+    # buffer_info = pd.DataFrame(
+    #     {"Onset Latency Threshold (ms)": "N/A", "Count Type": "All patched",},
+    #     index=[0],
+    # )
+    # all_patched_copy = pd.concat([buffer_info, all_patched_copy], axis=1)
+
+    # for threshold in FileSettings.THRESHOLD_LIST:
+    #     threshold = threshold if threshold else "nothresh"
+    #     # threshold = "nothresh" if threshold is None else threshold
+
+    #     get_monosyn_cell_counts(threshold, response_cell_counts)
+    #     response_dict = get_response_counts(
+    #         threshold, all_patched, response_cell_counts
+    #     )
+    #     response_counts_dict[threshold] = response_dict
+
+    #     # saves the counts and the calculated proportions for all datasets
+    #     temp_df = get_response_counts_df(
+    #         threshold, response_counts_dict[threshold]
+    #     )
+    #     all_counts = pd.concat([all_counts, temp_df])
+
+    # all_counts = pd.concat([all_patched_copy, all_counts])
+
+    # all_counts = all_counts[
+    #     [
+    #         "Onset Latency Threshold (ms)",
+    #         "Count Type",
+    #         "non-injected/OMP",
+    #         "non-injected/Gg8",
+    #         "3dpi/Gg8",
+    #         "5dpi/OMP",
+    #         "5dpi/Gg8",
+    #         "dox_3dpi/Gg8",
+    #         "dox_4dpi/Gg8",
+    #         "dox_5dpi/Gg8",
+    #     ]
+    # ]
+
+    # save_response_counts(all_counts)
+    # save_response_proportions(all_counts)
+
+    # # plots and save the cell counts
+    # response_counts_fig = plot_response_counts(response_counts_dict)
+    # save_response_counts_fig(response_counts_fig)
+
