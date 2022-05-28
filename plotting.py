@@ -372,22 +372,23 @@ def save_selected_summary_fig(threshold, selected_summary_fig):
     )
 
 
-def plot_response_counts(dataset_list, counts_dict):
+def plot_response_counts(counts_dict):
     # response/no response is a trace
 
     dataset_order = {"p2": 1, "p2_4wpi": 2, "p2_6wpi": 3, "p14": 4}
 
     response_colors = {"no response": "#A7BBC7", "response": "#293B5F"}
+
     response_counts_fig = make_subplots(
         rows=1,
-        cols=len(dataset_list),
+        cols=len(counts_dict.keys()),
         x_title="Timepoint",
         y_title="Number of Cells",
         shared_yaxes=True
         # subplot_titles=dataset_list,
     )
 
-    for dataset_count, timepoint in enumerate(dataset_list):
+    for timepoint in counts_dict.keys():
         # response_csv_name = f"{timepoint}_response_counts.csv"
         # csv_file = os.path.join(
         #     FileSettings.TABLES_FOLDER, timepoint, response_csv_name
@@ -441,6 +442,131 @@ def save_response_counts_fig(response_counts_fig):
     response_counts_fig.write_html(
         path, full_html=False, include_plotlyjs="cdn"
     )
+
+
+def plot_median_event_stats(median_dict):
+
+    dataset_order = {"p2": 1, "p2_4wpi": 2, "p2_6wpi": 3, "p14": 4}
+    cell_type_colors = {"MC": "green", "TC": "blue"}
+
+    # first comparison: each dataset is a subplot, trace 1 is light within
+    # response window, trace 2 is spontaneous within response window
+
+    # second comparison: each dataset is a subplot, trace 1 is light within
+    # response window, trace 2 is light outside response window
+
+    # third?? trace 1 is light outside response window, trace 2 is spon outside
+    # response window
+
+    response_df = median_dict["p14"]["MC"]["response win"]
+    test_fig = go.Figure()
+    test_fig.add_trace(
+        go.Box(
+            y=response_df.loc[response_df["Condition"] == "Light"][
+                "Adjusted amplitude (pA)"
+            ].tolist(),
+            name="MC",
+            legendgroup="light",
+            boxpoints="all",
+        )
+    )
+
+    test_fig.add_trace(
+        go.Box(
+            y=response_df.loc[response_df["Condition"] == "Spontaneous"][
+                "Adjusted amplitude (pA)"
+            ].tolist(),
+            name="MC",
+            legendgroup="spontaneous",
+            boxpoints="all",
+        )
+    )
+
+    TC_response_df = median_dict["p14"]["TC"]["response win"]
+    test_fig.add_trace(
+        go.Box(
+            y=TC_response_df.loc[TC_response_df["Condition"] == "Light"][
+                "Adjusted amplitude (pA)"
+            ].tolist(),
+            name="TC",
+            legendgroup="light",
+            boxpoints="all",
+        )
+    )
+
+    test_fig.add_trace(
+        go.Box(
+            y=TC_response_df.loc[TC_response_df["Condition"] == "Spontaneous"][
+                "Adjusted amplitude (pA)"
+            ].tolist(),
+            name="TC",
+            legendgroup="spontaneous",
+            boxpoints="all",
+        )
+    )
+
+    test_fig.update_layout(boxmode="group")
+    test_fig.show()
+
+    pdb.set_trace()
+
+    amplitude_fig = make_subplots(
+        rows=2,
+        cols=len(median_dict.keys()),
+        x_title="Timepoint",
+        shared_yaxes=True
+        # subplot_titles=dataset_list,
+    )
+    for timepoint in median_dict.keys():
+        for count, cell_type in enumerate(median_dict[timepoint].keys()):
+            for window in median_dict[timepoint][cell_type].keys():
+
+                df = median_dict[timepoint][cell_type][window]
+
+                amplitude_fig.add_trace(
+                    go.Scatter(
+                        x=[window],
+                        y=df.loc[df["Condition"] == "Light"][
+                            "Adjusted amplitude (pA)"
+                        ],
+                        name="response win light",
+                        marker_color=cell_type_colors[cell_type],
+                        legendgroup="response win light",
+                    ),
+                    row=count + 1,
+                    col=dataset_order[timepoint],
+                )
+
+                amplitude_fig.add_trace(
+                    go.Scatter(
+                        x=[window],
+                        y=df.loc[df["Condition"] == "Spontaneous"][
+                            "Adjusted amplitude (pA)"
+                        ],
+                        name="response win spontaneous",
+                        marker_color=cell_type_colors[cell_type],
+                        legendgroup="response win spontaneous",
+                    ),
+                    row=count + 1,
+                    col=dataset_order[timepoint],
+                )
+
+                amplitude_fig.update_xaxes(
+                    title_text=timepoint,
+                    row=count + 1,
+                    col=dataset_order[timepoint],
+                )
+    amplitude_fig.update_yaxes(autorange="reversed")
+
+    # below is code from stack overflow to hide duplicate legends
+    names = set()
+    amplitude_fig.for_each_trace(
+        lambda trace: trace.update(showlegend=False)
+        if (trace.name in names)
+        else names.add(trace.name)
+    )
+    amplitude_fig.show()
+    pdb.set_trace()
 
 
 def plot_annotated_trace(trace, annotation_values, genotype):
