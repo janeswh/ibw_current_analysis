@@ -9,12 +9,12 @@ import pdb
 
 
 def get_datasets():
-    dataset_list = ["p2", "p14"]
-    # dataset_list = [
-    #     dataset
-    #     for dataset in os.listdir(FileSettings.DATA_FOLDER)
-    #     if dataset not in FileSettings.IGNORED
-    # ]
+    # dataset_list = ["p2", "p14"]
+    dataset_list = [
+        dataset
+        for dataset in os.listdir(FileSettings.DATA_FOLDER)
+        if dataset not in FileSettings.IGNORED
+    ]
     return dataset_list
 
 
@@ -99,7 +99,11 @@ def main():
                 dataset, dataset_count + 1, len(dataset_list)
             )
         )
-        pdb.set_trace()
+
+    # now we plot using saved csvs
+    response_fig = plot_response_counts(dataset_list, dataset_cell_counts)
+    save_response_counts_fig(response_fig)
+    pdb.set_trace()
 
     # saves all the cell counts
     # counts_df = do_cell_counts(dataset_cell_counts, all_patched)
@@ -107,8 +111,6 @@ def main():
     #     dataset_cell_counts, dataset_median_stats, dataset_freq_stats
     # )
     # save_response_counts(counts_df)
-
-    pdb.set_trace()
 
 
 if __name__ == "__main__":

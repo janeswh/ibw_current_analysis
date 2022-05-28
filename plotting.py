@@ -372,56 +372,48 @@ def save_selected_summary_fig(threshold, selected_summary_fig):
     )
 
 
-def plot_response_counts(response_counts_dict):
+def plot_response_counts(dataset_list, counts_dict):
     # response/no response is a trace
-    thresholds = FileSettings.THRESHOLD_LIST.copy()
-    thresholds[0] = "nothresh"
-    dataset_order = [
-        "non-injected/OMP",
-        "non-injected/Gg8",
-        "3dpi/Gg8",
-        "5dpi/OMP",
-        "5dpi/Gg8",
-        "dox_3dpi/Gg8",
-        "dox_4dpi/Gg8",
-        "dox_5dpi/Gg8",
-    ]
+
+    dataset_order = {"p2": 1, "p2_4wpi": 2, "p2_6wpi": 3, "p14": 4}
 
     response_colors = {"no response": "#A7BBC7", "response": "#293B5F"}
     response_counts_fig = make_subplots(
-        rows=len(thresholds), cols=1, x_title="Dataset/Genotype"
+        rows=1,
+        cols=len(dataset_list),
+        x_title="Timepoint",
+        y_title="Number of Cells",
+        shared_yaxes=True
+        # subplot_titles=dataset_list,
     )
 
-    # rearranges threshold for better plotting order
-    thresholds.reverse()
-    thresholds.insert(0, thresholds.pop(thresholds.index("nothresh")))
-    for count, threshold in enumerate(thresholds):
-        for response_type in response_counts_dict[threshold].keys():
+    for dataset_count, timepoint in enumerate(dataset_list):
+        # response_csv_name = f"{timepoint}_response_counts.csv"
+        # csv_file = os.path.join(
+        #     FileSettings.TABLES_FOLDER, timepoint, response_csv_name
+        # )
 
-            # pdb.set_trace()
+        # response_df = pd.read_csv(csv_file, header=0, index_col=0)
 
-            x_axis = response_counts_dict[threshold]["response"].columns
-            response_counts_fig.add_trace(
-                go.Bar(
-                    x=x_axis,
-                    y=response_counts_dict[threshold][response_type].squeeze(),
-                    name=response_type,
-                    marker_color=response_colors[response_type],
-                    legendgroup=response_type,
-                ),
-                row=count + 1,
-                col=1,
-            )
+        for cell_type in counts_dict[timepoint].keys():
+            for response_type in counts_dict[timepoint][cell_type].keys():
 
-            response_counts_fig.update_yaxes(
-                title_text="{} ms latency cutoff cell count".format(threshold)
-                if threshold != "nothresh"
-                else "no onset latency cutoff cell count",
-                row=count + 1,
-                col=1,
-            )
+                response_counts_fig.add_trace(
+                    go.Bar(
+                        x=[cell_type],
+                        y=[counts_dict[timepoint][cell_type][response_type]],
+                        name=response_type,
+                        marker_color=response_colors[response_type],
+                        legendgroup=response_type,
+                    ),
+                    row=1,
+                    col=dataset_order[timepoint],
+                )
+                response_counts_fig.update_xaxes(
+                    title_text=timepoint, row=1, col=dataset_order[timepoint]
+                )
 
-            response_counts_fig.update_layout(barmode="stack")
+    response_counts_fig.update_layout(barmode="stack")
 
     # below is code from stack overflow to hide duplicate legends
     names = set()
@@ -431,23 +423,19 @@ def plot_response_counts(response_counts_dict):
         else names.add(trace.name)
     )
 
-    response_counts_fig.update_xaxes(
-        categoryorder="array", categoryarray=dataset_order
-    )
     response_counts_fig.update_layout(
         legend_title_text="Cell Responses",
-        title_text=(
-            "Cell Responses by Onset Latency Cut-off".format(threshold)
-        ),
+        title_text=("Light-evoked Cell Responses by Onset Latency Cut-off"),
         title_x=0.5,
     )
-    response_counts_fig.show()
+    # response_counts_fig.show()
+
     return response_counts_fig
 
 
 def save_response_counts_fig(response_counts_fig):
 
-    html_filename = "all_cell_counts.html"
+    html_filename = "all_response_counts.html"
     path = os.path.join(FileSettings.FIGURES_FOLDER, html_filename)
 
     response_counts_fig.write_html(

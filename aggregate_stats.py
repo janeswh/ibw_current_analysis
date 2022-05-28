@@ -228,13 +228,6 @@ def get_cell_types(dataset):
         if cell_type.is_dir()
     ]
 
-    # if len(cell_types_list) == 0:
-    #     print(
-    #         "{} dataset has no cells with responses, no summary stats calculated.".format(
-    #             dataset
-    #         )
-    #     )
-
     return cell_types_list
 
 
@@ -277,40 +270,6 @@ def get_cell_type_summary(dataset, cell_types_list):
         freq_stats_dict[cell_type][
             "avg freq stats"
         ] = cell_type_summary.respon_avg_freq_stats
-
-        # # this creates empty template cell_counts df for when no cells
-        # # exist
-        # if len(genotype_summary.thresh_concat) == 0:
-        #     monosyn_cell_counts = monosyn_count_dict[genotype][
-        #         "nothresh"
-        #     ].copy()
-        #     monosyn_cell_counts.iloc[:, 0] = 0
-        # else:
-        #     monosyn_cell_counts = genotype_summary.count_monosyn_cells()
-
-        #     averages_fig = plot_averages(
-        #         genotype_summary.dataset,
-        #         genotype_summary.genotype,
-        #         threshold,
-        #         genotype_summary.thresh_concat,
-        #     )
-
-        #     save_summary_stats_fig(
-        #         genotype_summary.genotype,
-        #         threshold,
-        #         genotype_summary.genotype_figures_folder,
-        #         averages_fig,
-        #     )
-
-        #     genotype_summary.get_summary_avgs()
-
-        #     # genotype_summary.calc_summary_avgs()
-        #     genotype_summary.save_summary_avgs()
-
-        # monosyn_count_dict[genotype][threshold] = monosyn_cell_counts
-        # print("{} threshold finished".format(threshold))
-
-        # print("{} threshold finished".format(threshold))
 
     return (
         response_cells_list,
@@ -443,57 +402,4 @@ def make_all_dataset_dfs(counts, median_stats, freq_stats):
         for cell_type in counts[dataset].keys():
             cell_type_col = pd.DataFrame({"cell type": cell_type}, index=[0])
             pdb.set_trace()
-
-    # # all_patched.drop("dox_3dpi_ctrl/Gg8", axis=1, inplace=True)
-
-    # response_counts_dict = defaultdict(dict)
-
-    # all_counts = pd.DataFrame()
-
-    # all_patched_copy = all_patched.copy()
-    # buffer_info = pd.DataFrame(
-    #     {"Onset Latency Threshold (ms)": "N/A", "Count Type": "All patched",},
-    #     index=[0],
-    # )
-    # all_patched_copy = pd.concat([buffer_info, all_patched_copy], axis=1)
-
-    # for threshold in FileSettings.THRESHOLD_LIST:
-    #     threshold = threshold if threshold else "nothresh"
-    #     # threshold = "nothresh" if threshold is None else threshold
-
-    #     get_monosyn_cell_counts(threshold, response_cell_counts)
-    #     response_dict = get_response_counts(
-    #         threshold, all_patched, response_cell_counts
-    #     )
-    #     response_counts_dict[threshold] = response_dict
-
-    #     # saves the counts and the calculated proportions for all datasets
-    #     temp_df = get_response_counts_df(
-    #         threshold, response_counts_dict[threshold]
-    #     )
-    #     all_counts = pd.concat([all_counts, temp_df])
-
-    # all_counts = pd.concat([all_patched_copy, all_counts])
-
-    # all_counts = all_counts[
-    #     [
-    #         "Onset Latency Threshold (ms)",
-    #         "Count Type",
-    #         "non-injected/OMP",
-    #         "non-injected/Gg8",
-    #         "3dpi/Gg8",
-    #         "5dpi/OMP",
-    #         "5dpi/Gg8",
-    #         "dox_3dpi/Gg8",
-    #         "dox_4dpi/Gg8",
-    #         "dox_5dpi/Gg8",
-    #     ]
-    # ]
-
-    # save_response_counts(all_counts)
-    # save_response_proportions(all_counts)
-
-    # # plots and save the cell counts
-    # response_counts_fig = plot_response_counts(response_counts_dict)
-    # save_response_counts_fig(response_counts_fig)
 
