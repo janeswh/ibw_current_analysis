@@ -376,7 +376,7 @@ def save_selected_summary_fig(threshold, selected_summary_fig):
 def plot_response_counts(counts_dict):
     # response/no response is a trace
 
-    dataset_order = {"p2": 1, "p2_4wpi": 2, "p2_6wpi": 3, "p14": 4}
+    dataset_order = {"p2": 1, "p14": 2}
 
     response_colors = {"no response": "#A7BBC7", "response": "#293B5F"}
 
@@ -427,7 +427,7 @@ def plot_response_counts(counts_dict):
 
     response_counts_fig.update_layout(
         legend_title_text="Cell Responses",
-        title_text=("Light-evoked Cell Responses by Onset Latency Cut-off"),
+        title_text=("Light-evoked Cell Responses"),
         title_x=0.5,
     )
     # response_counts_fig.show()
@@ -449,7 +449,7 @@ def plot_mean_trace_stats(mean_trace_dict):
     """
     Plots the mean trace stats for responding cells in the light condition
     """
-    dataset_order = {"p2": 1, "p2_4wpi": 2, "p2_6wpi": 3, "p14": 4}
+    dataset_order = {"p2": 1, "p14": 2}
     cell_type_line_colors = {"MC": "#609a00", "TC": "#388bf7"}
     cell_type_bar_colors = {"MC": "#CEEE98", "TC": "#ACCEFA"}
 
@@ -590,7 +590,7 @@ def plot_freq_stats(dataset_freq_stats):
     Plots average frequency kinetic properties for responding cells in the 
     light condition
     """
-    dataset_order = {"p2": 1, "p2_4wpi": 2, "p2_6wpi": 3, "p14": 4}
+    dataset_order = {"p2": 1, "p14": 2}
     cell_type_line_colors = {"MC": "#609a00", "TC": "#388bf7"}
     cell_type_bar_colors = {"MC": "#CEEE98", "TC": "#ACCEFA"}
 
@@ -718,7 +718,7 @@ def plot_freq_stats(dataset_freq_stats):
 
 def plot_windowed_median_event_stats(median_dict):
 
-    dataset_order = {"p2": 1, "p2_4wpi": 2, "p2_6wpi": 3, "p14": 4}
+    dataset_order = {"p2": 1, "p14": 2}
     cell_type_line_colors = {"MC": "#609a00", "TC": "#388bf7"}
     cell_type_bar_colors = {"MC": "#CEEE98", "TC": "#ACCEFA"}
 
@@ -883,7 +883,7 @@ def plot_cell_type_event_comparisons(median_dict):
     Compares event kinetics between MCs and TCs, for light-response windows only
     """
 
-    dataset_order = {"p2": 1, "p2_4wpi": 2, "p2_6wpi": 3, "p14": 4}
+    dataset_order = {"p2": 1, "p14": 2}
     cell_type_line_colors = {"MC": "#609a00", "TC": "#388bf7"}
     cell_type_bar_colors = {"MC": "#CEEE98", "TC": "#ACCEFA"}
 
