@@ -1,3 +1,4 @@
+from locale import D_FMT
 import pandas as pd
 import os
 import numpy as np
@@ -447,7 +448,9 @@ def save_response_counts_fig(response_counts_fig):
 def plot_median_event_stats(median_dict):
 
     dataset_order = {"p2": 1, "p2_4wpi": 2, "p2_6wpi": 3, "p14": 4}
-    cell_type_colors = {"MC": "green", "TC": "blue"}
+    cell_type_line_colors = {"MC": "#609a00", "TC": "#388bf7"}
+    cell_type_bar_colors = {"MC": "#CEEE98", "TC": "#ACCEFA"}
+    scatter_offset = {"MC": -0.1, "TC": 0.1}
 
     # first comparison: each dataset is a subplot, trace 1 is light within
     # response window, trace 2 is spontaneous within response window
@@ -458,114 +461,456 @@ def plot_median_event_stats(median_dict):
     # third?? trace 1 is light outside response window, trace 2 is spon outside
     # response window
 
-    response_df = median_dict["p14"]["MC"]["response win"]
     test_fig = go.Figure()
-    test_fig.add_trace(
-        go.Box(
-            y=response_df.loc[response_df["Condition"] == "Light"][
-                "Adjusted amplitude (pA)"
-            ].tolist(),
-            name="MC",
-            legendgroup="light",
-            boxpoints="all",
-        )
+    dataset = "p2"
+    cell_type = "MC"
+
+    datasets = median_dict.keys()
+    measures_list = ["Adjusted amplitude (pA)", "Rise time (ms)", "Tau (ms)"]
+    median_fig = make_subplots(
+        rows=len(measures_list),
+        cols=len(datasets),
+        shared_xaxes=True,
+        shared_yaxes=True,
     )
 
-    test_fig.add_trace(
-        go.Box(
-            y=response_df.loc[response_df["Condition"] == "Spontaneous"][
-                "Adjusted amplitude (pA)"
-            ].tolist(),
-            name="MC",
-            legendgroup="spontaneous",
-            boxpoints="all",
-        )
-    )
+    for timepoint_ct, timepoint in enumerate(datasets):
+        for cell_type_ct, cell_type in enumerate(
+            median_dict[timepoint].keys()
+        ):
+            df = median_dict[timepoint][cell_type]
+            win_con_labels = {
+                ("Light", "response win"): "Light response window",
+                ("Spontaneous", "response win"): "Spontaneous response window",
+                ("Light", "outside win"): "Light outside window",
+                ("Spontaneous", "outside win"): "Spontaneous outside window",
+            }
 
-    TC_response_df = median_dict["p14"]["TC"]["response win"]
-    test_fig.add_trace(
-        go.Box(
-            y=TC_response_df.loc[TC_response_df["Condition"] == "Light"][
-                "Adjusted amplitude (pA)"
-            ].tolist(),
-            name="TC",
-            legendgroup="light",
-            boxpoints="all",
-        )
-    )
+            all_medians = pd.DataFrame()
+            all_means = pd.DataFrame()
+            all_sems = pd.DataFrame()
 
-    test_fig.add_trace(
-        go.Box(
-            y=TC_response_df.loc[TC_response_df["Condition"] == "Spontaneous"][
-                "Adjusted amplitude (pA)"
-            ].tolist(),
-            name="TC",
-            legendgroup="spontaneous",
-            boxpoints="all",
-        )
-    )
+            for win in df.keys():
+                for condition in df[win]["Condition"].unique():
+                    label = win_con_labels[(condition, win)]
 
-    test_fig.update_layout(boxmode="group")
-    test_fig.show()
+                    temp_df = (
+                        df[win].loc[df[win]["Condition"] == condition].copy()
+                    )
+                    temp_df.insert(0, "window condition", label)
 
+                    means = pd.DataFrame(temp_df.mean()).T
+                    means.index = [label]
+
+                    sem = pd.DataFrame(temp_df.sem()).T
+                    sem.index = [label]
+
+                    all_medians = pd.concat([all_medians, temp_df])
+                    all_means = pd.concat([all_means, means])
+                    all_sems = pd.concat([all_sems, sem])
+
+            for measure_ct, measure in enumerate(measures_list):
+                median_fig.add_trace(
+                    go.Box(
+                        x=all_medians["window condition"],
+                        y=all_medians[measure],
+                        line=dict(color=cell_type_line_colors[cell_type]),
+                        name=cell_type,
+                        legendgroup=cell_type,
+                        offsetgroup=dataset_order[timepoint] + cell_type_ct,
+                    ),
+                    row=measure_ct + 1,
+                    col=dataset_order[timepoint],
+                )
+
+                # # tries bar plot instead, plots mean of median with sem
+                # median_fig.add_trace(
+                #     go.Bar(
+                #         x=all_medians["window condition"].unique(),
+                #         y=all_means[measure],
+                #         error_y=dict(
+                #             type="data",
+                #             array=all_sems[measure],
+                #             color=cell_type_line_colors[cell_type],
+                #             thickness=1,
+                #             visible=True,
+                #         ),
+                #         marker_line_color=cell_type_line_colors[cell_type],
+                #         marker_color=cell_type_bar_colors[cell_type],
+                #         # marker=dict(markercolor=cell_type_colors[cell_type]),
+                #         name=f"{cell_type} averages",
+                #         legendgroup=cell_type,
+                #         offsetgroup=dataset_order[timepoint] + cell_type_ct,
+                #     ),
+                #     row=measure_ct + 1,
+                #     col=dataset_order[timepoint],
+                # )
+
+                # # puts individual data points as scatter plot on same chart
+                # median_fig.add_trace(
+                #     go.Scatter(
+                #         x=all_medians["window condition"],
+                #         y=all_medians[measure],
+                #         mode="markers",
+                #         marker=dict(color=cell_type_line_colors[cell_type]),
+                #         name=f"{cell_type} medians",
+                #         legendgroup=cell_type,
+                #         # offsetgroup=dataset_order[timepoint] + cell_type_ct,
+                #     ),
+                #     row=measure_ct + 1,
+                #     col=dataset_order[timepoint],
+                # )
+
+                if measure == "Adjusted amplitude (pA)":
+                    median_fig.update_yaxes(
+                        autorange="reversed",
+                        row=measure_ct + 1,
+                        col=dataset_order[timepoint],
+                    )
+
+                #  below is code from stack overflow to hide duplicate legends
+                names = set()
+                median_fig.for_each_trace(
+                    lambda trace: trace.update(showlegend=False)
+                    if (trace.name in names)
+                    else names.add(trace.name)
+                )
+                median_fig.update_yaxes(
+                    title_text=measure, row=measure_ct + 1, col=1
+                )
+
+            median_fig.update_xaxes(
+                title_text=timepoint,
+                row=len(measures_list),
+                col=dataset_order[timepoint],
+            )
+
+    median_fig.update_layout(boxmode="group")
+    median_fig.show()
     pdb.set_trace()
 
-    amplitude_fig = make_subplots(
-        rows=2,
-        cols=len(median_dict.keys()),
-        x_title="Timepoint",
-        shared_yaxes=True
-        # subplot_titles=dataset_list,
+
+def test_median_fig_2(median_dict):
+    dataset_order = {"p2": 1, "p2_4wpi": 2, "p2_6wpi": 3, "p14": 4}
+    cell_type_line_colors = {"MC": "#609a00", "TC": "#388bf7"}
+    cell_type_bar_colors = {"MC": "#CEEE98", "TC": "#ACCEFA"}
+    scatter_offset = {"MC": -0.2, "TC": 0.2}
+
+    # first comparison: each dataset is a subplot, trace 1 is light within
+    # response window, trace 2 is spontaneous within response window
+
+    # second comparison: each dataset is a subplot, trace 1 is light within
+    # response window, trace 2 is light outside response window
+
+    # third?? trace 1 is light outside response window, trace 2 is spon outside
+    # response window
+
+    test_fig = go.Figure()
+    dataset = "p2"
+    cell_type = "MC"
+
+    datasets = median_dict.keys()
+    measures_list = ["Adjusted amplitude (pA)", "Rise time (ms)", "Tau (ms)"]
+    median_fig = make_subplots(
+        rows=len(measures_list),
+        cols=len(datasets),
+        shared_xaxes=True,
+        shared_yaxes=True,
     )
-    for timepoint in median_dict.keys():
-        for count, cell_type in enumerate(median_dict[timepoint].keys()):
-            for window in median_dict[timepoint][cell_type].keys():
 
-                df = median_dict[timepoint][cell_type][window]
+    for timepoint_ct, timepoint in enumerate(datasets):
+        for cell_type_ct, cell_type in enumerate(
+            median_dict[timepoint].keys()
+        ):
+            df = median_dict[timepoint][cell_type]
+            win_con_labels = {
+                ("Light", "response win"): "Light response window",
+                ("Spontaneous", "response win"): "Spontaneous response window",
+                ("Light", "outside win"): "Light outside window",
+                ("Spontaneous", "outside win"): "Spontaneous outside window",
+            }
 
-                amplitude_fig.add_trace(
-                    go.Scatter(
-                        x=[window],
-                        y=df.loc[df["Condition"] == "Light"][
-                            "Adjusted amplitude (pA)"
-                        ],
-                        name="response win light",
-                        marker_color=cell_type_colors[cell_type],
-                        legendgroup="response win light",
+            all_medians = pd.DataFrame()
+            all_means = pd.DataFrame()
+            all_sems = pd.DataFrame()
+
+            for win in df.keys():
+                for condition in df[win]["Condition"].unique():
+                    label = win_con_labels[(condition, win)]
+
+                    temp_df = (
+                        df[win].loc[df[win]["Condition"] == condition].copy()
+                    )
+                    temp_df.insert(0, "window condition", label)
+
+                    means = pd.DataFrame(temp_df.mean()).T
+                    means.index = [label]
+
+                    sem = pd.DataFrame(temp_df.sem()).T
+                    sem.index = [label]
+
+                    all_medians = pd.concat([all_medians, temp_df])
+                    all_means = pd.concat([all_means, means])
+                    all_sems = pd.concat([all_sems, sem])
+
+            # this is to force jitter of scatter plots, plot using numerical
+            # x values instead of category albels
+            win_conditions_renamed = all_medians.copy()
+
+            for count, win_con_rename in enumerate(
+                all_medians["window condition"].unique()
+            ):
+                win_conditions_renamed.loc[
+                    win_conditions_renamed["window condition"]
+                    == win_con_rename
+                ] = count
+
+            for measure_ct, measure in enumerate(measures_list):
+                median_fig.add_trace(
+                    go.Box(
+                        x=all_medians["window condition"],
+                        y=all_medians[measure],
+                        line=dict(color=cell_type_line_colors[cell_type]),
+                        name=cell_type,
+                        legendgroup=cell_type,
+                        offsetgroup=dataset_order[timepoint] + cell_type_ct,
                     ),
-                    row=count + 1,
+                    row=measure_ct + 1,
                     col=dataset_order[timepoint],
                 )
-
-                amplitude_fig.add_trace(
-                    go.Scatter(
-                        x=[window],
-                        y=df.loc[df["Condition"] == "Spontaneous"][
-                            "Adjusted amplitude (pA)"
-                        ],
-                        name="response win spontaneous",
-                        marker_color=cell_type_colors[cell_type],
-                        legendgroup="response win spontaneous",
+                # pdb.set_trace()
+                # tries bar plot instead, plots mean of median with sem
+                median_fig.add_trace(
+                    go.Bar(
+                        x=all_medians["window condition"].unique(),
+                        y=all_means[measure],
+                        error_y=dict(
+                            type="data",
+                            array=all_sems[measure],
+                            color=cell_type_line_colors[cell_type],
+                            thickness=1,
+                            visible=True,
+                        ),
+                        marker_line_color=cell_type_line_colors[cell_type],
+                        marker_color=cell_type_bar_colors[cell_type],
+                        # marker=dict(markercolor=cell_type_colors[cell_type]),
+                        name=cell_type,
+                        legendgroup=cell_type,
+                        # offsetgroup=dataset_order[timepoint] + cell_type_ct,
                     ),
-                    row=count + 1,
+                    row=measure_ct + 1,
                     col=dataset_order[timepoint],
                 )
 
-                amplitude_fig.update_xaxes(
-                    title_text=timepoint,
-                    row=count + 1,
+                # puts individual data points as scatter plot on same chart
+                median_fig.add_trace(
+                    go.Scatter(
+                        x=all_medians["window condition"]
+                        + scatter_offset[cell_type],
+                        y=all_medians[measure],
+                        mode="markers",
+                        marker_color=cell_type_bar_colors[cell_type],
+                        marker=dict(
+                            line=dict(
+                                color=cell_type_line_colors[cell_type], width=2
+                            ),
+                        ),
+                        name=f"{cell_type} medians",
+                        legendgroup=cell_type,
+                        # offsetgroup=dataset_order[timepoint] + cell_type_ct,
+                    ),
+                    row=measure_ct + 1,
                     col=dataset_order[timepoint],
                 )
-    amplitude_fig.update_yaxes(autorange="reversed")
 
-    # below is code from stack overflow to hide duplicate legends
-    names = set()
-    amplitude_fig.for_each_trace(
-        lambda trace: trace.update(showlegend=False)
-        if (trace.name in names)
-        else names.add(trace.name)
+                if measure == "Adjusted amplitude (pA)":
+                    median_fig.update_yaxes(
+                        autorange="reversed",
+                        row=measure_ct + 1,
+                        col=dataset_order[timepoint],
+                    )
+
+                #  below is code from stack overflow to hide duplicate legends
+                names = set()
+                median_fig.for_each_trace(
+                    lambda trace: trace.update(showlegend=False)
+                    if (trace.name in names)
+                    else names.add(trace.name)
+                )
+                median_fig.update_yaxes(
+                    title_text=measure, row=measure_ct + 1, col=1
+                )
+
+            median_fig.update_xaxes(
+                title_text=timepoint,
+                row=len(measures_list),
+                col=dataset_order[timepoint],
+            )
+
+    # # gets the names of the bottom row subplots to have corrected xaxis labels
+    # start_plot = (len(measures_list) - 1) * len(datasets) + 1
+    # end_plot = len(measures_list) * len(datasets)
+    # plot_names = []
+
+    # for num in list(range(start_plot, end_plot + 1)):
+    #     plot_name = f"xaxis{num}"
+    #     plot_names.append(plot_name)
+
+    # for plot in plot_names:
+    #     median_fig.layout[plot].update(
+    #         tickmode="array",
+    #         tickvals=list(
+    #             range(len((all_medians["window condition"].unique())))
+    #         ),
+    #         ticktext=all_medians["window condition"].unique(),
+    #     )
+
+    median_fig.update_layout(boxmode="group")
+    median_fig.show()
+    pdb.set_trace()
+
+
+def test_median_fig(median_dict):
+
+    dataset_order = {"p2": 1, "p2_4wpi": 2, "p2_6wpi": 3, "p14": 4}
+    cell_type_line_colors = {"MC": "#609a00", "TC": "#388bf7"}
+    cell_type_bar_colors = {"MC": "#CEEE98", "TC": "#ACCEFA"}
+
+    datasets = median_dict.keys()
+    measures_list = ["Adjusted amplitude (pA)", "Rise time (ms)", "Tau (ms)"]
+    median_fig = make_subplots(
+        rows=len(measures_list),
+        cols=len(datasets),
+        shared_xaxes=True,
+        shared_yaxes=True,
     )
-    amplitude_fig.show()
+
+    for timepoint_ct, timepoint in enumerate(datasets):
+        for cell_type_ct, cell_type in enumerate(
+            median_dict[timepoint].keys()
+        ):
+            df = median_dict[timepoint][cell_type]
+            win_con_labels = {
+                ("Light", "response win"): "Light response window",
+                ("Spontaneous", "response win"): "Spontaneous response window",
+                ("Light", "outside win"): "Light outside window",
+                ("Spontaneous", "outside win"): "Spontaneous outside window",
+            }
+
+            all_medians = pd.DataFrame()
+            all_means = pd.DataFrame()
+            all_sems = pd.DataFrame()
+
+            for win in df.keys():
+                for condition in df[win]["Condition"].unique():
+                    label = win_con_labels[(condition, win)]
+
+                    temp_df = (
+                        df[win].loc[df[win]["Condition"] == condition].copy()
+                    )
+                    temp_df.insert(0, "window condition", label)
+
+                    means = pd.DataFrame(temp_df.mean()).T
+                    means.index = [label]
+
+                    sem = pd.DataFrame(temp_df.sem()).T
+                    sem.index = [label]
+
+                    all_medians = pd.concat([all_medians, temp_df])
+                    all_means = pd.concat([all_means, means])
+                    all_sems = pd.concat([all_sems, sem])
+
+            for measure_ct, measure in enumerate(measures_list):
+                median_fig.add_trace(
+                    go.Box(
+                        x=all_medians["window condition"],
+                        y=all_medians[measure],
+                        line=dict(color="rgba(0,0,0,0)"),
+                        fillcolor="rgba(0,0,0,0)",
+                        boxpoints="all",
+                        pointpos=0,
+                        marker_color=cell_type_bar_colors[cell_type],
+                        marker=dict(
+                            line=dict(
+                                color=cell_type_line_colors[cell_type], width=1
+                            ),
+                        ),
+                        name=f"{cell_type} medians",
+                        legendgroup=cell_type,
+                        offsetgroup=dataset_order[timepoint] + cell_type_ct,
+                    ),
+                    row=measure_ct + 1,
+                    col=dataset_order[timepoint],
+                )
+
+                # tries bar plot instead, plots mean of median with sem
+                median_fig.add_trace(
+                    go.Bar(
+                        x=all_medians["window condition"].unique(),
+                        y=all_means[measure],
+                        error_y=dict(
+                            type="data",
+                            array=all_sems[measure],
+                            color=cell_type_line_colors[cell_type],
+                            thickness=1,
+                            visible=True,
+                        ),
+                        marker_line_color=cell_type_line_colors[cell_type],
+                        marker_color=cell_type_bar_colors[cell_type],
+                        # marker=dict(markercolor=cell_type_colors[cell_type]),
+                        name=f"{cell_type} averages",
+                        legendgroup=cell_type,
+                        offsetgroup=dataset_order[timepoint] + cell_type_ct,
+                    ),
+                    row=measure_ct + 1,
+                    col=dataset_order[timepoint],
+                )
+
+                # # puts individual data points as scatter plot on same chart
+                # median_fig.add_trace(
+                #     go.Scatter(
+                #         x=all_medians["window condition"],
+                #         y=all_medians[measure],
+                #         mode="markers",
+                #         marker=dict(color=cell_type_line_colors[cell_type]),
+                #         name=f"{cell_type} medians",
+                #         legendgroup=cell_type,
+                #         # offsetgroup=dataset_order[timepoint] + cell_type_ct,
+                #     ),
+                #     row=measure_ct + 1,
+                #     col=dataset_order[timepoint],
+                # )
+
+                if measure == "Adjusted amplitude (pA)":
+                    median_fig.update_yaxes(
+                        autorange="reversed",
+                        row=measure_ct + 1,
+                        col=dataset_order[timepoint],
+                    )
+
+                #  below is code from stack overflow to hide duplicate legends
+                names = set()
+                median_fig.for_each_trace(
+                    lambda trace: trace.update(showlegend=False)
+                    if (trace.name in names)
+                    else names.add(trace.name)
+                )
+                median_fig.update_yaxes(
+                    title_text=measure, row=measure_ct + 1, col=1
+                )
+
+            median_fig.update_xaxes(
+                title_text=timepoint,
+                row=len(measures_list),
+                col=dataset_order[timepoint],
+            )
+
+    median_fig.update_layout(
+        boxmode="group",
+        title_text="Median event kinetics by response window",
+        title_x=0.5,
+    )
+    median_fig.show()
     pdb.set_trace()
 
 
