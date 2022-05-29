@@ -9,7 +9,7 @@ import pdb
 
 
 def get_datasets():
-    # dataset_list = ["p2", "p14"]
+    # dataset_list = ["p2"]
     dataset_list = [
         dataset
         for dataset in os.listdir(FileSettings.DATA_FOLDER)
@@ -57,10 +57,16 @@ def run_dataset_analysis(dataset):
 
 def main():
     dataset_list, all_patched = get_data_info()
-    dataset_cell_counts = {}
-    dataset_mean_trace_stats = {}
-    dataset_median_stats = {}
-    dataset_freq_stats = {}
+
+    # dataset_cell_counts = {}
+    # dataset_mean_trace_stats = {}
+    # dataset_median_stats = {}
+    # dataset_freq_stats = {}
+
+    dataset_cell_counts = defaultdict(dict)
+    dataset_mean_trace_stats = defaultdict(dict)
+    dataset_median_stats = defaultdict(dict)
+    dataset_freq_stats = defaultdict(dict)
 
     for dataset_count, dataset in enumerate(dataset_list):
         print("***Starting analysis for {} dataset.***".format(dataset))
@@ -79,6 +85,8 @@ def main():
         dataset_median_stats[dataset] = median_stats
         dataset_freq_stats[dataset] = freq_stats
 
+        # dataset_cell_counts["timepoint"][dataset] = response_counts
+
         (
             dataset_counts_df,
             mean_trace_stats_df,
@@ -87,6 +95,7 @@ def main():
             freq_stats_df,
         ) = make_cell_type_summary_dfs(
             dataset,
+            cell_types_list,
             mean_trace_stats,
             response_counts,
             median_stats,
@@ -108,7 +117,6 @@ def main():
                 dataset, dataset_count + 1, len(dataset_list)
             )
         )
-    pdb.set_trace()
 
     # now we plot using dicts
     response_fig = plot_response_counts(dataset_cell_counts)

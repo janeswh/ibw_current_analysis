@@ -272,6 +272,9 @@ def get_cell_type_summary(dataset, cell_types_list):
     freq_stats_dict = defaultdict(dict)
     mean_trace_stats_dict = defaultdict(dict)
 
+    # nested_dict = lambda: defaultdict(nested_dict)
+    # response_count_dict = nested_dict()
+
     # genotypes_list = ["OMP"]
     for cell_type in cell_types_list:
         cell_type_summary = CellTypeSummary(dataset, cell_type)
@@ -320,13 +323,17 @@ def get_cell_type_summary(dataset, cell_types_list):
 
 
 def make_cell_type_summary_dfs(
-    dataset, mean_trace_stats, counts, median_stats, freq_stats
+    dataset,
+    cell_types_list,
+    mean_trace_stats,
+    counts,
+    median_stats,
+    freq_stats,
 ):
     """
     Collects info from dicts and combines both cell types into one df per
     dataset
     """
-
     # makes cell counts df
     dataset_counts = pd.DataFrame()
     mean_trace_stats_df = pd.DataFrame()
@@ -334,7 +341,7 @@ def make_cell_type_summary_dfs(
     outside_median_stats_df = pd.DataFrame()
     freq_stats_df = pd.DataFrame()
 
-    for cell_type in counts.keys():
+    for cell_type in cell_types_list:
         info_col = pd.DataFrame(
             {"timepoint": dataset, "cell type": cell_type}, index=[0]
         )

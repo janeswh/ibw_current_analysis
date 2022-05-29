@@ -389,12 +389,16 @@ def plot_response_counts(counts_dict):
         # subplot_titles=dataset_list,
     )
 
+    # makes df to hold all the data used in the plot
+    plot_data = pd.DataFrame(
+        columns=["Timepoint", "Cell Type", "Response", "No Response"]
+    )
+
     for timepoint in counts_dict.keys():
         # response_csv_name = f"{timepoint}_response_counts.csv"
         # csv_file = os.path.join(
         #     FileSettings.TABLES_FOLDER, timepoint, response_csv_name
         # )
-
         # response_df = pd.read_csv(csv_file, header=0, index_col=0)
 
         for cell_type in counts_dict[timepoint].keys():
@@ -414,6 +418,9 @@ def plot_response_counts(counts_dict):
                 response_counts_fig.update_xaxes(
                     title_text=timepoint, row=1, col=dataset_order[timepoint]
                 )
+
+            # adds plotted data to plot_data
+            list = [timepoint, cell_type, response_type]
 
     response_counts_fig.update_layout(barmode="stack")
 
