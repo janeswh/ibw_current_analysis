@@ -454,7 +454,11 @@ def plot_mean_trace_stats(mean_trace_dict):
     cell_type_bar_colors = {"MC": "#CEEE98", "TC": "#ACCEFA"}
 
     datasets = mean_trace_dict.keys()
-    measures_list = ["Mean Trace Peak (pA)", "Mean Trace Peak Time (ms)"]
+    measures_list = [
+        "Mean Trace Peak (pA)",
+        "Log Mean Trace Peak Amplitude",
+        "Mean Trace Peak Time (ms)",
+    ]
 
     mean_trace_stats_fig = make_subplots(
         rows=1, cols=len(measures_list), shared_xaxes=True, x_title="Timepoint"
@@ -469,6 +473,11 @@ def plot_mean_trace_stats(mean_trace_dict):
         ):
 
             df = mean_trace_dict[timepoint][cell_type]["mean trace stats"]
+
+            # add log-transformed peak amplitudes for plotting
+            df["Log Mean Trace Peak Amplitude"] = np.log(
+                abs(df["Mean Trace Peak (pA)"])
+            )
 
             means = pd.DataFrame(df.mean()).T
             sem = pd.DataFrame(df.sem()).T
@@ -491,11 +500,13 @@ def plot_mean_trace_stats(mean_trace_dict):
         cell_sem_df = all_sems.loc[all_sems["Cell Type"] == cell_type]
 
         for measure_ct, measure in enumerate(measures_list):
-
             mean_trace_stats_fig.add_trace(
                 go.Box(
                     x=cell_stats_df["Dataset"],
                     y=cell_stats_df[measure],
+                    # y=cell_stats_df["Log Mean Peak Amplitude"]
+                    # if measure == "Mean Trace Peak (pA)"
+                    # else cell_stats_df[measure],
                     line=dict(color="rgba(0,0,0,0)"),
                     fillcolor="rgba(0,0,0,0)",
                     boxpoints="all",
@@ -519,9 +530,15 @@ def plot_mean_trace_stats(mean_trace_dict):
                 go.Bar(
                     x=cell_stats_df["Dataset"].unique(),
                     y=cell_mean_df[measure],
+                    # y=cell_mean_df["Log Mean Peak Amplitude"]
+                    # if measure == "Mean Trace Peak (pA)"
+                    # else cell_mean_df[measure],
                     error_y=dict(
                         type="data",
                         array=cell_sem_df[measure],
+                        # array=cell_sem_df["Log Mean Peak Amplitude"]
+                        # if measure == "Mean Trace Peak (pA)"
+                        # else cell_sem_df[measure],
                         color=cell_type_line_colors[cell_type],
                         thickness=1,
                         visible=True,
