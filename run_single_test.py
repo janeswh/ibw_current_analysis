@@ -46,6 +46,7 @@ class BothConditions(object):
         self.amplitude_hist = self.rise_time_hist = self.tau_hist = None
         self.both_freqs_fig = None
 
+        self.cell_info = None
         self.light_response_win_stats = None
         self.spon_response_win_stats = None
         self.light_outside_win_stats = None
@@ -142,14 +143,16 @@ class BothConditions(object):
         """
         Saves the kinetic stats of the average frequency for both conditions
         """
-
         combined_df = pd.concat(
             [
                 self.light_sweeps.avg_frequency_stats,
                 self.spon_sweeps.avg_frequency_stats,
-            ]
+            ],
+            ignore_index=True,
         )
-        combined_df.index = ["Light", "Spontaneous"]
+
+        condition_info = pd.DataFrame({"Condition": ["Light", "Spontaneous"]})
+        combined_df = pd.concat([condition_info, combined_df], axis=1)
 
         file_name = f"{self.cell_name}_avg_freq_stats.csv"
         path = os.path.join(self.tables_folder, file_name)
@@ -210,7 +213,7 @@ class BothConditions(object):
             path = os.path.join(self.tables_folder, file_name)
             dfs[count].to_csv(path, float_format="%8.4f", index=True)
 
-    def save_median_event_stats(self):
+    def make_cell_info_header(self):
 
         # makes cell info data to add to csvs
         cell_info = pd.DataFrame(
@@ -221,31 +224,35 @@ class BothConditions(object):
             },
             index=[0],
         )
-
+        condition_info = pd.DataFrame({"Condition": ["Light", "Spontaneous"]})
         cell_info = pd.concat([cell_info, cell_info], ignore_index=True)
-        cell_info.index = ["Light", "Spontaneous"]
+        self.cell_info = pd.concat([condition_info, cell_info], axis=1)
+
+    def save_median_event_stats(self):
+
+        # cell_info.index = ["Light", "Spontaneous"]
 
         # saves medians from both conditions in one csv, for within window
-        window_median_event_stats = pd.DataFrame(
-            {
-                "Light": self.light_response_win_stats.median(),
-                "Spontaneous": self.spon_response_win_stats.median(),
-            },
-            index=self.light_response_win_stats.columns,
-        )
+        window_median_event_stats = pd.concat(
+            [
+                self.light_response_win_stats.median(),
+                self.spon_response_win_stats.median(),
+            ],
+            axis=1,
+        ).T
 
         window_median_event_stats.drop(
-            labels=["Sweep", "New pos"], axis=0, inplace=True
+            labels=["Sweep", "New pos"], axis=1, inplace=True
         )
 
-        window_median_event_stats = window_median_event_stats.T
         window_median_event_stats = pd.concat(
-            [cell_info, window_median_event_stats], axis=1
+            [self.cell_info, window_median_event_stats], axis=1
         )
 
         window_median_stats_file_name = (
             f"{self.cell_name}_median_window_" f"event_stats.csv"
         )
+
         window_median_stats_path = os.path.join(
             self.tables_folder, window_median_stats_file_name
         )
@@ -254,20 +261,20 @@ class BothConditions(object):
         )
 
         # saves medians from both conditions in one csv, for outside window
-        outside_median_event_stats = pd.DataFrame(
-            {
-                "Light": self.light_outside_win_stats.median(),
-                "Spontaneous": self.spon_outside_win_stats.median(),
-            },
-            index=self.light_outside_win_stats.columns,
-        )
+        outside_median_event_stats = pd.concat(
+            [
+                self.light_outside_win_stats.median(),
+                self.spon_outside_win_stats.median(),
+            ],
+            axis=1,
+        ).T
+
         outside_median_event_stats.drop(
-            labels=["Sweep", "New pos"], axis=0, inplace=True
+            labels=["Sweep", "New pos"], axis=1, inplace=True
         )
 
-        outside_median_event_stats = outside_median_event_stats.T
         outside_median_event_stats = pd.concat(
-            [cell_info, outside_median_event_stats], axis=1
+            [self.cell_info, outside_median_event_stats], axis=1
         )
 
         outside_median_stats_file_name = (
@@ -289,9 +296,12 @@ class BothConditions(object):
             [
                 self.light_sweeps.mean_trace_stats,
                 self.spon_sweeps.mean_trace_stats,
-            ]
+            ],
+            ignore_index=True,
         )
-        combined_df.index = ["Light", "Spontaneous"]
+
+        condition_info = pd.DataFrame({"Condition": ["Light", "Spontaneous"]})
+        combined_df = pd.concat([condition_info, combined_df], axis=1)
 
         file_name = f"{self.cell_name}_mean_trace_stats.csv"
         path = os.path.join(self.tables_folder, file_name)
@@ -302,7 +312,7 @@ class BothConditions(object):
         """
         Saves the frequency and stats values from running individual conditions
         """
-
+        self.make_cell_info_header()
         self.save_freqs()
         self.save_avg_freq_stats()
         self.save_all_events_stats()
@@ -596,10 +606,12 @@ class BothConditions(object):
         )
         freq_stats = pd.read_csv(freq_stats_file, index_col=0)
 
-        light_baseline = freq_stats.loc["Light"]["Baseline Frequency (Hz)"]
-        spon_baseline = freq_stats.loc["Spontaneous"][
+        light_baseline = freq_stats.loc[freq_stats["Condition"] == "Light"][
             "Baseline Frequency (Hz)"
-        ]
+        ].values[0]
+        spon_baseline = freq_stats.loc[
+            freq_stats["Condition"] == "Spontaneous"
+        ]["Baseline Frequency (Hz)"].values[0]
 
         nested_dict = lambda: defaultdict(nested_dict)
         nest_pval_dict = nested_dict()
@@ -724,9 +736,9 @@ class BothConditions(object):
 
         mean_trace_stats = pd.read_csv(mean_trace_stats_file, index_col=0)
 
-        self.mean_trace_response = mean_trace_stats.loc["Light"][
-            "Response 4x STD"
-        ]
+        self.mean_trace_response = mean_trace_stats.loc[
+            mean_trace_stats["Condition"] == "Light"
+        ]["Response 4x STD"].values[0]
 
         if self.light_freq_response & self.mean_trace_response:
             self.overall_response = True
@@ -767,6 +779,7 @@ class BothConditions(object):
                     self.mean_trace_response,
                     self.spon_freq_response,
                     self.overall_response,
+                    self.light_sweeps.response,
                     self.response_mismatch,
                     self.spon_freq_response,
                 ]
@@ -779,6 +792,7 @@ class BothConditions(object):
                 "mean trace response",
                 "spon freq response",
                 "overall response",
+                "datanotes eye response",
                 "vs. eye mismatch",
                 "spon false positive",
             ],
@@ -865,7 +879,7 @@ def run_both_conditions(dataset, csvfile, cell_name):
 
 
 if __name__ == "__main__":
-    dataset = "p2_6wpi"
+    dataset = "p2"
     # dataset = "p14"
     csvfile_name = "{}_data_notes.csv".format(dataset)
     csvfile = os.path.join(
@@ -873,7 +887,7 @@ if __name__ == "__main__":
         dataset,
         csvfile_name,
     )
-    cell_name = "JH20210730_c1"
+    cell_name = "JH200313_c5"
     # cell_name = "JH190904_c2"
 
     run_both_conditions(dataset, csvfile, cell_name)
