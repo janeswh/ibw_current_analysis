@@ -483,7 +483,7 @@ def plot_mean_trace_stats(mean_trace_dict):
     datasets = mean_trace_dict.keys()
     measures_list = [
         "Mean Trace Peak (pA)",
-        "Log Mean Trace Peak Amplitude",
+        "Log Mean Trace Peak",
         "Mean Trace Peak Time (ms)",
     ]
 
@@ -502,9 +502,7 @@ def plot_mean_trace_stats(mean_trace_dict):
             df = mean_trace_dict[timepoint][cell_type]["mean trace stats"]
 
             # add log-transformed peak amplitudes for plotting
-            df["Log Mean Trace Peak Amplitude"] = np.log(
-                abs(df["Mean Trace Peak (pA)"])
-            )
+            df["Log Mean Trace Peak"] = np.log(abs(df["Mean Trace Peak (pA)"]))
 
             means = pd.DataFrame(df.mean()).T
             sem = pd.DataFrame(df.sem()).T
@@ -723,7 +721,11 @@ def plot_freq_stats(dataset_freq_stats):
                 else names.add(trace.name)
             )
             freq_stats_fig.update_yaxes(
-                title_text=measure, row=1, col=measure_ct + 1,
+                title_text="Peak Frequency (Hz)"
+                if measure == "Baseline-sub Peak Freq (Hz)"
+                else measure,
+                row=1,
+                col=measure_ct + 1,
             )
             freq_stats_fig.update_xaxes(
                 categoryorder="array",
@@ -856,7 +858,11 @@ def plot_windowed_median_event_stats(median_dict):
                     else names.add(trace.name)
                 )
                 median_fig.update_yaxes(
-                    title_text=measure, row=measure_ct + 1, col=1
+                    title_text="Event amplitude (pA)"
+                    if measure == "Adjusted amplitude (pA)"
+                    else measure,
+                    row=measure_ct + 1,
+                    col=1,
                 )
 
             median_fig.update_xaxes(
@@ -1041,7 +1047,11 @@ def plot_cell_type_event_comparisons(median_dict):
                 else names.add(trace.name)
             )
             event_comparisons_fig.update_yaxes(
-                title_text=measure, row=1, col=measure_ct + 1,
+                title_text="Event amplitude (pA)"
+                if measure == "Adjusted amplitude (pA)"
+                else measure,
+                row=1,
+                col=measure_ct + 1,
             )
             event_comparisons_fig.update_xaxes(
                 categoryorder="array",
