@@ -445,6 +445,260 @@ def save_response_counts_fig(response_counts_fig):
     )
 
 
+def plot_mean_trace_stats(mean_trace_dict):
+    """
+    Plots the mean trace stats for responding cells in the light condition
+    """
+    dataset_order = {"p2": 1, "p2_4wpi": 2, "p2_6wpi": 3, "p14": 4}
+    cell_type_line_colors = {"MC": "#609a00", "TC": "#388bf7"}
+    cell_type_bar_colors = {"MC": "#CEEE98", "TC": "#ACCEFA"}
+
+    datasets = mean_trace_dict.keys()
+    measures_list = ["Mean Trace Peak (pA)", "Mean Trace Peak Time (ms)"]
+
+    mean_trace_stats_fig = make_subplots(
+        rows=1, cols=len(measures_list), shared_xaxes=True, x_title="Timepoint"
+    )
+    all_stats = pd.DataFrame()
+    all_means = pd.DataFrame()
+    all_sems = pd.DataFrame()
+
+    for timepoint in datasets:
+        for cell_type_ct, cell_type in enumerate(
+            mean_trace_dict[timepoint].keys()
+        ):
+
+            df = mean_trace_dict[timepoint][cell_type]["mean trace stats"]
+
+            means = pd.DataFrame(df.mean()).T
+            sem = pd.DataFrame(df.sem()).T
+
+            means.insert(0, "Dataset", timepoint)
+            means.insert(0, "Cell Type", cell_type)
+
+            sem.insert(0, "Dataset", timepoint)
+            sem.insert(0, "Cell Type", cell_type)
+
+            all_stats = pd.concat([all_stats, df])
+            all_means = pd.concat([all_means, means])
+            all_sems = pd.concat([all_sems, sem])
+
+    for cell_type_ct, cell_type in enumerate(
+        mean_trace_dict[timepoint].keys()
+    ):
+        cell_stats_df = all_stats.loc[all_stats["Cell Type"] == cell_type]
+        cell_mean_df = all_means.loc[all_means["Cell Type"] == cell_type]
+        cell_sem_df = all_sems.loc[all_sems["Cell Type"] == cell_type]
+
+        for measure_ct, measure in enumerate(measures_list):
+
+            mean_trace_stats_fig.add_trace(
+                go.Box(
+                    x=cell_stats_df["Dataset"],
+                    y=cell_stats_df[measure],
+                    line=dict(color="rgba(0,0,0,0)"),
+                    fillcolor="rgba(0,0,0,0)",
+                    boxpoints="all",
+                    pointpos=0,
+                    marker_color=cell_type_bar_colors[cell_type],
+                    marker=dict(
+                        line=dict(
+                            color=cell_type_line_colors[cell_type], width=1
+                        ),
+                    ),
+                    name=f"{cell_type} individual cells",
+                    legendgroup=cell_type,
+                    offsetgroup=dataset_order[timepoint] + cell_type_ct,
+                ),
+                row=1,
+                col=measure_ct + 1,
+            )
+
+            # tries bar plot instead, plots mean of median with sem
+            mean_trace_stats_fig.add_trace(
+                go.Bar(
+                    x=cell_stats_df["Dataset"].unique(),
+                    y=cell_mean_df[measure],
+                    error_y=dict(
+                        type="data",
+                        array=cell_sem_df[measure],
+                        color=cell_type_line_colors[cell_type],
+                        thickness=1,
+                        visible=True,
+                    ),
+                    marker_line_color=cell_type_line_colors[cell_type],
+                    marker_color=cell_type_bar_colors[cell_type],
+                    # marker=dict(markercolor=cell_type_colors[cell_type]),
+                    name=f"{cell_type} averages",
+                    legendgroup=cell_type,
+                    offsetgroup=dataset_order[timepoint] + cell_type_ct,
+                ),
+                row=1,
+                col=measure_ct + 1,
+            )
+
+            if measure == "Mean Trace Peak (pA)":
+                mean_trace_stats_fig.update_yaxes(
+                    autorange="reversed", row=1, col=measure_ct + 1,
+                )
+
+            #  below is code from stack overflow to hide duplicate legends
+            names = set()
+            mean_trace_stats_fig.for_each_trace(
+                lambda trace: trace.update(showlegend=False)
+                if (trace.name in names)
+                else names.add(trace.name)
+            )
+            mean_trace_stats_fig.update_yaxes(
+                title_text=measure, row=1, col=measure_ct + 1,
+            )
+            mean_trace_stats_fig.update_xaxes(
+                categoryorder="array",
+                categoryarray=list(dataset_order.keys()),
+                row=1,
+                col=measure_ct + 1,
+            )
+
+    mean_trace_stats_fig.update_layout(
+        boxmode="group", title_text="MC vs. TC Mean Trace", title_x=0.5,
+    )
+
+    # mean_trace_stats_fig.show()
+
+    return mean_trace_stats_fig
+
+
+def plot_freq_stats(dataset_freq_stats):
+    """
+    Plots average frequency kinetic properties for responding cells in the 
+    light condition
+    """
+    dataset_order = {"p2": 1, "p2_4wpi": 2, "p2_6wpi": 3, "p14": 4}
+    cell_type_line_colors = {"MC": "#609a00", "TC": "#388bf7"}
+    cell_type_bar_colors = {"MC": "#CEEE98", "TC": "#ACCEFA"}
+
+    datasets = dataset_freq_stats.keys()
+    measures_list = [
+        "Baseline-sub Peak Freq (Hz)",
+        "Time to Peak Frequency (ms)",
+        "Baseline Frequency (Hz)",
+        "Rise Time (ms)",
+        "Decay tau",
+    ]
+
+    freq_stats_fig = make_subplots(
+        rows=1, cols=len(measures_list), shared_xaxes=True, x_title="Timepoint"
+    )
+    all_stats = pd.DataFrame()
+    all_means = pd.DataFrame()
+    all_sems = pd.DataFrame()
+
+    for timepoint in datasets:
+        for cell_type_ct, cell_type in enumerate(
+            dataset_freq_stats[timepoint].keys()
+        ):
+            df = dataset_freq_stats[timepoint][cell_type]["avg freq stats"]
+
+            means = pd.DataFrame(df.mean()).T
+            sem = pd.DataFrame(df.sem()).T
+
+            means.insert(0, "Dataset", timepoint)
+            means.insert(0, "Cell Type", cell_type)
+
+            sem.insert(0, "Dataset", timepoint)
+            sem.insert(0, "Cell Type", cell_type)
+
+            all_stats = pd.concat([all_stats, df])
+            all_means = pd.concat([all_means, means])
+            all_sems = pd.concat([all_sems, sem])
+
+    for cell_type_ct, cell_type in enumerate(
+        dataset_freq_stats[timepoint].keys()
+    ):
+        cell_stats_df = all_stats.loc[all_stats["Cell Type"] == cell_type]
+        cell_mean_df = all_means.loc[all_means["Cell Type"] == cell_type]
+        cell_sem_df = all_sems.loc[all_sems["Cell Type"] == cell_type]
+
+        for measure_ct, measure in enumerate(measures_list):
+
+            freq_stats_fig.add_trace(
+                go.Box(
+                    x=cell_stats_df["Dataset"],
+                    y=cell_stats_df[measure],
+                    line=dict(color="rgba(0,0,0,0)"),
+                    fillcolor="rgba(0,0,0,0)",
+                    boxpoints="all",
+                    pointpos=0,
+                    marker_color=cell_type_bar_colors[cell_type],
+                    marker=dict(
+                        line=dict(
+                            color=cell_type_line_colors[cell_type], width=1
+                        ),
+                    ),
+                    name=f"{cell_type} individual cells",
+                    legendgroup=cell_type,
+                    offsetgroup=dataset_order[timepoint] + cell_type_ct,
+                ),
+                row=1,
+                col=measure_ct + 1,
+            )
+
+            # tries bar plot instead, plots mean of median with sem
+            freq_stats_fig.add_trace(
+                go.Bar(
+                    x=cell_stats_df["Dataset"].unique(),
+                    y=cell_mean_df[measure],
+                    error_y=dict(
+                        type="data",
+                        array=cell_sem_df[measure],
+                        color=cell_type_line_colors[cell_type],
+                        thickness=1,
+                        visible=True,
+                    ),
+                    marker_line_color=cell_type_line_colors[cell_type],
+                    marker_color=cell_type_bar_colors[cell_type],
+                    # marker=dict(markercolor=cell_type_colors[cell_type]),
+                    name=f"{cell_type} averages",
+                    legendgroup=cell_type,
+                    offsetgroup=dataset_order[timepoint] + cell_type_ct,
+                ),
+                row=1,
+                col=measure_ct + 1,
+            )
+
+            if measure == "Mean Trace Peak (pA)":
+                freq_stats_fig.update_yaxes(
+                    autorange="reversed", row=1, col=measure_ct + 1,
+                )
+
+            #  below is code from stack overflow to hide duplicate legends
+            names = set()
+            freq_stats_fig.for_each_trace(
+                lambda trace: trace.update(showlegend=False)
+                if (trace.name in names)
+                else names.add(trace.name)
+            )
+            freq_stats_fig.update_yaxes(
+                title_text=measure, row=1, col=measure_ct + 1,
+            )
+            freq_stats_fig.update_xaxes(
+                categoryorder="array",
+                categoryarray=list(dataset_order.keys()),
+                row=1,
+                col=measure_ct + 1,
+            )
+
+    freq_stats_fig.update_layout(
+        boxmode="group",
+        title_text="MC vs. TC Avg Frequency Stats",
+        title_x=0.5,
+    )
+
+    # freq_stats_fig.show()
+
+    return freq_stats_fig
+
+
 def plot_windowed_median_event_stats(median_dict):
 
     dataset_order = {"p2": 1, "p2_4wpi": 2, "p2_6wpi": 3, "p14": 4}
@@ -575,13 +829,36 @@ def plot_windowed_median_event_stats(median_dict):
     return median_fig
 
 
-def save_median_events_fig(windowed_medians_fig):
+def save_median_events_fig(windowed_medians_fig, cell_comparisons):
+    """
+    Saves all median event figs into one html file.
+    """
     html_filename = "windowed_event_medians.html"
     path = os.path.join(FileSettings.FIGURES_FOLDER, html_filename)
 
     windowed_medians_fig.write_html(
         path, full_html=False, include_plotlyjs="cdn"
     )
+
+    with open(path, "a") as f:
+        f.write(
+            cell_comparisons.to_html(full_html=False, include_plotlyjs=False)
+        )
+
+
+def save_freq_mean_trace_figs(mean_trace_fig, freq_stats_fig):
+    """
+    Saves mean trace stats and avg freq stats fig into one html file.
+    """
+    html_filename = "mean_trace_freq_stats.html"
+    path = os.path.join(FileSettings.FIGURES_FOLDER, html_filename)
+
+    mean_trace_fig.write_html(path, full_html=False, include_plotlyjs="cdn")
+
+    with open(path, "a") as f:
+        f.write(
+            freq_stats_fig.to_html(full_html=False, include_plotlyjs=False)
+        )
 
 
 def plot_cell_type_event_comparisons(median_dict):
@@ -700,9 +977,7 @@ def plot_cell_type_event_comparisons(median_dict):
         boxmode="group", title_text="MC vs. TC Event Kinetics", title_x=0.5,
     )
 
-    event_comparisons_fig.show()
-
-    pdb.set_trace()
+    # event_comparisons_fig.show()
 
     return event_comparisons_fig
 
