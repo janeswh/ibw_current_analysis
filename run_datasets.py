@@ -108,6 +108,7 @@ def main():
                 dataset, dataset_count + 1, len(dataset_list)
             )
         )
+    pdb.set_trace()
 
     # now we plot using dicts
     response_fig = plot_response_counts(dataset_cell_counts)

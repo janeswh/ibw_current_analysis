@@ -71,12 +71,12 @@ class CellTypeSummary(object):
 
         self.responding_cells = list(
             self.raw_responses_df.loc[
-                self.raw_responses_df["overall response"] == True
+                self.raw_responses_df["datanotes eye response"] == True
             ]["cell_name"]
         )
         self.non_responding_cells = list(
             self.raw_responses_df.loc[
-                self.raw_responses_df["overall response"] == False
+                self.raw_responses_df["datanotes eye response"] == False
             ]["cell_name"]
         )
 
