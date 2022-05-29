@@ -389,11 +389,7 @@ def plot_response_counts(counts_dict):
         # subplot_titles=dataset_list,
     )
 
-    # makes df to hold all the data used in the plot
-    plot_data = pd.DataFrame(
-        columns=["Timepoint", "Cell Type", "Response", "No Response"]
-    )
-
+    plot_data = []
     for timepoint in counts_dict.keys():
         # response_csv_name = f"{timepoint}_response_counts.csv"
         # csv_file = os.path.join(
@@ -419,8 +415,25 @@ def plot_response_counts(counts_dict):
                     title_text=timepoint, row=1, col=dataset_order[timepoint]
                 )
 
-            # adds plotted data to plot_data
-            list = [timepoint, cell_type, response_type]
+                if response_type == "response":
+                    response_val = counts_dict[timepoint][cell_type][
+                        response_type
+                    ]
+
+                elif response_type == "no response":
+                    noresponse_val = counts_dict[timepoint][cell_type][
+                        response_type
+                    ]
+
+            list = [timepoint, cell_type, response_val, noresponse_val]
+            plot_data.append(list)
+
+    plot_data = pd.DataFrame(
+        plot_data,
+        columns=["Timepoint", "Cell Type", "Response", "No Response"],
+    )
+
+    plot_data.sort_values(by=["Timepoint"], ascending=False, inplace=True)
 
     response_counts_fig.update_layout(barmode="stack")
 
@@ -439,10 +452,13 @@ def plot_response_counts(counts_dict):
     )
     # response_counts_fig.show()
 
-    return response_counts_fig
+    return response_counts_fig, plot_data
 
 
-def save_response_counts_fig(response_counts_fig):
+def save_response_counts_fig(response_counts_fig, data):
+    """
+    Saves response counts fig and the data used in the plot.
+    """
 
     html_filename = "all_response_counts.html"
     path = os.path.join(FileSettings.FIGURES_FOLDER, html_filename)
@@ -450,6 +466,10 @@ def save_response_counts_fig(response_counts_fig):
     response_counts_fig.write_html(
         path, full_html=False, include_plotlyjs="cdn"
     )
+
+    csv_filename = "all_response_counts_data.csv"
+    path = os.path.join(FileSettings.FIGURES_FOLDER, csv_filename)
+    data.to_csv(path, float_format="%8.4f")
 
 
 def plot_mean_trace_stats(mean_trace_dict):
@@ -589,7 +609,7 @@ def plot_mean_trace_stats(mean_trace_dict):
 
     # mean_trace_stats_fig.show()
 
-    return mean_trace_stats_fig
+    return mean_trace_stats_fig, all_stats
 
 
 def plot_freq_stats(dataset_freq_stats):
@@ -720,7 +740,7 @@ def plot_freq_stats(dataset_freq_stats):
 
     # freq_stats_fig.show()
 
-    return freq_stats_fig
+    return freq_stats_fig, all_stats
 
 
 def plot_windowed_median_event_stats(median_dict):
@@ -737,6 +757,8 @@ def plot_windowed_median_event_stats(median_dict):
         shared_xaxes=True,
         shared_yaxes=True,
     )
+
+    plot_data = pd.DataFrame()
 
     for timepoint in datasets:
         for cell_type_ct, cell_type in enumerate(
@@ -795,7 +817,7 @@ def plot_windowed_median_event_stats(median_dict):
                     row=measure_ct + 1,
                     col=dataset_order[timepoint],
                 )
-
+                # list = [timepoint, cell_type, win_]
                 # tries bar plot instead, plots mean of median with sem
                 median_fig.add_trace(
                     go.Bar(
@@ -843,6 +865,8 @@ def plot_windowed_median_event_stats(median_dict):
                 col=dataset_order[timepoint],
             )
 
+            plot_data = pd.concat([plot_data, all_medians])
+
     median_fig.update_layout(
         boxmode="group",
         title_text="Median event kinetics by response window",
@@ -850,10 +874,15 @@ def plot_windowed_median_event_stats(median_dict):
     )
     # median_fig.show()
 
-    return median_fig
+    return median_fig, plot_data
 
 
-def save_median_events_fig(windowed_medians_fig, cell_comparisons):
+def save_median_events_fig(
+    windowed_medians_fig,
+    cell_comparisons_fig,
+    windowed_medians_data,
+    cell_comparisons_data,
+):
     """
     Saves all median event figs into one html file.
     """
@@ -866,11 +895,25 @@ def save_median_events_fig(windowed_medians_fig, cell_comparisons):
 
     with open(path, "a") as f:
         f.write(
-            cell_comparisons.to_html(full_html=False, include_plotlyjs=False)
+            cell_comparisons_fig.to_html(
+                full_html=False, include_plotlyjs=False
+            )
         )
 
+    dfs = [windowed_medians_data, cell_comparisons_data]
+    filenames = [
+        "windowed_event_medians_data.csv",
+        "cell_comparison_medians_data.csv",
+    ]
+    for count, df in enumerate(dfs):
+        csv_filename = filenames[count]
+        path = os.path.join(FileSettings.FIGURES_FOLDER, csv_filename)
+        df.to_csv(path, float_format="%8.4f")
 
-def save_freq_mean_trace_figs(mean_trace_fig, freq_stats_fig):
+
+def save_freq_mean_trace_figs(
+    mean_trace_fig, freq_stats_fig, mean_trace_data, freq_stats_data
+):
     """
     Saves mean trace stats and avg freq stats fig into one html file.
     """
@@ -883,6 +926,16 @@ def save_freq_mean_trace_figs(mean_trace_fig, freq_stats_fig):
         f.write(
             freq_stats_fig.to_html(full_html=False, include_plotlyjs=False)
         )
+
+    dfs = [mean_trace_data, freq_stats_data]
+    filenames = [
+        "mean_trace_data.csv",
+        "freq_stats_data.csv",
+    ]
+    for count, df in enumerate(dfs):
+        csv_filename = filenames[count]
+        path = os.path.join(FileSettings.FIGURES_FOLDER, csv_filename)
+        df.to_csv(path, float_format="%8.4f")
 
 
 def plot_cell_type_event_comparisons(median_dict):
@@ -1003,7 +1056,7 @@ def plot_cell_type_event_comparisons(median_dict):
 
     # event_comparisons_fig.show()
 
-    return event_comparisons_fig
+    return event_comparisons_fig, all_medians
 
 
 def plot_annotated_trace(trace, annotation_values, genotype):

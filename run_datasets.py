@@ -119,24 +119,38 @@ def main():
         )
 
     # now we plot using dicts
-    response_fig = plot_response_counts(dataset_cell_counts)
-    save_response_counts_fig(response_fig)
+    response_fig, response_fig_data = plot_response_counts(dataset_cell_counts)
+    save_response_counts_fig(response_fig, response_fig_data)
 
     # plot median event stats
-    windowed_event_medians_fig = plot_windowed_median_event_stats(
-        dataset_median_stats
+    (
+        windowed_event_medians_fig,
+        medians_fig_data,
+    ) = plot_windowed_median_event_stats(dataset_median_stats)
+    (
+        event_comparisons_fig,
+        event_comparisons_fig_data,
+    ) = plot_cell_type_event_comparisons(dataset_median_stats)
+    save_median_events_fig(
+        windowed_event_medians_fig,
+        event_comparisons_fig,
+        medians_fig_data,
+        event_comparisons_fig_data,
     )
-    event_comparisons_fig = plot_cell_type_event_comparisons(
-        dataset_median_stats
-    )
-    save_median_events_fig(windowed_event_medians_fig, event_comparisons_fig)
 
     # plots mean trace stats
-    mean_trace_stats_fig = plot_mean_trace_stats(dataset_mean_trace_stats)
+    mean_trace_stats_fig, mean_trace_stats_fig_data = plot_mean_trace_stats(
+        dataset_mean_trace_stats
+    )
 
     # plots avg freq stats
-    freq_stats_fig = plot_freq_stats(dataset_freq_stats)
-    save_freq_mean_trace_figs(mean_trace_stats_fig, freq_stats_fig)
+    freq_stats_fig, freq_stats_fig_data = plot_freq_stats(dataset_freq_stats)
+    save_freq_mean_trace_figs(
+        mean_trace_stats_fig,
+        freq_stats_fig,
+        mean_trace_stats_fig_data,
+        freq_stats_fig_data,
+    )
 
     pdb.set_trace()
 
