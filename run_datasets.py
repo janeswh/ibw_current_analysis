@@ -100,9 +100,19 @@ def main():
             )
         )
 
-    # now we plot using saved csvs
-    response_fig = plot_response_counts(dataset_list, dataset_cell_counts)
+    # now we plot using dicts
+    response_fig = plot_response_counts(dataset_cell_counts)
     save_response_counts_fig(response_fig)
+
+    # plot median event stats
+    windowed_event_medians_fig = plot_windowed_median_event_stats(
+        dataset_median_stats
+    )
+    save_median_events_fig(windowed_event_medians_fig)
+
+    event_comparisons_fig = plot_cell_type_event_comparisons(
+        dataset_median_stats
+    )
     pdb.set_trace()
 
     # saves all the cell counts
