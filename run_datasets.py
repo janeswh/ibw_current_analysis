@@ -58,6 +58,7 @@ def run_dataset_analysis(dataset):
 def main():
     dataset_list, all_patched = get_data_info()
     dataset_cell_counts = {}
+    dataset_mean_trace_stats = {}
     dataset_median_stats = {}
     dataset_freq_stats = {}
 
@@ -67,27 +68,35 @@ def main():
         cell_types_list = get_cell_types(dataset)
         (
             response_cells_list,
+            mean_trace_stats,
             response_counts,
             median_stats,
             freq_stats,
         ) = get_cell_type_summary(dataset, cell_types_list)
 
         dataset_cell_counts[dataset] = response_counts
+        dataset_mean_trace_stats[dataset] = mean_trace_stats
         dataset_median_stats[dataset] = median_stats
         dataset_freq_stats[dataset] = freq_stats
 
         (
             dataset_counts_df,
+            mean_trace_stats_df,
             win_median_stats_df,
             outside_median_stats_df,
             freq_stats_df,
         ) = make_cell_type_summary_dfs(
-            dataset, response_counts, median_stats, freq_stats
+            dataset,
+            mean_trace_stats,
+            response_counts,
+            median_stats,
+            freq_stats,
         )
 
         save_dataset_stats(
             dataset,
             response_cells_list,
+            mean_trace_stats_df,
             dataset_counts_df,
             win_median_stats_df,
             outside_median_stats_df,
@@ -99,6 +108,7 @@ def main():
                 dataset, dataset_count + 1, len(dataset_list)
             )
         )
+    pdb.set_trace()
 
     # now we plot using dicts
     response_fig = plot_response_counts(dataset_cell_counts)
