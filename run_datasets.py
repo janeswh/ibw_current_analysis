@@ -57,6 +57,7 @@ def run_dataset_analysis(dataset):
 
 def main():
     dataset_list, all_patched = get_data_info()
+    dataset_list.sort(reverse=True)  # put p2 first
 
     # dataset_cell_counts = {}
     # dataset_mean_trace_stats = {}
@@ -123,10 +124,14 @@ def main():
     save_response_counts_fig(response_fig, response_fig_data)
 
     # plot median event stats
+    # (windowed_event_medians_fig, medians_fig_data,) = test_median_windows_plot(
+    #     dataset_median_stats, cell_types_list
+    # )
+
     (
         windowed_event_medians_fig,
         medians_fig_data,
-    ) = plot_windowed_median_event_stats(dataset_median_stats)
+    ) = plot_windowed_median_event_stats(dataset_median_stats, cell_types_list)
     (
         event_comparisons_fig,
         event_comparisons_fig_data,

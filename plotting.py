@@ -745,9 +745,9 @@ def plot_freq_stats(dataset_freq_stats):
     return freq_stats_fig, all_stats
 
 
-def plot_windowed_median_event_stats(median_dict):
+def test_median_windows_plot(median_dict, cell_types_list):
 
-    dataset_order = {"p2": 1, "p14": 2}
+    dataset_order = {"p2": 0, "p14": 1}
     cell_type_line_colors = {"MC": "#609a00", "TC": "#388bf7"}
     cell_type_bar_colors = {"MC": "#CEEE98", "TC": "#ACCEFA"}
 
@@ -755,17 +755,16 @@ def plot_windowed_median_event_stats(median_dict):
     measures_list = ["Adjusted amplitude (pA)", "Rise time (ms)", "Tau (ms)"]
     median_fig = make_subplots(
         rows=len(measures_list),
-        cols=len(datasets),
+        cols=len(datasets) * len(cell_types_list),
         shared_xaxes=True,
         shared_yaxes=True,
     )
 
     plot_data = pd.DataFrame()
 
+    col_count = 1
     for timepoint in datasets:
-        for cell_type_ct, cell_type in enumerate(
-            median_dict[timepoint].keys()
-        ):
+        for cell_type_ct, cell_type in enumerate(cell_types_list):
             df = median_dict[timepoint][cell_type]
             win_con_labels = {
                 ("Light", "response win"): "Light response window",
@@ -817,7 +816,7 @@ def plot_windowed_median_event_stats(median_dict):
                         offsetgroup=dataset_order[timepoint] + cell_type_ct,
                     ),
                     row=measure_ct + 1,
-                    col=dataset_order[timepoint],
+                    col=col_count,
                 )
                 # list = [timepoint, cell_type, win_]
                 # tries bar plot instead, plots mean of median with sem
@@ -840,14 +839,14 @@ def plot_windowed_median_event_stats(median_dict):
                         offsetgroup=dataset_order[timepoint] + cell_type_ct,
                     ),
                     row=measure_ct + 1,
-                    col=dataset_order[timepoint],
+                    col=col_count,
                 )
 
                 if measure == "Adjusted amplitude (pA)":
                     median_fig.update_yaxes(
                         autorange="reversed",
                         row=measure_ct + 1,
-                        col=dataset_order[timepoint],
+                        col=col_count,
                     )
 
                 #  below is code from stack overflow to hide duplicate legends
@@ -866,12 +865,151 @@ def plot_windowed_median_event_stats(median_dict):
                 )
 
             median_fig.update_xaxes(
-                title_text=timepoint,
+                title_text=f"{timepoint} {cell_type}",
                 row=len(measures_list),
-                col=dataset_order[timepoint],
+                col=col_count,
             )
 
             plot_data = pd.concat([plot_data, all_medians])
+            col_count += 1
+
+    median_fig.update_layout(
+        boxmode="group",
+        title_text="Median event kinetics by response window",
+        title_x=0.5,
+    )
+    # median_fig.show()
+
+    return median_fig, plot_data
+
+
+def plot_windowed_median_event_stats(median_dict, cell_types_list):
+
+    dataset_order = {"p2": 0, "p14": 1}
+    cell_type_line_colors = {"MC": "#609a00", "TC": "#388bf7"}
+    cell_type_bar_colors = {"MC": "#CEEE98", "TC": "#ACCEFA"}
+
+    datasets = median_dict.keys()
+    measures_list = ["Adjusted amplitude (pA)", "Rise time (ms)", "Tau (ms)"]
+    median_fig = make_subplots(
+        rows=len(measures_list),
+        cols=len(datasets) * len(cell_types_list),
+        shared_xaxes=True,
+        shared_yaxes=True,
+    )
+
+    plot_data = pd.DataFrame()
+
+    col_count = 1
+    for timepoint in datasets:
+        for cell_type_ct, cell_type in enumerate(cell_types_list):
+            df = median_dict[timepoint][cell_type]
+            win_con_labels = {
+                ("Light", "response win"): "Light response window",
+                ("Spontaneous", "response win"): "Spontaneous response window",
+                ("Light", "outside win"): "Light outside window",
+                ("Spontaneous", "outside win"): "Spontaneous outside window",
+            }
+
+            all_medians = pd.DataFrame()
+            all_means = pd.DataFrame()
+            all_sems = pd.DataFrame()
+
+            for win in df.keys():
+                for condition in df[win]["Condition"].unique():
+                    label = win_con_labels[(condition, win)]
+
+                    temp_df = (
+                        df[win].loc[df[win]["Condition"] == condition].copy()
+                    )
+                    temp_df.insert(0, "window condition", label)
+
+                    means = pd.DataFrame(temp_df.mean()).T
+                    means.index = [label]
+
+                    sem = pd.DataFrame(temp_df.sem()).T
+                    sem.index = [label]
+
+                    all_medians = pd.concat([all_medians, temp_df])
+                    all_means = pd.concat([all_means, means])
+                    all_sems = pd.concat([all_sems, sem])
+
+            for measure_ct, measure in enumerate(measures_list):
+                median_fig.add_trace(
+                    go.Box(
+                        x=all_medians["window condition"],
+                        y=all_medians[measure],
+                        line=dict(color="rgba(0,0,0,0)"),
+                        fillcolor="rgba(0,0,0,0)",
+                        boxpoints="all",
+                        pointpos=0,
+                        marker_color=cell_type_bar_colors[cell_type],
+                        marker=dict(
+                            line=dict(
+                                color=cell_type_line_colors[cell_type], width=1
+                            ),
+                        ),
+                        name=f"{cell_type} medians",
+                        legendgroup=cell_type,
+                        offsetgroup=dataset_order[timepoint] + cell_type_ct,
+                    ),
+                    row=measure_ct + 1,
+                    col=col_count,
+                )
+                # list = [timepoint, cell_type, win_]
+                # tries bar plot instead, plots mean of median with sem
+                median_fig.add_trace(
+                    go.Bar(
+                        x=all_medians["window condition"].unique(),
+                        y=all_means[measure],
+                        error_y=dict(
+                            type="data",
+                            array=all_sems[measure],
+                            color=cell_type_line_colors[cell_type],
+                            thickness=1,
+                            visible=True,
+                        ),
+                        marker_line_color=cell_type_line_colors[cell_type],
+                        marker_color=cell_type_bar_colors[cell_type],
+                        # marker=dict(markercolor=cell_type_colors[cell_type]),
+                        name=f"{cell_type} averages",
+                        legendgroup=cell_type,
+                        offsetgroup=dataset_order[timepoint] + cell_type_ct,
+                    ),
+                    row=measure_ct + 1,
+                    col=col_count,
+                )
+
+                if measure == "Adjusted amplitude (pA)":
+                    median_fig.update_yaxes(
+                        autorange="reversed",
+                        row=measure_ct + 1,
+                        col=col_count,
+                    )
+
+                #  below is code from stack overflow to hide duplicate legends
+                names = set()
+                median_fig.for_each_trace(
+                    lambda trace: trace.update(showlegend=False)
+                    if (trace.name in names)
+                    else names.add(trace.name)
+                )
+                median_fig.update_yaxes(
+                    title_text="Event amplitude (pA)"
+                    if measure == "Adjusted amplitude (pA)"
+                    else measure,
+                    row=measure_ct + 1,
+                    col=1,
+                )
+
+            median_fig.update_xaxes(
+                title_text=f"{timepoint} {cell_type}",
+                row=len(measures_list),
+                col=col_count,
+            )
+
+            plot_data = pd.concat([plot_data, all_medians])
+            col_count += 1
 
     median_fig.update_layout(
         boxmode="group",
