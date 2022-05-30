@@ -521,14 +521,26 @@ def get_ephys_sections_intensity():
         ]
 
         peak_freqs = cell_freqs["Baseline-sub Peak Freq (Hz)"].tolist()
+        peak_freq_mean = cell_freqs["Baseline-sub Peak Freq (Hz)"].mean()
+        peak_freq_sem = cell_freqs["Baseline-sub Peak Freq (Hz)"].sem()
 
-        section_list = pd.DataFrame([intensity, response_ratio, peak_freqs]).T
+        section_list = pd.DataFrame(
+            [
+                intensity,
+                response_ratio,
+                peak_freqs,
+                peak_freq_mean,
+                peak_freq_sem,
+            ]
+        ).T
         sections_data = pd.concat([sections_data, section_list])
 
     sections_data.columns = [
         "Integrated density/area",
         "Response %",
         "Peak Frequency (Hz)",
+        "Mean Peak Frequency (Hz)",
+        "Peak Frequency SEM",
     ]
 
     return sections_data
