@@ -218,7 +218,10 @@ class JaneCell(object):
         self.threshold = None
 
         # set acquisition parameters
-        if self.dataset in {"p2", "p2_4wpi", "p2_6wpi"}:
+        if self.dataset in {"p2", "p2_4wpi", "p2_6wpi"} or (
+            file_name == "JH200303GCBrokeIn_c5_light100.ibw"
+            or file_name == "JH200303GCAttached_c5_light100.ibw"
+        ):
             self.lowpass_freq = p2_acq_parameters.LOWPASS_FREQ
             self.stim_time = p2_acq_parameters.STIM_TIME
             self.post_stim = p2_acq_parameters.POST_STIM
@@ -233,7 +236,9 @@ class JaneCell(object):
             self.baseline_start = p2_acq_parameters.BASELINE_START
             self.baseline_end = p2_acq_parameters.BASELINE_END
 
-        elif self.dataset == "p14":
+        elif self.dataset == "p14" or (
+            file_name == "JH190828Gabazine_c6_light100.ibw"
+        ):
             self.lowpass_freq = p14_acq_parameters.LOWPASS_FREQ
             self.stim_time = p14_acq_parameters.STIM_TIME
             self.post_stim = p14_acq_parameters.POST_STIM
@@ -784,6 +789,22 @@ class JaneCell(object):
         # be dropped from self.mod_events_df
         pos_drops_flat = [idx for sublist in pos_drops for idx in sublist]
         self.mod_events_df.drop(pos_drops_flat, inplace=True)
+
+    def process_traces_for_plotting(self):
+        traces = self.traces
+        self.traces_filtered = self.filter_traces(traces)
+
+        self.time = np.arange(0, len(traces) / self.fs, 1 / self.fs)
+        self.traces_filtered.index = self.time
+
+        # find baseline, defined as the last 3s of the sweep
+        baseline = self.calculate_mean_baseline(self.traces_filtered)
+        std_baseline = self.calculate_std_baseline(self.traces_filtered)
+
+        # subtract mean baseline from all filtered traces - this is for
+        self.traces_filtered_sub = self.traces_filtered - baseline
+
+        return self.traces_filtered_sub
 
     def calculate_event_stats(self):
         # truncate traces to start after tp end
