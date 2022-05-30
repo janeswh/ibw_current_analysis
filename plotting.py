@@ -2220,3 +2220,109 @@ def plot_response_win_comparison(
 
     return stats_fig
 
+
+def plot_ephys_sections_intensity(data):
+    """
+    Plots the fixed ephys section intensities against response rates
+    and mean peak freq of the recorded cells from each section.
+    """
+
+    long_data = pd.melt(
+        data,
+        id_vars="Integrated density/area",
+        value_vars=["Response %", "Mean Peak Frequency (Hz)"],
+    )
+    sections_fig = px.scatter(
+        long_data,
+        x="Integrated density/area",
+        y="value",
+        facet_col="variable",
+        facet_col_spacing=0.15,
+        trendline="ols",
+    )
+
+    sections_fig.update_yaxes(matches=None)
+
+    sections_fig.layout.yaxis.title.text = "Response %"
+    sections_fig.layout.yaxis2.title.text = "Mean Peak Frequency (Hz)"
+
+    sections_fig.for_each_yaxis(
+        lambda yaxis: yaxis.update(showticklabels=True)
+    )
+    sections_fig.for_each_xaxis(
+        lambda xaxis: xaxis.title.update(
+            text="Integrated intensity density/area \u03BCm\u00b2"
+        )
+    )
+
+    sections_fig.for_each_annotation(lambda a: a.update(text=""))
+
+    regression_results = pd.DataFrame()
+    # gets regression results
+    models = px.get_trendline_results(sections_fig)
+    for count, model_row in models.iterrows():
+        variable = model_row["variable"]
+        results = model_row["px_fit_results"]
+        alpha = results.params[0]
+        beta = results.params[1]
+        p_beta = results.pvalues[1]
+        r_squared = results.rsquared
+
+        list = pd.DataFrame([variable, alpha, beta, p_beta, r_squared]).T
+        regression_results = pd.concat([regression_results, list])
+
+        # makes regression annotation
+        if beta > 0:
+            sign = "+"
+        else:
+            sign = "-"
+        line1 = f"y = {str(round(alpha, 4))} {sign} {abs(beta):.1E}x <br>"
+        line2 = f"p-value = {p_beta:.3f} <br>"
+        line3 = f"R\u00b2 = {str(round(r_squared, 4))} <br>"
+        summary = line1 + line2 + line3
+
+        # annotates facet plot with regression values
+        sections_fig.add_annotation(
+            xref=f"x{count+1}",
+            yref=f"y{count+1}",
+            x=long_data["Integrated density/area"].max()
+            * 0.9,  # relative to x
+            y=long_data.loc[long_data["variable"] == variable]["value"].max()
+            * 0.95,
+            text=summary,
+            align="left",
+            showarrow=False,
+        )
+
+    regression_results.columns = [
+        "variable",
+        "alpha",
+        "beta",
+        "p_beta",
+        "r_squared",
+    ]
+
+    # sections_fig.show()
+    return sections_fig, long_data, regression_results
+
+
+def save_ephys_sections_fig(fig, data, regression):
+    """
+    Saves plot comparing fixed ephys section intensities vs. response rate and
+    peak frequency. Also saves data used to plot, along with regression results.
+    """
+
+    html_filename = "ephys_sections_comparisons.html"
+    path = os.path.join(FileSettings.FIGURES_FOLDER, html_filename)
+
+    fig.write_html(path, full_html=False, include_plotlyjs="cdn")
+
+    dfs = [data, regression]
+    filenames = [
+        "ephys_sections_data.csv",
+        "ephys_sections_regression.csv",
+    ]
+    for count, df in enumerate(dfs):
+        csv_filename = filenames[count]
+        path = os.path.join(FileSettings.FIGURES_FOLDER, csv_filename)
+        df.to_csv(path, float_format="%8.4f")

@@ -158,6 +158,15 @@ def main():
     )
 
     sections_data = get_ephys_sections_intensity()
+    (
+        sections_fig,
+        sections_fig_data,
+        sections_regression,
+    ) = plot_ephys_sections_intensity(sections_data)
+
+    save_ephys_sections_fig(
+        sections_fig, sections_fig_data, sections_regression
+    )
 
     pdb.set_trace()
 
