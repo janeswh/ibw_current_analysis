@@ -157,6 +157,8 @@ def main():
         freq_stats_fig_data,
     )
 
+    sections_data = get_ephys_sections_intensity()
+
     pdb.set_trace()
 
     # saves all the cell counts

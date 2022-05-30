@@ -461,3 +461,75 @@ def make_all_dataset_dfs(counts, median_stats, freq_stats):
             cell_type_col = pd.DataFrame({"cell type": cell_type}, index=[0])
             pdb.set_trace()
 
+
+def get_ephys_sections_intensity():
+    """
+    Gets the fixed ephys section intensities to compare against response rates
+    and mean peak freq of the recorded cells from each section.
+    """
+    sections_info = pd.read_csv(
+        os.path.join(FileSettings.TABLES_FOLDER, "ephys_GCL_intensity.csv"),
+        header=0,
+    )
+
+    # reads in cell response lists and avg freq stats
+    all_responses = pd.DataFrame()
+    all_freq_stats = pd.DataFrame()
+    for timepoint in sections_info["timepoint"].unique():
+        timepoint_responses = pd.read_csv(
+            os.path.join(
+                FileSettings.TABLES_FOLDER,
+                timepoint,
+                f"{timepoint}_response_cells_list.csv",
+            ),
+            header=0,
+            index_col=0,
+        )
+        all_responses = pd.concat([all_responses, timepoint_responses])
+
+        timepoint_freq = pd.read_csv(
+            os.path.join(
+                FileSettings.TABLES_FOLDER,
+                timepoint,
+                f"{timepoint}_avg_frequency_stats.csv",
+            ),
+            header=0,
+            index_col=0,
+        )
+        all_freq_stats = pd.concat([all_freq_stats, timepoint_freq])
+
+    sections_data = pd.DataFrame()
+
+    for count, section in sections_info.iterrows():
+
+        intensity = section["integrated density/area"]
+
+        # gets response ratio
+        timepoint = section["timepoint"]
+        cell_names = section["cell names"].split(", ")
+        cell_responses = all_responses[
+            all_responses["cell_name"].isin(cell_names)
+        ]
+
+        response_ratio = sum(cell_responses["datanotes eye response"]) / len(
+            cell_responses["datanotes eye response"]
+        )
+
+        # gets avg freq stats
+        cell_freqs = all_freq_stats[
+            all_freq_stats["Cell name"].isin(cell_names)
+        ]
+
+        peak_freqs = cell_freqs["Baseline-sub Peak Freq (Hz)"].tolist()
+
+        section_list = pd.DataFrame([intensity, response_ratio, peak_freqs]).T
+        sections_data = pd.concat([sections_data, section_list])
+
+    sections_data.columns = [
+        "Integrated density/area",
+        "Response %",
+        "Peak Frequency (Hz)",
+    ]
+
+    return sections_data
+
