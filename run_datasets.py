@@ -69,6 +69,9 @@ def main():
     # dataset_median_stats = {}
     # dataset_freq_stats = {}
 
+    # this replicates previous old analysis
+    dataset_all_mean_trace_stats = defaultdict(dict)
+
     dataset_cell_counts = defaultdict(dict)
     dataset_mean_trace_stats = defaultdict(dict)
     dataset_median_stats = defaultdict(dict)
@@ -79,12 +82,15 @@ def main():
         run_dataset_analysis(dataset)
         cell_types_list = get_cell_types(dataset)
         (
+            all_mean_trace_stats,
             response_cells_list,
             mean_trace_stats,
             response_counts,
             median_stats,
             freq_stats,
         ) = get_cell_type_summary(dataset, cell_types_list)
+
+        dataset_all_mean_trace_stats[dataset] = all_mean_trace_stats
 
         dataset_cell_counts[dataset] = response_counts
         dataset_mean_trace_stats[dataset] = mean_trace_stats
@@ -94,6 +100,7 @@ def main():
         # dataset_cell_counts["timepoint"][dataset] = response_counts
 
         (
+            all_mean_trace_stats_df,
             dataset_counts_df,
             mean_trace_stats_df,
             win_median_stats_df,
@@ -101,6 +108,7 @@ def main():
             freq_stats_df,
         ) = make_cell_type_summary_dfs(
             dataset,
+            all_mean_trace_stats,
             cell_types_list,
             mean_trace_stats,
             response_counts,
@@ -123,7 +131,6 @@ def main():
                 dataset, dataset_count + 1, len(dataset_list)
             )
         )
-
     # now we plot using dicts
     response_fig, response_fig_data = plot_response_counts(dataset_cell_counts)
     save_response_counts_fig(response_fig, response_fig_data)
@@ -151,6 +158,15 @@ def main():
     # plots mean trace stats
     mean_trace_stats_fig, mean_trace_stats_fig_data = plot_mean_trace_stats(
         dataset_mean_trace_stats
+    )
+
+    # plots mean trace stats for all cells
+    (
+        all_mean_trace_stats_fig,
+        all_mean_trace_stats_fig_data,
+    ) = plot_mean_trace_stats(dataset_all_mean_trace_stats, all_cells=True)
+    save_all_mean_trace_fig(
+        all_mean_trace_stats_fig, all_mean_trace_stats_fig_data
     )
 
     # plots avg freq stats
@@ -200,6 +216,7 @@ def main():
         cols=3,
         png_filename="cell_type_event_comparisons.png",
     )
+
     pdb.set_trace()
 
 
