@@ -280,38 +280,149 @@ def make_power_curves(dataset, csvfile, genotype, file_name):
 
 
 def make_GC_example_traces(dataset, sweep_info):
-    # cell-attached GC
-    file_name = "JH200303GCAttached_c5_light100.ibw"
-    file = os.path.join(FileSettings.DATA_FOLDER, dataset, file_name)
-    sweep_toplot = 0
-    gc_attached = JaneCell("extra_sweeps", sweep_info, file, file_name)
-    gc_attached.initialize_cell()
-    attached_traces = gc_attached.process_traces_for_plotting()
-    attached_trace = make_one_plot_trace(
-        file_name,
-        cell_trace=attached_traces[sweep_toplot],
-        type="GC cell-attached",
-        inset=False,
-    )
 
-    # break-in GC
-    file_name = "JH200303GCBrokeIn_c5_light100.ibw"
-    file = os.path.join(FileSettings.DATA_FOLDER, dataset, file_name)
-    sweep_toplot = 0
-    gc_breakin = JaneCell("extra_sweeps", sweep_info, file, file_name)
-    gc_breakin.initialize_cell()
-    break_in_traces = gc_breakin.process_traces_for_plotting()
-    break_in_trace = make_one_plot_trace(
-        file_name,
-        cell_trace=break_in_traces[sweep_toplot],
-        type="GC break-in",
-        inset=False,
-    )
+    files_dict = {
+        "GC cell-attached": {
+            "name": "JH200303GCAttached_c5_light100.ibw",
+            "cell type": "GC cell-attached",
+            "timepoint": "extra_sweeps",
+            "sweep to use": 0,
+        },
+        "GC break-in": {
+            "name": "JH200303GCBrokeIn_c5_light100.ibw",
+            "cell type": "GC break-in",
+            "timepoint": "extra_sweeps",
+            "sweep to use": 0,
+        },
+    }
+    ephys_traces_plotted = pd.DataFrame()
 
-    plotting_traces = [attached_trace, break_in_trace]
+    dataset = "extra_sweeps"
+    csvfile_name = f"{dataset}_data_notes.csv"
+    csvfile = os.path.join(FileSettings.TABLES_FOLDER, dataset, csvfile_name,)
+    sweep_info = pd.read_csv(csvfile, index_col=0)
 
-    gc_fig, gc_fig_noaxes = plot_example_GC_traces(plotting_traces)
-    save_example_traces_figs(gc_fig, gc_fig_noaxes, "GC")
+    for cell, info in files_dict.items():
+        dataset = info["timepoint"]
+        file = os.path.join(FileSettings.DATA_FOLDER, dataset, info["name"])
+
+        file_sweeps = JaneCell(dataset, sweep_info, file, info["name"])
+        file_sweeps.initialize_cell()
+        file_traces = file_sweeps.process_traces_for_plotting()
+        file_plotting_trace, plotted_trace = make_one_plot_trace(
+            info["name"],
+            cell_trace=file_traces[info["sweep to use"]],
+            type=info["cell type"],
+            inset=False,
+        )
+        files_dict[cell]["plotting trace"] = file_plotting_trace
+        files_dict[cell]["ephys trace"] = plotted_trace
+
+        plotted_trace = pd.DataFrame({cell: plotted_trace})
+        ephys_traces_plotted = pd.concat(
+            [ephys_traces_plotted, plotted_trace], axis=1
+        )
+
+    example_gc_fig = plot_example_GC_traces(files_dict)
+    save_example_traces_figs(example_gc_fig, ephys_traces_plotted, "GC")
+
+
+def make_timepoint_example_traces():
+    # test on p2
+    files_dict = {
+        "p2": {
+            "MC 1": {
+                "name": "JH200311_c1_light100.ibw",
+                "cell type": "MC",
+                "timepoint": "p2",
+                "sweep to use": 18,
+            },
+            "MC 2": {
+                "name": "JH200313_c3_light100.ibw",
+                "cell type": "MC",
+                "timepoint": "p2",
+                "sweep to use": 4,
+            },
+            "TC 1": {
+                "name": "JH200311_c2_light100.ibw",
+                "cell type": "TC",
+                "timepoint": "p2",
+                "sweep to use": 4,
+            },
+            "TC 2": {
+                "name": "JH20210812_c6_light100.ibw",
+                "cell type": "TC",
+                "timepoint": "p2",
+                "sweep to use": 1,
+            },
+        },
+        "p14": {
+            "MC 1": {
+                "name": "JH190828_c6_light100.ibw",
+                "cell type": "MC",
+                "timepoint": "p14",
+                "sweep to use": 3,
+            },
+            "MC 2": {
+                "name": "JH191008_c5_light100.ibw",
+                "cell type": "MC",
+                "timepoint": "p14",
+                "sweep to use": 26,
+            },
+            "TC 1": {
+                "name": "JH191009_c3_light100.ibw",
+                "cell type": "TC",
+                "timepoint": "p14",
+                "sweep to use": 4,
+            },
+            "TC 2": {
+                "name": "JH191008_c4_light100.ibw",
+                "cell type": "TC",
+                "timepoint": "p14",
+                "sweep to use": 18,
+            },
+        },
+    }
+
+    for timepoint, file_list in files_dict.items():
+        ephys_traces_plotted = pd.DataFrame()
+
+        dataset = timepoint
+        csvfile_name = f"{dataset}_data_notes.csv"
+        csvfile = os.path.join(
+            FileSettings.TABLES_FOLDER, dataset, csvfile_name,
+        )
+        sweep_info = pd.read_csv(csvfile, index_col=0)
+
+        for cell, info in file_list.items():
+            dataset = info["timepoint"]
+            file = os.path.join(
+                FileSettings.DATA_FOLDER, dataset, info["name"]
+            )
+
+            file_sweeps = JaneCell(dataset, sweep_info, file, info["name"])
+            file_sweeps.initialize_cell()
+            file_traces = file_sweeps.process_traces_for_plotting()
+            file_plotting_trace, plotted_trace = make_one_plot_trace(
+                info["name"],
+                cell_trace=file_traces[info["sweep to use"]],
+                type=info["cell type"],
+                inset=False,
+            )
+            files_dict[timepoint][cell]["plotting trace"] = file_plotting_trace
+            files_dict[timepoint][cell]["ephys trace"] = plotted_trace
+
+            plotted_trace = pd.DataFrame({cell: plotted_trace})
+            ephys_traces_plotted = pd.concat(
+                [ephys_traces_plotted, plotted_trace], axis=1
+            )
+
+        example_fig = plot_example_cell_type_traces(
+            files_dict[timepoint], timepoint
+        )
+        save_example_traces_figs(example_fig, ephys_traces_plotted, timepoint)
+
+    pdb.set_trace()
 
 
 def make_cell_type_example_traces():
@@ -421,15 +532,16 @@ if __name__ == "__main__":
     # p2_6wpi_counts_fig = plot_p2_6wpi_response_counts()
     # save_p2_6wpi_counts_fig(p2_6wpi_counts_fig)
 
-    # # the below is plotting example traces for extra_sweeps files
-    # dataset = "extra_sweeps"
-    # csvfile_name = f"{dataset}_data_notes.csv"
-    # csvfile = os.path.join(FileSettings.TABLES_FOLDER, dataset, csvfile_name,)
-    # sweep_info = pd.read_csv(csvfile, index_col=0)
+    # the below is plotting example traces for extra_sweeps files
+    dataset = "extra_sweeps"
+    csvfile_name = f"{dataset}_data_notes.csv"
+    csvfile = os.path.join(FileSettings.TABLES_FOLDER, dataset, csvfile_name,)
+    sweep_info = pd.read_csv(csvfile, index_col=0)
 
-    # make_GC_example_traces(dataset, sweep_info)
+    make_GC_example_traces(dataset, sweep_info)
 
-    make_cell_type_example_traces()
+    # make_cell_type_example_traces()
+    make_timepoint_example_traces()
 
     # # inset plot for Gg8, list big response cell first
     # main_plot_files = ["JH20210923_c2.nwb", "JH20210922_c1.nwb"]

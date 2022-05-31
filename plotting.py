@@ -1389,24 +1389,23 @@ def save_annotated_figs(axes, noaxes, cell, genotype):
 def make_one_plot_trace(file_name, cell_trace, type=None, inset=False):
     """
     Makes the trace data used to plot later. "type" parameter determines the 
-    color of the trace
+    color of the trace. Also returns the ephys trace used to make the plotting
+    trace.
     
     """
     # # trace starts and ends depending on what is being plotted
-    # if "GC" in type:
-    #     if "JH20" in file_name:
-    #         # start = p2_acq_parameters.BASELINE_START
-    #         start = 400
-    #         end = 1000
-    #     elif "JH19" in file_name:
-    #         start = p14_acq_parameters.BASELINE_START
-    #         end = 6000
+    if "GC" in type:
+        if "JH20" in file_name:
+            # start = p2_acq_parameters.BASELINE_START
+            start = 400
+            end = 1000
+        elif "JH19" in file_name:
+            start = p14_acq_parameters.BASELINE_START
+            end = 6000
 
-    # if "p2" in type:
-    #     start = 400
-    #     end = 1000
-    start = 400
-    end = 1000
+    else:
+        start = 400
+        end = 1000
 
     trace_to_plot = cell_trace.loc[start:end]
 
@@ -1414,10 +1413,8 @@ def make_one_plot_trace(file_name, cell_trace, type=None, inset=False):
         "GC cell-attached": "#414145",
         "GC break-in": "#7A7A81",
         "NBQX": "#EE251F",
-        "p2 MC": "#609a00",
-        "p14 MC": "#87D704",
-        "p2 TC": "#388bf7",
-        "p14 TC": "#5EE3EA",
+        "MC": "#609a00",
+        "TC": "#388bf7",
         "Gabazine": "#EE251F",
     }
 
@@ -1442,7 +1439,7 @@ def make_one_plot_trace(file_name, cell_trace, type=None, inset=False):
             # legendgroup=duration,
         )
 
-    return plot_trace
+    return plot_trace, trace_to_plot
 
 
 def make_inset_plot_fig(
@@ -1579,24 +1576,22 @@ def make_inset_plot_fig(
     return inset_plot, inset_plot_noaxes
 
 
-def save_example_traces_figs(axes, noaxes, type):
+def save_example_traces_figs(fig, ephys_traces, type):
     """
-    Saves the example traces figs as static png file
+    Saves the example traces no axes figs as static png file. Also saves the
+    ephys traces used to plot the figures.
     """
 
     if not os.path.exists(FileSettings.PAPER_FIGURES_FOLDER):
         os.makedirs(FileSettings.PAPER_FIGURES_FOLDER)
 
-    axes_filename = f"{type}_example_traces.png"
-    noaxes_filename = f"{type}_example_traces_noaxes.png"
+    filename = f"{type}_example_traces.png"
 
-    axes.write_image(
-        os.path.join(FileSettings.PAPER_FIGURES_FOLDER, axes_filename)
-    )
+    fig.write_image(os.path.join(FileSettings.PAPER_FIGURES_FOLDER, filename))
 
-    noaxes.write_image(
-        os.path.join(FileSettings.PAPER_FIGURES_FOLDER, noaxes_filename)
-    )
+    csv_filename = f"{type}_example_traces.csv"
+    path = os.path.join(FileSettings.PAPER_FIGURES_FOLDER, csv_filename)
+    ephys_traces.to_csv(path, float_format="%8.4f")
 
 
 def plot_spike_sweeps(genotype, trace):
@@ -2466,17 +2461,79 @@ def save_p2_6wpi_counts_fig(fig):
     fig.write_html(path, full_html=False, include_plotlyjs="cdn")
 
 
-def plot_example_GC_traces(traces):
+def plot_example_GC_traces(traces_dict):
     """
     Takes the plotting traces for each sweep that needs to be plotted and 
     makes a subplot for each. Arrangement depends on type of plot shown.
     """
-
-    fig = make_subplots(rows=2, cols=1)
+    fig = make_subplots(rows=2, cols=1,)
     stim_time = p2_acq_parameters.STIM_TIME
 
-    for count, trace in enumerate(traces):
-        fig.add_trace(trace, row=count + 1, col=1)
+    # for count, trace in enumerate(traces):
+    #     fig.add_trace(trace, row=count + 1, col=1)
+
+    for count, (cell, info) in enumerate(traces_dict.items()):
+        fig.add_trace(
+            info["plotting trace"], row=count + 1, col=1,
+        )
+
+        # adds scale bars depending on which trace is being plotted
+        if cell == "GC cell-attached":
+            # adds horizontal line + text for cell_attached plot scale bar
+            fig.add_shape(
+                type="line", x0=775, y0=-20, x1=825, y1=-20, row=1, col=1
+            )
+            fig.add_annotation(
+                x=800,
+                y=-24,
+                text="50 ms",
+                showarrow=False,
+                font=dict(size=20),
+                row=count + 1,
+                col=1,
+            )
+
+            # adds vertical line + text for cell attached plot scale bar
+            fig.add_shape(
+                type="line", x0=825, y0=-20, x1=825, y1=-10, row=1, col=1
+            )
+
+            fig.add_annotation(
+                x=858,
+                y=-15,
+                text="10 pA",
+                showarrow=False,
+                font=dict(size=20),
+            )
+        elif cell == "GC break=in":
+            # adds horizontal line + text for break-in plot scale bar
+            fig.add_shape(
+                type="line", x0=775, y0=-175, x1=825, y1=-175, row=2, col=1
+            )
+            fig.add_annotation(
+                x=800,
+                y=-200,
+                text="50 ms",
+                showarrow=False,
+                font=dict(size=20),
+                row=count + 1,
+                col=1,
+            )
+
+            # adds vertical line + text for break-in scale bar
+            fig.add_shape(
+                type="line", x0=825, y0=-175, x1=825, y1=-125, row=2, col=1
+            )
+
+            fig.add_annotation(
+                x=858,
+                y=-150,
+                text="50 pA",
+                showarrow=False,
+                font=dict(size=20),
+                row=count + 1,
+                col=1,
+            )
 
     # adds line for light stim
     fig.add_vrect(
@@ -2487,50 +2544,6 @@ def plot_example_GC_traces(traces):
         opacity=0.5,
         layer="below",
         line_width=0,
-    )
-
-    # adds horizontal line + text for cell_attached plot scale bar
-    fig.add_shape(type="line", x0=775, y0=-20, x1=825, y1=-20, row=1, col=1)
-    fig.add_annotation(
-        x=800,
-        y=-24,
-        text="50 ms",
-        showarrow=False,
-        font=dict(size=20),
-        row=1,
-        col=1,
-    )
-
-    # adds vertical line + text for cell attached plot scale bar
-    fig.add_shape(type="line", x0=825, y0=-20, x1=825, y1=-10, row=1, col=1)
-
-    fig.add_annotation(
-        x=858, y=-15, text="10 pA", showarrow=False, font=dict(size=20),
-    )
-
-    # adds horizontal line + text for break-in plot scale bar
-    fig.add_shape(type="line", x0=775, y0=-175, x1=825, y1=-175, row=2, col=1)
-    fig.add_annotation(
-        x=800,
-        y=-200,
-        text="50 ms",
-        showarrow=False,
-        font=dict(size=20),
-        row=2,
-        col=1,
-    )
-
-    # adds vertical line + text for break-in scale bar
-    fig.add_shape(type="line", x0=825, y0=-175, x1=825, y1=-125, row=2, col=1)
-
-    fig.add_annotation(
-        x=858,
-        y=-150,
-        text="50 pA",
-        showarrow=False,
-        font=dict(size=20),
-        row=2,
-        col=1,
     )
 
     fig.update_xaxes(
@@ -2559,43 +2572,43 @@ def plot_example_GC_traces(traces):
     # fig.show()
     # inset_plot_noaxes.show()
 
-    return fig, fig_noaxes
+    return fig_noaxes
 
 
-def plot_example_cell_type_traces(p2_traces, p14_traces, drug_trace):
+def plot_example_cell_type_traces(traces_dict, timepoint):
     """
     Plots an example MC and TC sweep for each timepoint, and overlay gabazine
     wash-in on the proper cell.    
     """
-    cell_types = ["MC", "TC"]
-    all_traces = [p2_traces, p14_traces]
 
     fig = make_subplots(rows=2, cols=2, shared_yaxes=True, shared_xaxes=True)
 
-    for timepoint_ct, timepoint_traces in enumerate(all_traces):
-        if timepoint_ct == 0:
-            stim_time = p2_acq_parameters.STIM_TIME
-        elif timepoint_ct == 1:
-            stim_time = p14_acq_parameters.STIM_TIME
-        for cell_type_ct, cell_type in enumerate(cell_types):
-            fig.add_trace(
-                timepoint_traces[cell_type_ct],
-                row=cell_type_ct + 1,
-                col=timepoint_ct + 1,
-            )
+    if timepoint == "p2":
+        stim_time = p2_acq_parameters.STIM_TIME
+    elif timepoint == "p14":
+        stim_time = p14_acq_parameters.STIM_TIME
 
-            # adds line for light stim
-            fig.add_vrect(
-                type="rect",
-                x0=stim_time,
-                x1=stim_time + 100,
-                fillcolor="#33F7FF",
-                opacity=0.5,
-                layer="below",
-                line_width=0,
-                row=cell_type_ct + 1,
-                col=timepoint_ct + 1,
-            )
+    for cell, info in traces_dict.items():
+
+        fig.add_trace(
+            info["plotting trace"],
+            row=int(cell[-1]),
+            col=1 if info["cell type"] == "MC" else 2,
+        )
+
+    # adds line for light stim
+    fig.add_vrect(
+        type="rect",
+        x0=stim_time,
+        x1=stim_time + 100,
+        fillcolor="#33F7FF",
+        opacity=0.5,
+        layer="below",
+        line_width=0,
+        # row=cell_type_ct + 1,
+        # col=timepoint_ct + 1,
+    )
+
     # adds horizontal line + text for scale bar
     fig.add_shape(type="line", x0=800, y0=-200, x1=900, y1=-200, row=2, col=2)
     fig.add_annotation(
@@ -2638,12 +2651,25 @@ def plot_example_cell_type_traces(p2_traces, p14_traces, drug_trace):
         plot_bgcolor="rgba(0,0,0,0)",
         font_family="Arial",
         legend=dict(font=dict(family="Arial", size=26)),
+        title_text=f"{timepoint} example cells",
+        title_x=0.5,
+        font=dict(family="Arial", size=26),
+    ),
+
+    # below is code from stack overflow to hide duplicate legends
+    names = set()
+    fig.for_each_trace(
+        lambda trace: trace.update(showlegend=False)
+        if (trace.name in names)
+        else names.add(trace.name)
     )
 
     fig_noaxes = go.Figure(fig)
     fig_noaxes.update_xaxes(showgrid=False, visible=False)
     fig_noaxes.update_yaxes(showgrid=False, visible=False)
 
-    fig.show()
-    fig_noaxes.show()
-    pdb.set_trace()
+    # fig.show()
+    # fig_noaxes.show()
+
+    return fig_noaxes
+
