@@ -14,6 +14,8 @@ from scipy.stats import sem
 from collections import defaultdict
 import plotly.io as pio
 from file_settings import FileSettings
+import p2_acq_parameters
+import p14_acq_parameters
 
 pio.renderers.default = "browser"
 import pdb
@@ -1384,53 +1386,45 @@ def save_annotated_figs(axes, noaxes, cell, genotype):
     )
 
 
-def make_one_plot_trace(file_name, cell_trace, type, inset=False):
+def make_one_plot_trace(file_name, cell_trace, type=None, inset=False):
     """
     Makes the trace data used to plot later. "type" parameter determines the 
     color of the trace
     
     """
-    intensity, duration = FileSettings.SELECTED_CONDITION
+    # # trace starts and ends depending on what is being plotted
+    # if "GC" in type:
+    #     if "JH20" in file_name:
+    #         # start = p2_acq_parameters.BASELINE_START
+    #         start = 400
+    #         end = 1000
+    #     elif "JH19" in file_name:
+    #         start = p14_acq_parameters.BASELINE_START
+    #         end = 6000
 
-    if file_name == "JH20210923_c2.nwb":
-        intensity = "50%"
-        duration = " 1 ms"
+    # if "p2" in type:
+    #     start = 400
+    #     end = 1000
+    start = 400
+    end = 1000
 
-    if type == "NBQX":
-        trace_to_plot = cell_trace.loc[:, 500.00:700.00]
-        trace_y_toplot = cell_trace.loc[500.00:700.00].squeeze()
-
-    else:
-        # sets cell trace values
-        stim_columns = cell_trace.loc[:, ["Light Intensity", "Light Duration"]]
-        trace_to_plot = cell_trace.loc[
-            :, 500.00:700.00
-        ]  # only plots first 400-1000 ms
-
-        trace_to_plot_combined = pd.concat(
-            [stim_columns, trace_to_plot], axis=1
-        )
-
-        trace_y_toplot = trace_to_plot_combined.loc[
-            (trace_to_plot_combined["Light Intensity"] == intensity)
-            & (trace_to_plot_combined["Light Duration"] == duration),
-            500.00::,
-        ].squeeze()
+    trace_to_plot = cell_trace.loc[start:end]
 
     color = {
-        "Control": "#414145",
+        "GC cell-attached": "#414145",
+        "GC break-in": "#7A7A81",
         "NBQX": "#EE251F",
-        "OMP cell 1": "#ff9300",
-        "OMP cell 2": "#FBB85C",
-        "Gg8 cell 1": "#7a81ff",
-        "Gg8 cell 2": "#A4A8F9",
+        "p2 MC": "#609a00",
+        "p14 MC": "#87D704",
+        "p2 TC": "#388bf7",
+        "p14 TC": "#5EE3EA",
+        "Gabazine": "#EE251F",
     }
+
     if inset is True:
         plot_trace = go.Scatter(
-            x=trace_y_toplot.index
-            if type == "NBQX"
-            else trace_to_plot.columns,
-            y=trace_y_toplot,
+            x=trace_to_plot.index,
+            y=trace_to_plot,
             xaxis="x2",
             yaxis="y2",
             name=type,
@@ -1440,8 +1434,8 @@ def make_one_plot_trace(file_name, cell_trace, type, inset=False):
         )
     else:
         plot_trace = go.Scatter(
-            x=trace_to_plot.columns,
-            y=trace_y_toplot,
+            x=trace_to_plot.index,
+            y=trace_to_plot,
             name=type,
             mode="lines",
             line=dict(color=color[type], width=4),
@@ -1585,7 +1579,7 @@ def make_inset_plot_fig(
     return inset_plot, inset_plot_noaxes
 
 
-def save_example_traces_figs(axes, noaxes, genotype):
+def save_example_traces_figs(axes, noaxes, type):
     """
     Saves the example traces figs as static png file
     """
@@ -1593,8 +1587,8 @@ def save_example_traces_figs(axes, noaxes, genotype):
     if not os.path.exists(FileSettings.PAPER_FIGURES_FOLDER):
         os.makedirs(FileSettings.PAPER_FIGURES_FOLDER)
 
-    axes_filename = "{}_example_traces.png".format(genotype)
-    noaxes_filename = "{}_example_traces_noaxes.png".format(genotype)
+    axes_filename = f"{type}_example_traces.png"
+    noaxes_filename = f"{type}_example_traces_noaxes.png"
 
     axes.write_image(
         os.path.join(FileSettings.PAPER_FIGURES_FOLDER, axes_filename)
@@ -2288,7 +2282,7 @@ def plot_ephys_sections_intensity(data):
             x=long_data["Integrated density/area"].max()
             * 0.9,  # relative to x
             y=long_data.loc[long_data["variable"] == variable]["value"].max()
-            * 0.95,
+            * 0.9,
             text=summary,
             align="left",
             showarrow=False,
@@ -2303,6 +2297,7 @@ def plot_ephys_sections_intensity(data):
     ]
 
     # sections_fig.show()
+
     return sections_fig, long_data, regression_results
 
 
@@ -2326,3 +2321,329 @@ def save_ephys_sections_fig(fig, data, regression):
         csv_filename = filenames[count]
         path = os.path.join(FileSettings.FIGURES_FOLDER, csv_filename)
         df.to_csv(path, float_format="%8.4f")
+
+
+def plot_EPL_intensity():
+    """
+    Plots the comparison of deep vs. superficial EPL intensity ratios for
+    both p2 and p14 timepoints. Averages are from 3 slides per animal,
+    4 animals per timepoint.
+    """
+
+    intensities = pd.read_csv(
+        os.path.join(FileSettings.TABLES_FOLDER, "IHC_EPL_intensity.csv"),
+        header=0,
+    )
+
+    timepoint_line_colors = {"p2": "#af6fae", "p14": "#ff3a35"}
+    timepoint_bar_colors = {"p2": "#E8C7E7", "p14": "#FAC4C2"}
+
+    epl_fig = go.Figure()
+
+    for timepoint in intensities.columns:
+        epl_fig.add_trace(
+            go.Box(
+                x=[timepoint] * len(intensities[timepoint]),
+                y=intensities[timepoint].tolist(),
+                line=dict(color="rgba(0,0,0,0)"),
+                fillcolor="rgba(0,0,0,0)",
+                boxpoints="all",
+                pointpos=0,
+                marker_color=timepoint_bar_colors[timepoint],
+                marker=dict(
+                    line=dict(color=timepoint_line_colors[timepoint], width=1),
+                ),
+                # name=f"{cell_type} individual cells",
+                # legendgroup=cell_type,
+                # offsetgroup=dataset_order[timepoint] + cell_type_ct,
+            ),
+        )
+
+        epl_fig.add_trace(
+            go.Bar(
+                x=[timepoint],
+                y=[intensities[timepoint].mean()],
+                error_y=dict(
+                    type="data",
+                    array=[intensities[timepoint].sem()],
+                    color=timepoint_line_colors[timepoint],
+                    thickness=1,
+                    visible=True,
+                ),
+                marker_line_color=timepoint_line_colors[timepoint],
+                marker_color=timepoint_bar_colors[timepoint],
+                # name=f"{cell_type} averages",
+                # legendgroup=cell_type,
+                # offsetgroup=dataset_order[timepoint] + cell_type_ct,
+            ),
+        )
+
+    epl_fig.update_xaxes(title_text="Timepoint")
+    epl_fig.update_yaxes(
+        title_text="Average Intensity Ratio<br>(deep/superficial EPL)",
+        range=[0.9, 1],
+    )
+    epl_fig.update_layout(showlegend=False)
+    # epl_fig.show()
+
+    return epl_fig
+
+
+def save_epl_plot(fig):
+    """
+    Saves plot comparing deep vs superficial EPL intensity ratios in injected
+    IHC sections.
+    """
+
+    html_filename = "EPL_intensity_plot.html"
+    path = os.path.join(FileSettings.FIGURES_FOLDER, html_filename)
+
+    fig.write_html(path, full_html=False, include_plotlyjs="cdn")
+
+
+def plot_p2_6wpi_response_counts():
+    """
+    Plots the response count of p2_6wpi cells.
+    """
+    counts = pd.read_csv(
+        os.path.join(
+            FileSettings.TABLES_FOLDER, "p2_6wpi", "p2_6wpi_all_counts.csv",
+        ),
+        header=0,
+        index_col=0,
+    )
+    response_colors = {"response": "#293B5F", "no response": "#A7BBC7"}
+
+    counts_fig = go.Figure()
+
+    for cell_type in counts["Cell Type"].unique():
+        counts.loc[counts["Cell Type"] == cell_type]
+        for response_type in response_colors.keys():
+            if response_type == "no response":
+                response_label = "No"
+            elif response_type == "response":
+                response_label = "Yes"
+            response_counts = len(
+                counts.loc[
+                    (counts["Cell Type"] == cell_type)
+                    & (counts["Response"] == response_label)
+                ]
+            )
+
+            counts_fig.add_trace(
+                go.Bar(
+                    x=[cell_type],
+                    y=[response_counts],
+                    name=response_type,
+                    marker_color=response_colors[response_type],
+                )
+            )
+    counts_fig.update_layout(
+        barmode="stack", legend_title_text="Cell Responses",
+    )
+    counts_fig.update_xaxes(title_text="Cell Type")
+    counts_fig.update_yaxes(title_text="Number of Cells",)
+
+    # # below is code from stack overflow to hide duplicate legends
+    names = set()
+    counts_fig.for_each_trace(
+        lambda trace: trace.update(showlegend=False)
+        if (trace.name in names)
+        else names.add(trace.name)
+    )
+
+    return counts_fig
+
+
+def save_p2_6wpi_counts_fig(fig):
+    """
+    Saves response plot of p2_6wpi dataset
+    """
+
+    html_filename = "p2_6wpi_response_plot.html"
+    path = os.path.join(FileSettings.FIGURES_FOLDER, html_filename)
+
+    fig.write_html(path, full_html=False, include_plotlyjs="cdn")
+
+
+def plot_example_GC_traces(traces):
+    """
+    Takes the plotting traces for each sweep that needs to be plotted and 
+    makes a subplot for each. Arrangement depends on type of plot shown.
+    """
+
+    fig = make_subplots(rows=2, cols=1)
+    stim_time = p2_acq_parameters.STIM_TIME
+
+    for count, trace in enumerate(traces):
+        fig.add_trace(trace, row=count + 1, col=1)
+
+    # adds line for light stim
+    fig.add_vrect(
+        type="rect",
+        x0=stim_time,
+        x1=stim_time + 100,
+        fillcolor="#33F7FF",
+        opacity=0.5,
+        layer="below",
+        line_width=0,
+    )
+
+    # adds horizontal line + text for cell_attached plot scale bar
+    fig.add_shape(type="line", x0=775, y0=-20, x1=825, y1=-20, row=1, col=1)
+    fig.add_annotation(
+        x=800,
+        y=-24,
+        text="50 ms",
+        showarrow=False,
+        font=dict(size=20),
+        row=1,
+        col=1,
+    )
+
+    # adds vertical line + text for cell attached plot scale bar
+    fig.add_shape(type="line", x0=825, y0=-20, x1=825, y1=-10, row=1, col=1)
+
+    fig.add_annotation(
+        x=858, y=-15, text="10 pA", showarrow=False, font=dict(size=20),
+    )
+
+    # adds horizontal line + text for break-in plot scale bar
+    fig.add_shape(type="line", x0=775, y0=-175, x1=825, y1=-175, row=2, col=1)
+    fig.add_annotation(
+        x=800,
+        y=-200,
+        text="50 ms",
+        showarrow=False,
+        font=dict(size=20),
+        row=2,
+        col=1,
+    )
+
+    # adds vertical line + text for break-in scale bar
+    fig.add_shape(type="line", x0=825, y0=-175, x1=825, y1=-125, row=2, col=1)
+
+    fig.add_annotation(
+        x=858,
+        y=-150,
+        text="50 pA",
+        showarrow=False,
+        font=dict(size=20),
+        row=2,
+        col=1,
+    )
+
+    fig.update_xaxes(
+        showline=True,
+        linewidth=1,
+        linecolor="black",
+        gridcolor="black",
+        ticks="outside",
+        tick0=520,
+        dtick=10,
+    )
+    fig.update_yaxes(
+        showline=True, linewidth=1, gridcolor="black", linecolor="black",
+    )
+
+    fig.update_layout(
+        plot_bgcolor="rgba(0,0,0,0)",
+        font_family="Arial",
+        legend=dict(font=dict(family="Arial", size=26)),
+    )
+
+    fig_noaxes = go.Figure(fig)
+    fig_noaxes.update_xaxes(showgrid=False, visible=False)
+    fig_noaxes.update_yaxes(showgrid=False, visible=False)
+
+    # fig.show()
+    # inset_plot_noaxes.show()
+
+    return fig, fig_noaxes
+
+
+def plot_example_cell_type_traces(p2_traces, p14_traces, drug_trace):
+    """
+    Plots an example MC and TC sweep for each timepoint, and overlay gabazine
+    wash-in on the proper cell.    
+    """
+    cell_types = ["MC", "TC"]
+    all_traces = [p2_traces, p14_traces]
+
+    fig = make_subplots(rows=2, cols=2, shared_yaxes=True, shared_xaxes=True)
+
+    for timepoint_ct, timepoint_traces in enumerate(all_traces):
+        if timepoint_ct == 0:
+            stim_time = p2_acq_parameters.STIM_TIME
+        elif timepoint_ct == 1:
+            stim_time = p14_acq_parameters.STIM_TIME
+        for cell_type_ct, cell_type in enumerate(cell_types):
+            fig.add_trace(
+                timepoint_traces[cell_type_ct],
+                row=cell_type_ct + 1,
+                col=timepoint_ct + 1,
+            )
+
+            # adds line for light stim
+            fig.add_vrect(
+                type="rect",
+                x0=stim_time,
+                x1=stim_time + 100,
+                fillcolor="#33F7FF",
+                opacity=0.5,
+                layer="below",
+                line_width=0,
+                row=cell_type_ct + 1,
+                col=timepoint_ct + 1,
+            )
+    # adds horizontal line + text for scale bar
+    fig.add_shape(type="line", x0=800, y0=-200, x1=900, y1=-200, row=2, col=2)
+    fig.add_annotation(
+        x=850,
+        y=-230,
+        text="100 ms",
+        showarrow=False,
+        font=dict(size=20),
+        row=2,
+        col=2,
+    )
+
+    # adds vertical line + text for scale bar
+    fig.add_shape(type="line", x0=900, y0=-200, x1=900, y1=-100, row=2, col=2)
+
+    fig.add_annotation(
+        x=950,
+        y=-150,
+        text="100 pA",
+        showarrow=False,
+        font=dict(size=20),
+        row=2,
+        col=2,
+    )
+
+    fig.update_xaxes(
+        showline=True,
+        linewidth=1,
+        linecolor="black",
+        gridcolor="black",
+        ticks="outside",
+        tick0=520,
+        dtick=10,
+    )
+    fig.update_yaxes(
+        showline=True, linewidth=1, gridcolor="black", linecolor="black",
+    )
+
+    fig.update_layout(
+        plot_bgcolor="rgba(0,0,0,0)",
+        font_family="Arial",
+        legend=dict(font=dict(family="Arial", size=26)),
+    )
+
+    fig_noaxes = go.Figure(fig)
+    fig_noaxes.update_xaxes(showgrid=False, visible=False)
+    fig_noaxes.update_yaxes(showgrid=False, visible=False)
+
+    fig.show()
+    fig_noaxes.show()
+    pdb.set_trace()

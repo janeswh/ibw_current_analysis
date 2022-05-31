@@ -1,9 +1,14 @@
 import os
 import pandas as pd
 from collections import defaultdict
+
+from regex import F
 from run_single_test import run_both_conditions
 from aggregate_stats import *
 from file_settings import FileSettings
+
+from single_test import JaneCell
+
 
 import pdb
 
@@ -157,25 +162,7 @@ def main():
         freq_stats_fig_data,
     )
 
-    sections_data = get_ephys_sections_intensity()
-    (
-        sections_fig,
-        sections_fig_data,
-        sections_regression,
-    ) = plot_ephys_sections_intensity(sections_data)
-
-    save_ephys_sections_fig(
-        sections_fig, sections_fig_data, sections_regression
-    )
-
     pdb.set_trace()
-
-    # saves all the cell counts
-    # counts_df = do_cell_counts(dataset_cell_counts, all_patched)
-    # make_all_dataset_dfs(
-    #     dataset_cell_counts, dataset_median_stats, dataset_freq_stats
-    # )
-    # save_response_counts(counts_df)
 
 
 if __name__ == "__main__":
