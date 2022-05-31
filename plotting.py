@@ -474,7 +474,7 @@ def save_response_counts_fig(response_counts_fig, data):
     data.to_csv(path, float_format="%8.4f")
 
 
-def plot_mean_trace_stats(mean_trace_dict):
+def plot_mean_trace_stats(mean_trace_dict, all_cells=False):
     """
     Plots the mean trace stats for responding cells in the light condition
     """
@@ -483,11 +483,18 @@ def plot_mean_trace_stats(mean_trace_dict):
     cell_type_bar_colors = {"MC": "#CEEE98", "TC": "#ACCEFA"}
 
     datasets = mean_trace_dict.keys()
-    measures_list = [
-        "Mean Trace Peak (pA)",
-        "Log Mean Trace Peak",
-        "Mean Trace Peak Time (ms)",
-    ]
+
+    if all_cells == False:
+        measures_list = [
+            "Mean Trace Peak (pA)",
+            "Log Mean Trace Peak",
+            "Mean Trace Peak Time (ms)",
+        ]
+    else:
+        measures_list = [
+            "Mean Trace Peak (pA)",
+            "Log Mean Trace Peak",
+        ]
 
     mean_trace_stats_fig = make_subplots(
         rows=1,
@@ -2819,3 +2826,123 @@ def save_fig_to_png(fig, legend, rows, cols, png_filename):
         os.path.join(FileSettings.PAPER_FIGURES_FOLDER, png_filename)
     )
 
+
+def save_all_mean_trace_fig(fig, data):
+    """
+    Saves the html plot, png file, and csv for all the mean trace stats for
+    all cells, responding or not.
+    """
+
+    html_filename = "all_mean_trace_freq_stats.html"
+    path = os.path.join(FileSettings.FIGURES_FOLDER, html_filename)
+
+    fig.write_html(path, full_html=False, include_plotlyjs="cdn")
+
+    save_fig_to_png(
+        fig,
+        legend=True,
+        rows=1,
+        cols=2,
+        png_filename="all_mean_trace_freq_stats.png",
+    )
+
+    csv_filename = "all_mean_trace_freq_stats.csv"
+    path = os.path.join(FileSettings.FIGURES_FOLDER, csv_filename)
+    data.to_csv(path, float_format="%8.4f")
+
+
+def plot_previous_analysis():
+    """
+    Plots the previous analysis of MC vs. TC mean trace peak amplitudes for
+    both p2 and p14.
+    """
+    cell_type_line_colors = {"MC": "#609a00", "TC": "#388bf7"}
+    cell_type_bar_colors = {"MC": "#CEEE98", "TC": "#ACCEFA"}
+
+    timepoints = ["p2", "p14"]
+    cell_types = ["MC", "TC"]
+    all_amps = pd.DataFrame()
+    all_means = pd.DataFrame()
+    all_sems = pd.DataFrame()
+
+    for timepoint in timepoints:
+        df = pd.read_csv(
+            os.path.join(
+                FileSettings.TABLES_FOLDER,
+                f"old_{timepoint}_mean_trace_peaks.csv",
+            ),
+            header=0,
+        )
+
+        means = pd.DataFrame(df.mean()).T
+        sem = pd.DataFrame(df.sem()).T
+        means.insert(0, "Dataset", timepoint)
+        sem.insert(0, "Dataset", timepoint)
+        df.insert(0, "Dataset", timepoint)
+
+        all_amps = pd.concat([all_amps, df])
+        all_means = pd.concat([all_means, means])
+        all_sems = pd.concat([all_sems, sem])
+
+    fig = go.Figure()
+
+    for cell_type in cell_types:
+        cell_stats_df = all_amps[f"ln({cell_type})"]
+        cell_mean_df = all_means[f"ln({cell_type})"]
+        cell_sem_df = all_sems[f"ln({cell_type})"]
+        # pdb.set_trace()
+
+        fig.add_trace(
+            go.Box(
+                x=all_amps["Dataset"],
+                y=cell_stats_df,
+                line=dict(color="rgba(0,0,0,0)"),
+                fillcolor="rgba(0,0,0,0)",
+                boxpoints="all",
+                pointpos=0,
+                marker_color=cell_type_bar_colors[cell_type],
+                marker=dict(
+                    line=dict(color=cell_type_line_colors[cell_type], width=1),
+                    size=15,
+                ),
+                name=cell_type,
+                legendgroup=cell_type,
+            ),
+        )
+
+        # tries bar plot instead, plots mean of median with sem
+        fig.add_trace(
+            go.Bar(
+                x=all_amps["Dataset"].unique(),
+                y=cell_mean_df,
+                # y=cell_mean_df["Log Mean Peak Amplitude"]
+                # if measure == "Mean Trace Peak (pA)"
+                # else cell_mean_df[measure],
+                error_y=dict(
+                    type="data",
+                    array=cell_sem_df,
+                    color=cell_type_line_colors[cell_type],
+                    thickness=1,
+                    visible=True,
+                ),
+                marker_line_color=cell_type_line_colors[cell_type],
+                marker_color=cell_type_bar_colors[cell_type],
+                name=cell_type,
+                legendgroup=cell_type,
+            ),
+        )
+
+        #  below is code from stack overflow to hide duplicate legends
+        names = set()
+        fig.for_each_trace(
+            lambda trace: trace.update(showlegend=False)
+            if (trace.name in names)
+            else names.add(trace.name)
+        )
+        fig.update_yaxes(title_text="Log Mean Trace Peak",)
+
+    fig.update_layout(
+        boxmode="group", title_text="MC vs. TC Mean Trace", title_x=0.5,
+    )
+
+    return fig

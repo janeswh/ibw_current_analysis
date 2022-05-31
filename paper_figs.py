@@ -145,74 +145,6 @@ def get_single_cell_traces(
     return traces, annotation_values
 
 
-def get_single_drug_traces(cell):
-    """
-    Gets the drug traces for a cell object
-    """
-
-    cell.make_drug_sweeps_dict()
-    drug_trace = cell.extract_drug_sweeps()
-
-    return drug_trace
-
-
-def make_inset_plot(
-    dataset, csvfile, genotype, main_plot_files, inset_plot_file
-):
-    """
-    Gets the ephys traces and passes them to make plotting traces, then make
-    inset plot.
-    """
-
-    main_type_names = [
-        "{} cell 1".format(genotype),
-        "{} cell 2".format(genotype),
-    ]
-
-    # gets the ephys traces for main plot cells
-    main_ephys_traces = []
-    for file in main_plot_files:
-        cell = get_single_cell(dataset, csvfile, file)
-        traces, annotation_values = get_single_cell_traces(cell)
-        main_ephys_traces.append(traces)
-
-    # gets ephys traces for inest plot cell
-    inset_cell = get_single_cell(dataset, csvfile, inset_plot_file)
-    inset_traces, annotation_values = get_single_cell_traces(inset_cell)
-    drug_trace = get_single_drug_traces(inset_cell)
-
-    # makes the plotting traces for main plot
-    main_plot_traces = []
-    for count, trace in enumerate(main_ephys_traces):
-        plot_trace = make_one_plot_trace(
-            main_plot_files[count], trace, main_type_names[count]
-        )
-
-        main_plot_traces.append(plot_trace)
-
-    # makes the plotting traces for inset plot
-    inset_ctrl_trace = make_one_plot_trace(
-        inset_plot_file, inset_traces, "Control", inset=True
-    )
-    inset_drug_trace = make_one_plot_trace(
-        inset_plot_file, drug_trace, "NBQX", inset=True
-    )
-
-    # puts everything in main plot + inset
-    axes, noaxes = make_inset_plot_fig(
-        genotype,
-        main_plot_traces[0],
-        main_plot_traces[1],
-        inset_ctrl_trace,
-        inset_drug_trace,
-    )
-
-    # saves figs
-    save_example_traces_figs(axes, noaxes, genotype)
-
-    print("Finished saving inset plots")
-
-
 def make_annotated_trace(dataset, csvfile, genotype, file_name, sweep_number):
     """
     Plots a single VC trace to demonstrate onset latency, peak amplitude, and
@@ -227,56 +159,6 @@ def make_annotated_trace(dataset, csvfile, genotype, file_name, sweep_number):
     save_annotated_figs(axes, noaxes, cell, genotype)
 
     print("Finished saving annotated trace plots")
-
-
-def make_spike_traces(dataset, csvfile, genotype, file_name, sweep_number):
-    """
-    Plots a single IC trace to demonstrate STC spike shapes, then also plots
-    zoomed in version of the first few spikes.
-    """
-    cell = get_single_cell(dataset, csvfile, file_name)
-    trace, annotation_values = get_single_cell_traces(
-        cell, traces_type="spikes", sweep_number=4
-    )
-    axes, noaxes = plot_spike_sweeps(genotype, trace)
-    save_spike_figs(axes, noaxes, cell, genotype)
-
-    print("Finished saving spike plots")
-
-
-def make_power_curves(dataset, csvfile, genotype, file_name):
-    """
-    Plots example traces and power curve amplitudes for one cell
-    """
-    cell = get_single_cell(dataset, csvfile, file_name)
-    # 2 drops depolarized and esc AP sweeps from VC data if applicable
-    cell.drop_sweeps()
-
-    # 3 makes a dict for each cell, with stim condition as keys and all sweeps per stimulus as values
-    cell.make_sweeps_dict()
-
-    # 4 runs stats on sweeps and creates a dict for each stim condition
-    cell.make_cell_analysis_dict()
-
-    # 5 calculates power curve for plotting
-    cell.make_power_curve_stats_df()
-
-    # 6 calculates response stats for plotting
-    cell.make_stats_df()
-
-    # 7 plots mean traces
-    cell.make_mean_traces_df()
-    power_curve_traces = plot_power_curve_traces(
-        cell.mean_trace_df, cell.sweep_analysis_values
-    )
-
-    save_power_curve_traces(genotype, cell.cell_name, power_curve_traces)
-
-    power_curve_fig = graph_power_curve(
-        cell.power_curve_stats, cell.sweep_analysis_values
-    )
-
-    save_power_curve(genotype, cell.cell_name, power_curve_fig)
 
 
 def make_GC_example_traces():
@@ -472,75 +354,96 @@ def make_gabazine_wash_in_traces():
         drug_wash_fig, ephys_traces_plotted, "gabazine_wash"
     )
 
-    # save_example_traces_figs(example_gc_fig, ephys_traces_plotted, "GC")
+
+def get_example_cell_PSTH(dataset, cell_name):
+    """
+    Gets the raster plot and PSTH plot of one cell for showing an example.
+    """
+    csvfile_name = f"{dataset}_data_notes.csv"
+    csvfile = os.path.join(FileSettings.TABLES_FOLDER, dataset, csvfile_name,)
+
+    file_name = f"{cell_name}_light100.ibw"
+    sweep_info = pd.read_csv(csvfile, index_col=0)
+    file = os.path.join(FileSettings.DATA_FOLDER, dataset, file_name)
+
+    example_cell = JaneCell(dataset, sweep_info, file, file_name)
+    example_cell.check_response()
+    example_cell.get_mod_events()
+    example_cell.calculate_event_stats()
+    example_cell.calculate_mean_trace_stats()
+    example_cell.analyze_avg_frequency()
+
+    fig = example_cell.annotated_freq_fig
+
+    return fig
 
 
 if __name__ == "__main__":
 
-    sections_data = get_ephys_sections_intensity()
-    (
-        sections_fig,
-        sections_fig_data,
-        sections_regression,
-    ) = plot_ephys_sections_intensity(sections_data)
+    # sections_data = get_ephys_sections_intensity()
+    # (
+    #     sections_fig,
+    #     sections_fig_data,
+    #     sections_regression,
+    # ) = plot_ephys_sections_intensity(sections_data)
 
-    # save_ephys_sections_fig(
-    #     sections_fig, sections_fig_data, sections_regression
+    # # save_ephys_sections_fig(
+    # #     sections_fig, sections_fig_data, sections_regression
+    # # )
+
+    # save_fig_to_png(
+    #     sections_fig,
+    #     legend=False,
+    #     rows=1,
+    #     cols=2,
+    #     png_filename="ephys_sections_comparisons.png",
     # )
 
+    # epl_fig = plot_EPL_intensity()  # should move this to paper figs
+    # # save_epl_plot(epl_fig)
+
+    # save_fig_to_png(
+    #     epl_fig,
+    #     legend=False,
+    #     rows=1,
+    #     cols=1,
+    #     png_filename="EPL_intensity_plot.png",
+    # )
+
+    # p2_6wpi_counts_fig = plot_p2_6wpi_response_counts()
+    # # save_p2_6wpi_counts_fig(p2_6wpi_counts_fig)
+
+    # save_fig_to_png(
+    #     p2_6wpi_counts_fig,
+    #     legend=True,
+    #     rows=1,
+    #     cols=1,
+    #     png_filename="p2_6wpi_response_plot.png",
+    # )
+
+    # # make example traces
+    # make_GC_example_traces()
+    # make_timepoint_example_traces()
+    # make_gabazine_wash_in_traces()
+
+    # example_PSTH_fig = get_example_cell_PSTH("p14", "JH190828_c6")
+
+    # save_fig_to_png(
+    #     example_PSTH_fig,
+    #     legend=True,
+    #     rows=2,
+    #     cols=3,
+    #     png_filename="example_PSTH_fig.png",
+    # )
+
+    prev_analysis_fig = plot_previous_analysis()
     save_fig_to_png(
-        sections_fig,
-        legend=False,
-        rows=1,
-        cols=2,
-        png_filename="ephys_sections_comparisons.png",
-    )
-
-    epl_fig = plot_EPL_intensity()  # should move this to paper figs
-    # save_epl_plot(epl_fig)
-
-    save_fig_to_png(
-        epl_fig,
-        legend=False,
-        rows=1,
-        cols=1,
-        png_filename="EPL_intensity_plot.png",
-    )
-
-    p2_6wpi_counts_fig = plot_p2_6wpi_response_counts()
-    # save_p2_6wpi_counts_fig(p2_6wpi_counts_fig)
-
-    save_fig_to_png(
-        p2_6wpi_counts_fig,
+        prev_analysis_fig,
         legend=True,
         rows=1,
         cols=1,
-        png_filename="p2_6wpi_response_plot.png",
+        png_filename="prev_analysis_fig.png",
     )
-
-    # make example traces
-    make_GC_example_traces()
-    make_timepoint_example_traces()
-    make_gabazine_wash_in_traces()
 
     pdb.set_trace()
 
-    # # inset plot for Gg8, list big response cell first
-    # main_plot_files = ["JH20210923_c2.nwb", "JH20210922_c1.nwb"]
-    # inset_plot_file = "JH20211130_c1.nwb"
-    # make_inset_plot(dataset, csvfile, "Gg8", main_plot_files, inset_plot_file)
-
-    # # inset plot for OMP
-    # main_plot_files = ["JH20211005_c3.nwb", "JH20211029_c1.nwb"]
-    # inset_plot_file = "JH20211103_c3.nwb"
-    # make_inset_plot(dataset, csvfile, "OMP", main_plot_files, inset_plot_file)
-
-    # # plot single VC trace to show onset latency, pick sweep 131
-    # make_annotated_trace(dataset, csvfile, "Gg8", "JH20210923_c2.nwb", 0)
-
-    # # plot one IC trace to show STC spikes, JH20211130_c1 sweep 4 (Gg8)
-    # make_spike_traces(dataset, csvfile, "Gg8", "JH20211130_c1.nwb", 4)
-
-    # # plot example response traces and power curve amplitudes for one OMP cell
-    # # JH20211103_c3
-    # make_power_curves(dataset, csvfile, "OMP", "JH20211103_c3.nwb")
