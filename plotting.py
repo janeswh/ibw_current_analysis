@@ -490,7 +490,11 @@ def plot_mean_trace_stats(mean_trace_dict):
     ]
 
     mean_trace_stats_fig = make_subplots(
-        rows=1, cols=len(measures_list), shared_xaxes=True, x_title="Timepoint"
+        rows=1,
+        cols=len(measures_list),
+        shared_xaxes=True,
+        # x_title="Timepoint",
+        horizontal_spacing=0.15,
     )
     all_stats = pd.DataFrame()
     all_means = pd.DataFrame()
@@ -543,8 +547,9 @@ def plot_mean_trace_stats(mean_trace_dict):
                         line=dict(
                             color=cell_type_line_colors[cell_type], width=1
                         ),
+                        size=15,
                     ),
-                    name=f"{cell_type} individual cells",
+                    name=cell_type,
                     legendgroup=cell_type,
                     offsetgroup=dataset_order[timepoint] + cell_type_ct,
                 ),
@@ -573,7 +578,7 @@ def plot_mean_trace_stats(mean_trace_dict):
                     marker_line_color=cell_type_line_colors[cell_type],
                     marker_color=cell_type_bar_colors[cell_type],
                     # marker=dict(markercolor=cell_type_colors[cell_type]),
-                    name=f"{cell_type} averages",
+                    name=cell_type,
                     legendgroup=cell_type,
                     offsetgroup=dataset_order[timepoint] + cell_type_ct,
                 ),
@@ -1065,6 +1070,18 @@ def save_freq_mean_trace_figs(
     """
     html_filename = "mean_trace_freq_stats.html"
     path = os.path.join(FileSettings.FIGURES_FOLDER, html_filename)
+
+    if not os.path.exists(FileSettings.PAPER_FIGURES_FOLDER):
+        os.makedirs(FileSettings.PAPER_FIGURES_FOLDER)
+
+    figs = [mean_trace_fig, freq_stats_fig]
+    png_filenames = [f"mean_trace_stats.png", "avg_freq_stats.png"]
+    for count, fig in enumerate(figs):
+        fig.write_image(
+            os.path.join(
+                FileSettings.PAPER_FIGURES_FOLDER, png_filenames[count]
+            )
+        )
 
     mean_trace_fig.write_html(path, full_html=False, include_plotlyjs="cdn")
 
@@ -2744,3 +2761,29 @@ def plot_gabazine_wash_traces(traces_dict):
 
     return fig_noaxes
 
+
+def save_fig_to_png(fig, legend):
+    """
+    Formats a plot made for html to make it appropriate for png/paper figs
+    """
+    # set font size and image wize
+    fig.update_layout(
+        font_family="Arial",
+        legend=dict(font=dict(family="Arial", size=26)),
+        font=dict(family="Arial", size=26),
+        showlegend=legend,
+        width=1500,  # each subplot counts as 500
+        height=600,  # each row is 600
+        title="",
+    )
+
+    fig.for_each_annotation(
+        lambda a: a.update(font=dict(family="Arial", size=26))
+    )
+
+    png_filename = "mean_trace_stats.png"
+
+    fig.write_image(
+        os.path.join(FileSettings.PAPER_FIGURES_FOLDER, png_filename)
+    )
+    pdb.set_trace()

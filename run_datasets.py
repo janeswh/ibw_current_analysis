@@ -161,6 +161,7 @@ def main():
         mean_trace_stats_fig_data,
         freq_stats_fig_data,
     )
+    save_fig_to_png(mean_trace_stats_fig, legend=True)
 
     pdb.set_trace()
 
