@@ -2259,6 +2259,13 @@ def plot_ephys_sections_intensity(data):
         trendline="ols",
     )
 
+    sections_fig.update_traces(marker=dict(size=15), line=dict(width=4))
+
+    # hide subplot x-axis titles
+    for axis in sections_fig.layout:
+        if type(sections_fig.layout[axis]) == go.layout.XAxis:
+            sections_fig.layout[axis].title.text = ""
+
     sections_fig.update_yaxes(matches=None)
 
     sections_fig.layout.yaxis.title.text = "Response %"
@@ -2267,13 +2274,25 @@ def plot_ephys_sections_intensity(data):
     sections_fig.for_each_yaxis(
         lambda yaxis: yaxis.update(showticklabels=True)
     )
-    sections_fig.for_each_xaxis(
-        lambda xaxis: xaxis.title.update(
-            text="Integrated intensity density/area \u03BCm\u00b2"
-        )
-    )
+    # sections_fig.for_each_xaxis(
+    #     lambda xaxis: xaxis.title.update(
+    #         text="Integrated intensity density/area \u03BCm\u00b2"
+    #     )
+    # )
 
+    # hides facet plot individual titles
     sections_fig.for_each_annotation(lambda a: a.update(text=""))
+    sections_fig.add_annotation(
+        x=0.5,
+        y=-0.15,
+        # font=dict(size=16, color="blue"),
+        showarrow=False,
+        text="Integrated intensity density/area \u03BCm\u00b2",
+        textangle=-0,
+        xref="paper",
+        yref="paper",
+    )
+    # sections_fig.show()
 
     regression_results = pd.DataFrame()
     # gets regression results
@@ -2376,6 +2395,7 @@ def plot_EPL_intensity():
                 marker_color=timepoint_bar_colors[timepoint],
                 marker=dict(
                     line=dict(color=timepoint_line_colors[timepoint], width=1),
+                    size=15,
                 ),
                 # name=f"{cell_type} individual cells",
                 # legendgroup=cell_type,
@@ -2402,7 +2422,7 @@ def plot_EPL_intensity():
             ),
         )
 
-    epl_fig.update_xaxes(title_text="Timepoint")
+    # epl_fig.update_xaxes(title_text="Timepoint")
     epl_fig.update_yaxes(
         title_text="Average Intensity Ratio<br>(deep/superficial EPL)",
         range=[0.9, 1],
@@ -2465,7 +2485,7 @@ def plot_p2_6wpi_response_counts():
     counts_fig.update_layout(
         barmode="stack", legend_title_text="Cell Responses",
     )
-    counts_fig.update_xaxes(title_text="Cell Type")
+    # counts_fig.update_xaxes(title_text="Cell Type")
     counts_fig.update_yaxes(title_text="Number of Cells",)
 
     # # below is code from stack overflow to hide duplicate legends
@@ -2797,11 +2817,4 @@ def save_fig_to_png(fig, legend, rows, cols, png_filename):
     fig.write_image(
         os.path.join(FileSettings.PAPER_FIGURES_FOLDER, png_filename)
     )
-
-    # png = pio.to_image(
-    #     fig,
-    #     format="png",
-    #     width=cols * 500 if legend == False else cols * 500 + 200,
-    #     height=rows * 600,
-    # )
 

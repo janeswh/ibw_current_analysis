@@ -279,7 +279,7 @@ def make_power_curves(dataset, csvfile, genotype, file_name):
     save_power_curve(genotype, cell.cell_name, power_curve_fig)
 
 
-def make_GC_example_traces(dataset, sweep_info):
+def make_GC_example_traces():
 
     files_dict = {
         "GC cell-attached": {
@@ -477,34 +477,50 @@ def make_gabazine_wash_in_traces():
 
 if __name__ == "__main__":
 
-    # sections_data = get_ephys_sections_intensity()
-    # (
-    #     sections_fig,
-    #     sections_fig_data,
-    #     sections_regression,
-    # ) = plot_ephys_sections_intensity(sections_data)
+    sections_data = get_ephys_sections_intensity()
+    (
+        sections_fig,
+        sections_fig_data,
+        sections_regression,
+    ) = plot_ephys_sections_intensity(sections_data)
 
     # save_ephys_sections_fig(
     #     sections_fig, sections_fig_data, sections_regression
     # )
 
-    # epl_fig = plot_EPL_intensity()  # should move this to paper figs
+    save_fig_to_png(
+        sections_fig,
+        legend=False,
+        rows=1,
+        cols=2,
+        png_filename="ephys_sections_comparisons.png",
+    )
+
+    epl_fig = plot_EPL_intensity()  # should move this to paper figs
     # save_epl_plot(epl_fig)
 
-    # p2_6wpi_counts_fig = plot_p2_6wpi_response_counts()
+    save_fig_to_png(
+        epl_fig,
+        legend=False,
+        rows=1,
+        cols=1,
+        png_filename="EPL_intensity_plot.png",
+    )
+
+    p2_6wpi_counts_fig = plot_p2_6wpi_response_counts()
     # save_p2_6wpi_counts_fig(p2_6wpi_counts_fig)
 
-    # the below is plotting example traces for extra_sweeps files
-    dataset = "extra_sweeps"
-    csvfile_name = f"{dataset}_data_notes.csv"
-    csvfile = os.path.join(FileSettings.TABLES_FOLDER, dataset, csvfile_name,)
-    sweep_info = pd.read_csv(csvfile, index_col=0)
+    save_fig_to_png(
+        p2_6wpi_counts_fig,
+        legend=True,
+        rows=1,
+        cols=1,
+        png_filename="p2_6wpi_response_plot.png",
+    )
 
-    make_GC_example_traces(dataset, sweep_info)
-
-    # make_cell_type_example_traces()
+    # make example traces
+    make_GC_example_traces()
     make_timepoint_example_traces()
-
     make_gabazine_wash_in_traces()
 
     pdb.set_trace()
