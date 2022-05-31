@@ -422,95 +422,57 @@ def make_timepoint_example_traces():
         )
         save_example_traces_figs(example_fig, ephys_traces_plotted, timepoint)
 
-    pdb.set_trace()
 
+def make_gabazine_wash_in_traces():
 
-def make_cell_type_example_traces():
-
-    # always list MC then TC
-    p2_files = ["JH200311_c1_light100.ibw", "JH200311_c2_light100.ibw"]
-    p14_files = ["JH190828_c6_light100.ibw", "JH191009_c3_light100.ibw"]
-    gabazine = "JH190828Gabazine_c6_light100.ibw"
-
-    # sweeps to use for each file, in a dict
-    sweeps_to_plot = {
-        "JH200311_c1_light100.ibw": 18,
-        "JH200311_c2_light100.ibw": 4,
-        "JH190828_c6_light100.ibw": 3,
-        "JH191009_c3_light100.ibw": 4,
-        "JH190828Gabazine_c6_light100.ibw": 0,
+    files_dict = {
+        "Control": {
+            "name": "JH190828_c6_light100.ibw",
+            "cell type": "Control",
+            "timepoint": "p14",
+            "sweep to use": 3,
+        },
+        "Gabazine": {
+            "name": "JH190828Gabazine_c6_light100.ibw",
+            "cell type": "Gabazine",
+            "timepoint": "extra_sweeps",
+            "sweep to use": 26,
+        },
     }
+    ephys_traces_plotted = pd.DataFrame()
 
-    # process p2 files
-    p2_traces_list = []
-    p2_types = ["p2 MC", "p2 TC"]
-    dataset = "p2"
-    for count, file_name in enumerate(p2_files):
-        file = os.path.join(FileSettings.DATA_FOLDER, dataset, file_name)
-        sweep_toplot = sweeps_to_plot[file_name]
+    for cell, info in files_dict.items():
+        dataset = info["timepoint"]
         csvfile_name = f"{dataset}_data_notes.csv"
         csvfile = os.path.join(
             FileSettings.TABLES_FOLDER, dataset, csvfile_name,
         )
         sweep_info = pd.read_csv(csvfile, index_col=0)
+        file = os.path.join(FileSettings.DATA_FOLDER, dataset, info["name"])
 
-        p2_cell = JaneCell(dataset, sweep_info, file, file_name)
-        p2_cell.initialize_cell()
-        p2_traces = p2_cell.process_traces_for_plotting()
-        p2_plotting_trace = make_one_plot_trace(
-            file_name,
-            cell_trace=p2_traces[sweep_toplot],
-            type=p2_types[count],
+        file_sweeps = JaneCell(dataset, sweep_info, file, info["name"])
+        file_sweeps.initialize_cell()
+        file_traces = file_sweeps.process_traces_for_plotting()
+        file_plotting_trace, plotted_trace = make_one_plot_trace(
+            info["name"],
+            cell_trace=file_traces[info["sweep to use"]],
+            type=info["cell type"],
             inset=False,
         )
-        p2_traces_list.append(p2_plotting_trace)
+        files_dict[cell]["plotting trace"] = file_plotting_trace
+        files_dict[cell]["ephys trace"] = plotted_trace
 
-    # process p14 files
-    p14_traces_list = []
-    p14_types = ["p14 MC", "p14 TC"]
-    dataset = "p14"
-    for count, file_name in enumerate(p14_files):
-        file = os.path.join(FileSettings.DATA_FOLDER, dataset, file_name)
-        sweep_toplot = sweeps_to_plot[file_name]
-        csvfile_name = f"{dataset}_data_notes.csv"
-        csvfile = os.path.join(
-            FileSettings.TABLES_FOLDER, dataset, csvfile_name,
+        plotted_trace = pd.DataFrame({cell: plotted_trace})
+        ephys_traces_plotted = pd.concat(
+            [ephys_traces_plotted, plotted_trace], axis=1
         )
-        sweep_info = pd.read_csv(csvfile, index_col=0)
 
-        p14_cell = JaneCell(dataset, sweep_info, file, file_name)
-        p14_cell.initialize_cell()
-        p14_traces = p14_cell.process_traces_for_plotting()
-        p14_plotting_trace = make_one_plot_trace(
-            file_name,
-            cell_trace=p14_traces[sweep_toplot],
-            type=p14_types[count],
-            inset=False,
-        )
-        p14_traces_list.append(p14_plotting_trace)
-
-    # get gabazine trace
-    dataset = "extra_sweeps"
-    file_name = "JH190828Gabazine_c6_light100.ibw"
-    file = os.path.join(FileSettings.DATA_FOLDER, dataset, file_name)
-    sweep_toplot = sweeps_to_plot[file_name]
-    csvfile_name = f"{dataset}_data_notes.csv"
-    csvfile = os.path.join(FileSettings.TABLES_FOLDER, dataset, csvfile_name,)
-    sweep_info = pd.read_csv(csvfile, index_col=0)
-
-    gabazine_sweeps = JaneCell(dataset, sweep_info, file, file_name)
-    gabazine_sweeps.initialize_cell()
-    gabazine_traces = gabazine_sweeps.process_traces_for_plotting()
-    gabazine_plotting_trace = make_one_plot_trace(
-        file_name,
-        cell_trace=gabazine_traces[sweep_toplot],
-        type="Gabazine",
-        inset=False,
+    drug_wash_fig = plot_gabazine_wash_traces(files_dict)
+    save_example_traces_figs(
+        drug_wash_fig, ephys_traces_plotted, "gabazine_wash"
     )
 
-    plot_example_cell_type_traces(
-        p2_traces_list, p14_traces_list, gabazine_plotting_trace
-    )
+    # save_example_traces_figs(example_gc_fig, ephys_traces_plotted, "GC")
 
 
 if __name__ == "__main__":
@@ -542,6 +504,10 @@ if __name__ == "__main__":
 
     # make_cell_type_example_traces()
     make_timepoint_example_traces()
+
+    make_gabazine_wash_in_traces()
+
+    pdb.set_trace()
 
     # # inset plot for Gg8, list big response cell first
     # main_plot_files = ["JH20210923_c2.nwb", "JH20210922_c1.nwb"]

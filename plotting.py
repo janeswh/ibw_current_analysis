@@ -1412,6 +1412,7 @@ def make_one_plot_trace(file_name, cell_trace, type=None, inset=False):
     color = {
         "GC cell-attached": "#414145",
         "GC break-in": "#7A7A81",
+        "Control": "#414145",
         "NBQX": "#EE251F",
         "MC": "#609a00",
         "TC": "#388bf7",
@@ -2466,7 +2467,7 @@ def plot_example_GC_traces(traces_dict):
     Takes the plotting traces for each sweep that needs to be plotted and 
     makes a subplot for each. Arrangement depends on type of plot shown.
     """
-    fig = make_subplots(rows=2, cols=1,)
+    fig = make_subplots(rows=1, cols=2,)
     stim_time = p2_acq_parameters.STIM_TIME
 
     # for count, trace in enumerate(traces):
@@ -2474,66 +2475,49 @@ def plot_example_GC_traces(traces_dict):
 
     for count, (cell, info) in enumerate(traces_dict.items()):
         fig.add_trace(
-            info["plotting trace"], row=count + 1, col=1,
+            info["plotting trace"], row=1, col=count + 1,
         )
 
-        # adds scale bars depending on which trace is being plotted
-        if cell == "GC cell-attached":
-            # adds horizontal line + text for cell_attached plot scale bar
-            fig.add_shape(
-                type="line", x0=775, y0=-20, x1=825, y1=-20, row=1, col=1
-            )
-            fig.add_annotation(
-                x=800,
-                y=-24,
-                text="50 ms",
-                showarrow=False,
-                font=dict(size=20),
-                row=count + 1,
-                col=1,
-            )
+        # adds horizontal line + text for cell_attached plot scale bar
+        fig.add_shape(
+            type="line",
+            x0=800,
+            y0=-20 if cell == "GC cell-attached" else -175,
+            x1=900,
+            y1=-20 if cell == "GC cell-attached" else -175,
+            row=1,
+            col=count + 1,
+        )
+        fig.add_annotation(
+            x=850,
+            y=-25 if cell == "GC cell-attached" else -206,
+            text="100 ms",
+            showarrow=False,
+            font=dict(size=20),
+            row=1,
+            col=count + 1,
+        )
 
-            # adds vertical line + text for cell attached plot scale bar
-            fig.add_shape(
-                type="line", x0=825, y0=-20, x1=825, y1=-10, row=1, col=1
-            )
+        # adds vertical line + text for cell attached plot scale bar
+        fig.add_shape(
+            type="line",
+            x0=900,
+            y0=-20 if cell == "GC cell-attached" else -175,
+            x1=900,
+            y1=-10 if cell == "GC cell-attached" else -75,
+            row=1,
+            col=count + 1,
+        )
 
-            fig.add_annotation(
-                x=858,
-                y=-15,
-                text="10 pA",
-                showarrow=False,
-                font=dict(size=20),
-            )
-        elif cell == "GC break=in":
-            # adds horizontal line + text for break-in plot scale bar
-            fig.add_shape(
-                type="line", x0=775, y0=-175, x1=825, y1=-175, row=2, col=1
-            )
-            fig.add_annotation(
-                x=800,
-                y=-200,
-                text="50 ms",
-                showarrow=False,
-                font=dict(size=20),
-                row=count + 1,
-                col=1,
-            )
-
-            # adds vertical line + text for break-in scale bar
-            fig.add_shape(
-                type="line", x0=825, y0=-175, x1=825, y1=-125, row=2, col=1
-            )
-
-            fig.add_annotation(
-                x=858,
-                y=-150,
-                text="50 pA",
-                showarrow=False,
-                font=dict(size=20),
-                row=count + 1,
-                col=1,
-            )
+        fig.add_annotation(
+            x=950 if cell == "GC cell-attached" else 960,
+            y=-15 if cell == "GC cell-attached" else -125,
+            text="10 pA" if cell == "GC cell-attached" else "100 pA",
+            showarrow=False,
+            font=dict(size=20),
+            row=1,
+            col=count + 1,
+        )
 
     # adds line for light stim
     fig.add_vrect(
@@ -2563,6 +2547,8 @@ def plot_example_GC_traces(traces_dict):
         plot_bgcolor="rgba(0,0,0,0)",
         font_family="Arial",
         legend=dict(font=dict(family="Arial", size=26)),
+        width=1200,
+        height=300,
     )
 
     fig_noaxes = go.Figure(fig)
@@ -2654,6 +2640,8 @@ def plot_example_cell_type_traces(traces_dict, timepoint):
         title_text=f"{timepoint} example cells",
         title_x=0.5,
         font=dict(family="Arial", size=26),
+        width=1200,
+        height=600,
     ),
 
     # below is code from stack overflow to hide duplicate legends
@@ -2670,6 +2658,89 @@ def plot_example_cell_type_traces(traces_dict, timepoint):
 
     # fig.show()
     # fig_noaxes.show()
+
+    return fig_noaxes
+
+
+def plot_gabazine_wash_traces(traces_dict):
+    """
+    Takes the plotting traces for each sweep that needs to be plotted and 
+    makes a subplot for each. Arrangement depends on type of plot shown.
+    """
+    fig = make_subplots(rows=1, cols=2, shared_yaxes=True)
+    stim_time = p2_acq_parameters.STIM_TIME
+
+    # for count, trace in enumerate(traces):
+    #     fig.add_trace(trace, row=count + 1, col=1)
+
+    for count, (cell, info) in enumerate(traces_dict.items()):
+        fig.add_trace(
+            info["plotting trace"], row=1, col=count + 1,
+        )
+
+    # adds horizontal line + text for plot scale bar
+    fig.add_shape(type="line", x0=800, y0=-200, x1=900, y1=-200, row=1, col=1)
+    fig.add_annotation(
+        x=850,
+        y=-230,
+        text="100 ms",
+        showarrow=False,
+        font=dict(size=20),
+        row=1,
+        col=1,
+    )
+
+    # adds vertical line + text for scale bar
+    fig.add_shape(type="line", x0=900, y0=-200, x1=900, y1=-100, row=1, col=1)
+
+    fig.add_annotation(
+        x=950,
+        y=-150,
+        text="100 pA",
+        showarrow=False,
+        font=dict(size=20),
+        row=1,
+        col=1,
+    )
+
+    # adds line for light stim
+    fig.add_vrect(
+        type="rect",
+        x0=stim_time,
+        x1=stim_time + 100,
+        fillcolor="#33F7FF",
+        opacity=0.5,
+        layer="below",
+        line_width=0,
+    )
+
+    fig.update_xaxes(
+        showline=True,
+        linewidth=1,
+        linecolor="black",
+        gridcolor="black",
+        ticks="outside",
+        tick0=520,
+        dtick=10,
+    )
+    fig.update_yaxes(
+        showline=True, linewidth=1, gridcolor="black", linecolor="black",
+    )
+
+    fig.update_layout(
+        plot_bgcolor="rgba(0,0,0,0)",
+        font_family="Arial",
+        legend=dict(font=dict(family="Arial", size=26)),
+        width=1200,
+        height=300,
+    )
+
+    fig_noaxes = go.Figure(fig)
+    fig_noaxes.update_xaxes(showgrid=False, visible=False)
+    fig_noaxes.update_yaxes(showgrid=False, visible=False)
+
+    # fig.show()
+    # inset_plot_noaxes.show()
 
     return fig_noaxes
 
