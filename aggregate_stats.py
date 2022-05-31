@@ -42,6 +42,7 @@ class CellTypeSummary(object):
 
         self.respon_avg_freq_stats = None
         self.mean_trace_stats = None
+        self.all_mean_trace_stats = None
 
     def get_responding_cells(self):
         """
@@ -95,12 +96,17 @@ class CellTypeSummary(object):
             ]["cell_name"]
         )
 
-    def get_mean_trace_stats(self):
+    def get_mean_trace_stats(self, all_cells=False):
         """
         Reads in the mean trace stats for responding cells, light condition
         only
         """
-        cell_list = self.responding_cells
+
+        if all_cells == False:
+            cell_list = self.responding_cells
+        elif all_cells == True:
+            cell_list = os.listdir(os.path.join(self.cell_type_stats_folder))
+
         mean_trace_stats_files = []
 
         for cell_name in cell_list:
@@ -121,10 +127,16 @@ class CellTypeSummary(object):
             ]
         )
 
-        # only saves the stats for light conditions
-        self.mean_trace_stats = mean_trace_stats.loc[
-            mean_trace_stats["Condition"] == "Light"
-        ]
+        if all_cells == False:
+            # only saves the stats for light conditions
+            self.mean_trace_stats = mean_trace_stats.loc[
+                mean_trace_stats["Condition"] == "Light"
+            ]
+        elif all_cells == True:
+            # only saves the stats for light conditions
+            self.all_mean_trace_stats = mean_trace_stats.loc[
+                mean_trace_stats["Condition"] == "Light"
+            ]
 
     def get_event_median_stats(self):
         # reads in median event stats for within response window and outside
@@ -266,6 +278,8 @@ def get_cell_types(dataset):
 # has threshold for loop leave
 def get_cell_type_summary(dataset, cell_types_list):
 
+    all_mean_trace_stats_dict = defaultdict(dict)
+
     response_cells_list = pd.DataFrame()
     response_count_dict = defaultdict(dict)
     median_stats_dict = defaultdict(dict)
@@ -292,11 +306,17 @@ def get_cell_type_summary(dataset, cell_types_list):
             "no response"
         ] = cell_type_summary.nonresponding_cells_num
 
-        # gets mean trace stats
+        # gets mean trace stats for responding cells only
         cell_type_summary.get_mean_trace_stats()
         mean_trace_stats_dict[cell_type][
             "mean trace stats"
         ] = cell_type_summary.mean_trace_stats
+
+        # gets mean trace stats for all cells
+        cell_type_summary.get_mean_trace_stats(all_cells=True)
+        all_mean_trace_stats_dict[cell_type][
+            "mean trace stats"
+        ] = cell_type_summary.all_mean_trace_stats
 
         # gets median event stats
         cell_type_summary.get_event_median_stats()
@@ -314,6 +334,7 @@ def get_cell_type_summary(dataset, cell_types_list):
         ] = cell_type_summary.respon_avg_freq_stats
 
     return (
+        all_mean_trace_stats_dict,
         response_cells_list,
         mean_trace_stats_dict,
         response_count_dict,
@@ -324,6 +345,7 @@ def get_cell_type_summary(dataset, cell_types_list):
 
 def make_cell_type_summary_dfs(
     dataset,
+    all_mean_trace_stats,
     cell_types_list,
     mean_trace_stats,
     counts,
@@ -335,6 +357,8 @@ def make_cell_type_summary_dfs(
     dataset
     """
     # makes cell counts df
+    all_mean_trace_stats_df = pd.DataFrame()
+
     dataset_counts = pd.DataFrame()
     mean_trace_stats_df = pd.DataFrame()
     win_median_stats_df = pd.DataFrame()
@@ -355,6 +379,12 @@ def make_cell_type_summary_dfs(
         mean_trace = mean_trace_stats[cell_type]["mean trace stats"]
         mean_trace_stats_df = pd.concat([mean_trace_stats_df, mean_trace])
 
+        # collects mean trace stats for all cells
+        all_mean_trace = all_mean_trace_stats[cell_type]["mean trace stats"]
+        all_mean_trace_stats_df = pd.concat(
+            [all_mean_trace_stats_df, all_mean_trace]
+        )
+
         # collects median stats
         win_stats = pd.DataFrame(median_stats[cell_type]["response win"])
         outside_stats = pd.DataFrame(median_stats[cell_type]["outside win"])
@@ -369,6 +399,7 @@ def make_cell_type_summary_dfs(
         freq_stats_df = pd.concat([freq_stats_df, avg_freq_stats])
 
     return (
+        all_mean_trace_stats_df,
         dataset_counts,
         mean_trace_stats_df,
         win_median_stats_df,
