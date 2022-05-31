@@ -632,7 +632,6 @@ def plot_freq_stats(dataset_freq_stats):
         "Time to Peak Frequency (ms)",
         "Baseline Frequency (Hz)",
         "Rise Time (ms)",
-        "Decay tau",
     ]
 
     freq_stats_fig = make_subplots(
@@ -999,6 +998,7 @@ def plot_windowed_median_event_stats(median_dict, cell_types_list):
                         autorange="reversed",
                         row=measure_ct + 1,
                         col=col_count,
+                        # title_standoff=500,
                     )
 
                 #  below is code from stack overflow to hide duplicate legends
@@ -1014,6 +1014,7 @@ def plot_windowed_median_event_stats(median_dict, cell_types_list):
                     else measure,
                     row=measure_ct + 1,
                     col=1,
+                    # title_standoff=500,
                 )
 
             median_fig.update_xaxes(
@@ -2255,7 +2256,7 @@ def plot_ephys_sections_intensity(data):
         x="Integrated density/area",
         y="value",
         facet_col="variable",
-        facet_col_spacing=0.15,
+        facet_col_spacing=0.2,
         trendline="ols",
     )
 

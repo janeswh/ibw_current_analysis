@@ -181,7 +181,7 @@ def main():
         freq_stats_fig,
         legend=True,
         rows=1,
-        cols=5,
+        cols=4,
         png_filename="avg_freq_stats.png",
     )
 
