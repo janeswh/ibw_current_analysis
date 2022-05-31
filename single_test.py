@@ -2050,6 +2050,7 @@ class JaneCell(object):
             tickvals=[1, self.num_sweeps],
             showgrid=False,
             zeroline=False,
+            title_standoff=50,  # aligns y-title against the left margin
         )
 
         annotated_freq.update_xaxes(
@@ -2079,7 +2080,7 @@ class JaneCell(object):
         )
 
         annotated_freq.update_yaxes(
-            title_text="Frequency (Hz)", row=2, col=1,
+            title_text="Frequency (Hz)", row=2, col=1, title_standoff=50
         )
 
         # add main title, x-axis titles
@@ -2109,7 +2110,7 @@ class JaneCell(object):
             go.Scatter(
                 x=x_plot,
                 y=smoothed,
-                marker=dict(color="#A613C4", size=2),
+                marker=dict(color="#A613C4", size=4),
                 name="spline estimate",
             ),
             row=2,
@@ -2134,7 +2135,7 @@ class JaneCell(object):
             go.Scatter(
                 x=[self.avg_frequency_stats["Peak Frequency Time (ms)"][0]],
                 y=[self.avg_frequency_stats["Peak Frequency (Hz)"][0]],
-                marker=dict(color="#FFB233", size=4),
+                marker=dict(color="#FFB233", size=12),
                 name="peak frequency",
             ),
             row=2,
@@ -2150,7 +2151,7 @@ class JaneCell(object):
                 x=window_toplot.index,
                 y=window_toplot.squeeze(),
                 mode="lines",
-                marker=dict(color="#5EC320", size=2),
+                marker=dict(color="#5EC320", size=4),
                 name="averaged sweep",
                 # legendgroup="avg_sweep",
                 # visible="legendonly",
@@ -2164,11 +2165,14 @@ class JaneCell(object):
             go.Scatter(
                 x=[self.mean_trace_stats["Mean Trace Peak Time (ms)"][0]],
                 y=[self.mean_trace_stats["Mean Trace Peak (pA)"][0]],
-                marker=dict(color="#3338FF", size=4),
+                marker=dict(color="#3338FF", size=12),
                 name="mean trace peak",
             ),
             row=3,
             col=1,
+        )
+        annotated_freq.update_yaxes(
+            title_text="Amplitude (pA)", row=3, col=1,
         )
 
         annotated_freq.add_vrect(
