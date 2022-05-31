@@ -8,7 +8,7 @@ from plotly.graph_objects import Layout
 from plotly.subplots import make_subplots
 import plotly.io as pio
 
-pio.kaleido.scope.default_scale = 5
+pio.kaleido.scope.default_scale = 1
 pio.kaleido.scope.default_format = "png"
 from scipy.stats import sem
 from collections import defaultdict
@@ -385,7 +385,7 @@ def plot_response_counts(counts_dict):
     response_counts_fig = make_subplots(
         rows=1,
         cols=len(counts_dict.keys()),
-        x_title="Timepoint",
+        # x_title="Timepoint",
         y_title="Number of Cells",
         shared_yaxes=True
         # subplot_titles=dataset_list,
@@ -636,7 +636,10 @@ def plot_freq_stats(dataset_freq_stats):
     ]
 
     freq_stats_fig = make_subplots(
-        rows=1, cols=len(measures_list), shared_xaxes=True, x_title="Timepoint"
+        rows=1,
+        cols=len(measures_list),
+        shared_xaxes=True,
+        horizontal_spacing=0.08,  # x_title="Timepoint"
     )
     all_stats = pd.DataFrame()
     all_means = pd.DataFrame()
@@ -683,8 +686,9 @@ def plot_freq_stats(dataset_freq_stats):
                         line=dict(
                             color=cell_type_line_colors[cell_type], width=1
                         ),
+                        size=15,
                     ),
-                    name=f"{cell_type} individual cells",
+                    name=cell_type,
                     legendgroup=cell_type,
                     offsetgroup=dataset_order[timepoint] + cell_type_ct,
                 ),
@@ -707,7 +711,7 @@ def plot_freq_stats(dataset_freq_stats):
                     marker_line_color=cell_type_line_colors[cell_type],
                     marker_color=cell_type_bar_colors[cell_type],
                     # marker=dict(markercolor=cell_type_colors[cell_type]),
-                    name=f"{cell_type} averages",
+                    name=cell_type,
                     legendgroup=cell_type,
                     offsetgroup=dataset_order[timepoint] + cell_type_ct,
                 ),
@@ -903,6 +907,8 @@ def plot_windowed_median_event_stats(median_dict, cell_types_list):
         cols=len(datasets) * len(cell_types_list),
         shared_xaxes=True,
         shared_yaxes=True,
+        horizontal_spacing=0.02,
+        vertical_spacing=0.02,
     )
 
     plot_data = pd.DataFrame()
@@ -955,8 +961,9 @@ def plot_windowed_median_event_stats(median_dict, cell_types_list):
                             line=dict(
                                 color=cell_type_line_colors[cell_type], width=1
                             ),
+                            size=15,
                         ),
-                        name=f"{cell_type} medians",
+                        name=cell_type,
                         legendgroup=cell_type,
                         offsetgroup=dataset_order[timepoint] + cell_type_ct,
                     ),
@@ -979,7 +986,7 @@ def plot_windowed_median_event_stats(median_dict, cell_types_list):
                         marker_line_color=cell_type_line_colors[cell_type],
                         marker_color=cell_type_bar_colors[cell_type],
                         # marker=dict(markercolor=cell_type_colors[cell_type]),
-                        name=f"{cell_type} averages",
+                        name=cell_type,
                         legendgroup=cell_type,
                         offsetgroup=dataset_order[timepoint] + cell_type_ct,
                     ),
@@ -1071,17 +1078,17 @@ def save_freq_mean_trace_figs(
     html_filename = "mean_trace_freq_stats.html"
     path = os.path.join(FileSettings.FIGURES_FOLDER, html_filename)
 
-    if not os.path.exists(FileSettings.PAPER_FIGURES_FOLDER):
-        os.makedirs(FileSettings.PAPER_FIGURES_FOLDER)
+    # if not os.path.exists(FileSettings.PAPER_FIGURES_FOLDER):
+    #     os.makedirs(FileSettings.PAPER_FIGURES_FOLDER)
 
-    figs = [mean_trace_fig, freq_stats_fig]
-    png_filenames = [f"mean_trace_stats.png", "avg_freq_stats.png"]
-    for count, fig in enumerate(figs):
-        fig.write_image(
-            os.path.join(
-                FileSettings.PAPER_FIGURES_FOLDER, png_filenames[count]
-            )
-        )
+    # figs = [mean_trace_fig, freq_stats_fig]
+    # png_filenames = [f"mean_trace_stats.png", "avg_freq_stats.png"]
+    # for count, fig in enumerate(figs):
+    #     fig.write_image(
+    #         os.path.join(
+    #             FileSettings.PAPER_FIGURES_FOLDER, png_filenames[count]
+    #         )
+    #     )
 
     mean_trace_fig.write_html(path, full_html=False, include_plotlyjs="cdn")
 
@@ -1114,7 +1121,10 @@ def plot_cell_type_event_comparisons(median_dict):
     measures_list = ["Adjusted amplitude (pA)", "Rise time (ms)", "Tau (ms)"]
 
     event_comparisons_fig = make_subplots(
-        rows=1, cols=len(measures_list), shared_xaxes=True, x_title="Timepoint"
+        rows=1,
+        cols=len(measures_list),
+        shared_xaxes=True,
+        horizontal_spacing=0.15,  # x_title="Timepoint"
     )
     all_medians = pd.DataFrame()
     all_means = pd.DataFrame()
@@ -1159,8 +1169,9 @@ def plot_cell_type_event_comparisons(median_dict):
                         line=dict(
                             color=cell_type_line_colors[cell_type], width=1
                         ),
+                        size=15,
                     ),
-                    name=f"{cell_type} medians",
+                    name=cell_type,
                     legendgroup=cell_type,
                     offsetgroup=dataset_order[timepoint] + cell_type_ct,
                 ),
@@ -1183,7 +1194,7 @@ def plot_cell_type_event_comparisons(median_dict):
                     marker_line_color=cell_type_line_colors[cell_type],
                     marker_color=cell_type_bar_colors[cell_type],
                     # marker=dict(markercolor=cell_type_colors[cell_type]),
-                    name=f"{cell_type} averages",
+                    name=cell_type,
                     legendgroup=cell_type,
                     offsetgroup=dataset_order[timepoint] + cell_type_ct,
                 ),
@@ -2762,7 +2773,7 @@ def plot_gabazine_wash_traces(traces_dict):
     return fig_noaxes
 
 
-def save_fig_to_png(fig, legend):
+def save_fig_to_png(fig, legend, rows, cols, png_filename):
     """
     Formats a plot made for html to make it appropriate for png/paper figs
     """
@@ -2772,8 +2783,10 @@ def save_fig_to_png(fig, legend):
         legend=dict(font=dict(family="Arial", size=26)),
         font=dict(family="Arial", size=26),
         showlegend=legend,
-        width=1500,  # each subplot counts as 500
-        height=600,  # each row is 600
+        width=cols * 500
+        if legend == False
+        else cols * 500 + 200,  # each subplot counts as 500
+        height=rows * 600,  # each row is 600
         title="",
     )
 
@@ -2781,9 +2794,14 @@ def save_fig_to_png(fig, legend):
         lambda a: a.update(font=dict(family="Arial", size=26))
     )
 
-    png_filename = "mean_trace_stats.png"
-
     fig.write_image(
         os.path.join(FileSettings.PAPER_FIGURES_FOLDER, png_filename)
     )
-    pdb.set_trace()
+
+    # png = pio.to_image(
+    #     fig,
+    #     format="png",
+    #     width=cols * 500 if legend == False else cols * 500 + 200,
+    #     height=rows * 600,
+    # )
+

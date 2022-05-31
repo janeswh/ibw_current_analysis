@@ -161,8 +161,45 @@ def main():
         mean_trace_stats_fig_data,
         freq_stats_fig_data,
     )
-    save_fig_to_png(mean_trace_stats_fig, legend=True)
 
+    save_fig_to_png(
+        response_fig,
+        legend=True,
+        rows=1,
+        cols=2,
+        png_filename="all_response_counts.png",
+    )
+
+    save_fig_to_png(
+        mean_trace_stats_fig,
+        legend=True,
+        rows=1,
+        cols=3,
+        png_filename="mean_trace_stats.png",
+    )
+    save_fig_to_png(
+        freq_stats_fig,
+        legend=True,
+        rows=1,
+        cols=5,
+        png_filename="avg_freq_stats.png",
+    )
+
+    save_fig_to_png(
+        windowed_event_medians_fig,
+        legend=True,
+        rows=3,
+        cols=4,
+        png_filename="windowed_event_medians.png",
+    )
+
+    save_fig_to_png(
+        event_comparisons_fig,
+        legend=True,
+        rows=1,
+        cols=3,
+        png_filename="cell_type_event_comparisons.png",
+    )
     pdb.set_trace()
 
 
