@@ -2172,7 +2172,7 @@ class JaneCell(object):
             col=1,
         )
         annotated_freq.update_yaxes(
-            title_text="Amplitude (pA)", row=3, col=1,
+            title_text="Current (pA)", row=3, col=1,
         )
 
         annotated_freq.add_vrect(
