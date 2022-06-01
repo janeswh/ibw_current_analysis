@@ -57,18 +57,8 @@ def run_dataset_analysis(dataset):
             f"{file_count+1}/{len(ibwfile_list)} cells"
         )
 
-    # pdb.set_trace()
 
-
-def main():
-    dataset_list, all_patched = get_data_info()
-    dataset_list.sort(reverse=True)  # put p2 first
-
-    # dataset_cell_counts = {}
-    # dataset_mean_trace_stats = {}
-    # dataset_median_stats = {}
-    # dataset_freq_stats = {}
-
+def collect_dataset_stats(dataset_list):
     # this replicates previous old analysis
     dataset_all_mean_trace_stats = defaultdict(dict)
 
@@ -96,8 +86,6 @@ def main():
         dataset_mean_trace_stats[dataset] = mean_trace_stats
         dataset_median_stats[dataset] = median_stats
         dataset_freq_stats[dataset] = freq_stats
-
-        # dataset_cell_counts["timepoint"][dataset] = response_counts
 
         (
             all_mean_trace_stats_df,
@@ -131,14 +119,25 @@ def main():
                 dataset, dataset_count + 1, len(dataset_list)
             )
         )
+
+    return (
+        cell_types_list,
+        dataset_cell_counts,
+        dataset_mean_trace_stats,
+        dataset_median_stats,
+        dataset_freq_stats,
+    )
+
+
+def make_summary_plots(
+    cell_types_list,
+    dataset_cell_counts,
+    dataset_mean_trace_stats,
+    dataset_median_stats,
+    dataset_freq_stats,
+):
     # now we plot using dicts
     response_fig, response_fig_data = plot_response_counts(dataset_cell_counts)
-    save_response_counts_fig(response_fig, response_fig_data)
-
-    # plot median event stats
-    # (windowed_event_medians_fig, medians_fig_data,) = test_median_windows_plot(
-    #     dataset_median_stats, cell_types_list
-    # )
 
     (
         windowed_event_medians_fig,
@@ -148,29 +147,49 @@ def main():
         event_comparisons_fig,
         event_comparisons_fig_data,
     ) = plot_cell_type_event_comparisons(dataset_median_stats)
+
+    # plots mean trace stats
+    mean_trace_stats_fig, mean_trace_stats_fig_data = plot_mean_trace_stats(
+        dataset_mean_trace_stats
+    )
+    # plots avg freq stats
+    freq_stats_fig, freq_stats_fig_data = plot_freq_stats(dataset_freq_stats)
+
+    return (
+        response_fig,
+        response_fig_data,
+        windowed_event_medians_fig,
+        medians_fig_data,
+        event_comparisons_fig,
+        event_comparisons_fig_data,
+        mean_trace_stats_fig,
+        mean_trace_stats_fig_data,
+        freq_stats_fig,
+        freq_stats_fig_data,
+    )
+
+
+def save_summary_plots(
+    response_fig,
+    response_fig_data,
+    windowed_event_medians_fig,
+    medians_fig_data,
+    event_comparisons_fig,
+    event_comparisons_fig_data,
+    mean_trace_stats_fig,
+    mean_trace_stats_fig_data,
+    freq_stats_fig,
+    freq_stats_fig_data,
+):
+
+    # save as html, also saves plotted data as csvs
+    save_response_counts_fig(response_fig, response_fig_data)
     save_median_events_fig(
         windowed_event_medians_fig,
         event_comparisons_fig,
         medians_fig_data,
         event_comparisons_fig_data,
     )
-
-    # plots mean trace stats
-    mean_trace_stats_fig, mean_trace_stats_fig_data = plot_mean_trace_stats(
-        dataset_mean_trace_stats
-    )
-
-    # plots mean trace stats for all cells
-    (
-        all_mean_trace_stats_fig,
-        all_mean_trace_stats_fig_data,
-    ) = plot_mean_trace_stats(dataset_all_mean_trace_stats, all_cells=True)
-    save_all_mean_trace_fig(
-        all_mean_trace_stats_fig, all_mean_trace_stats_fig_data
-    )
-
-    # plots avg freq stats
-    freq_stats_fig, freq_stats_fig_data = plot_freq_stats(dataset_freq_stats)
     save_freq_mean_trace_figs(
         mean_trace_stats_fig,
         freq_stats_fig,
@@ -178,6 +197,7 @@ def main():
         freq_stats_fig_data,
     )
 
+    # save to png
     save_fig_to_png(
         response_fig,
         legend=True,
@@ -217,7 +237,50 @@ def main():
         png_filename="cell_type_event_comparisons.png",
     )
 
-    pdb.set_trace()
+
+def main():
+    dataset_list, all_patched = get_data_info()
+    dataset_list.sort(reverse=True)  # put p2 first
+
+    (
+        cell_types_list,
+        dataset_cell_counts,
+        dataset_mean_trace_stats,
+        dataset_median_stats,
+        dataset_freq_stats,
+    ) = collect_dataset_stats(dataset_list)
+
+    (
+        response_fig,
+        response_fig_data,
+        windowed_event_medians_fig,
+        medians_fig_data,
+        event_comparisons_fig,
+        event_comparisons_fig_data,
+        mean_trace_stats_fig,
+        mean_trace_stats_fig_data,
+        freq_stats_fig,
+        freq_stats_fig_data,
+    ) = make_summary_plots(
+        cell_types_list,
+        dataset_cell_counts,
+        dataset_mean_trace_stats,
+        dataset_median_stats,
+        dataset_freq_stats,
+    )
+
+    save_summary_plots(
+        response_fig,
+        response_fig_data,
+        windowed_event_medians_fig,
+        medians_fig_data,
+        event_comparisons_fig,
+        event_comparisons_fig_data,
+        mean_trace_stats_fig,
+        mean_trace_stats_fig_data,
+        freq_stats_fig,
+        freq_stats_fig_data,
+    )
 
 
 if __name__ == "__main__":

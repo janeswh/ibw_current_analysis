@@ -49,23 +49,6 @@ def get_single_cell(dataset, csvfile, nwbfile_name):
     return cell
 
 
-# def get_cell_sweeps_dict(cell, spikes=False):
-#     """
-#     Gets the dict of all sweeps for a cell object
-#     """
-#     # 2 drops depolarized and esc AP sweeps from VC data if applicable
-#     cell.drop_sweeps()
-
-#     # 3 makes a dict for each cell, with stim condition as keys and all sweeps per stimulus as values
-#     if spikes is False:
-#         cell.make_sweeps_dict()
-#         return cell.sweeps_dict
-
-#     else:
-#         cell.make_spikes_dict()
-#         return cell.ic_sweeps_dict
-
-
 def get_annotation_values(cell, selected_condition, sweep_number):
     """
     Gets the response onset, amplitude peak, and time to peak values for
@@ -143,22 +126,6 @@ def get_single_cell_traces(
         traces = vc_sweep
 
     return traces, annotation_values
-
-
-def make_annotated_trace(dataset, csvfile, genotype, file_name, sweep_number):
-    """
-    Plots a single VC trace to demonstrate onset latency, peak amplitude, and
-    time to peak.
-    """
-
-    cell = get_single_cell(dataset, csvfile, file_name)
-    traces, annotation_values = get_single_cell_traces(
-        cell, "single", sweep_number, annotate=True
-    )
-    axes, noaxes = plot_annotated_trace(traces, annotation_values, genotype)
-    save_annotated_figs(axes, noaxes, cell, genotype)
-
-    print("Finished saving annotated trace plots")
 
 
 def make_GC_example_traces():
@@ -378,64 +345,51 @@ def get_example_cell_PSTH(dataset, cell_name):
     return fig
 
 
-if __name__ == "__main__":
+def plot_misc_data():
 
-    # sections_data = get_ephys_sections_intensity()
-    # (
-    #     sections_fig,
-    #     sections_fig_data,
-    #     sections_regression,
-    # ) = plot_ephys_sections_intensity(sections_data)
+    # gets ephys intensity data
+    sections_data = get_ephys_sections_intensity()
+    (
+        sections_fig,
+        sections_fig_data,
+        sections_regression,
+    ) = plot_ephys_sections_intensity(sections_data)
 
-    # # save_ephys_sections_fig(
-    # #     sections_fig, sections_fig_data, sections_regression
-    # # )
+    save_ephys_sections_fig(
+        sections_fig, sections_fig_data, sections_regression
+    )
 
-    # save_fig_to_png(
-    #     sections_fig,
-    #     legend=False,
-    #     rows=1,
-    #     cols=2,
-    #     png_filename="ephys_sections_comparisons.png",
-    # )
+    save_fig_to_png(
+        sections_fig,
+        legend=False,
+        rows=1,
+        cols=2,
+        png_filename="ephys_sections_comparisons.png",
+    )
 
-    # epl_fig = plot_EPL_intensity()  # should move this to paper figs
-    # # save_epl_plot(epl_fig)
+    epl_fig = plot_EPL_intensity()  # should move this to paper figs
+    save_epl_plot(epl_fig)
 
-    # save_fig_to_png(
-    #     epl_fig,
-    #     legend=False,
-    #     rows=1,
-    #     cols=1,
-    #     png_filename="EPL_intensity_plot.png",
-    # )
+    save_fig_to_png(
+        epl_fig,
+        legend=False,
+        rows=1,
+        cols=1,
+        png_filename="EPL_intensity_plot.png",
+    )
 
-    # p2_6wpi_counts_fig = plot_p2_6wpi_response_counts()
-    # # save_p2_6wpi_counts_fig(p2_6wpi_counts_fig)
+    p2_6wpi_counts_fig = plot_p2_6wpi_response_counts()
+    save_p2_6wpi_counts_fig(p2_6wpi_counts_fig)
 
-    # save_fig_to_png(
-    #     p2_6wpi_counts_fig,
-    #     legend=True,
-    #     rows=1,
-    #     cols=1,
-    #     png_filename="p2_6wpi_response_plot.png",
-    # )
+    save_fig_to_png(
+        p2_6wpi_counts_fig,
+        legend=True,
+        rows=1,
+        cols=1,
+        png_filename="p2_6wpi_response_plot.png",
+    )
 
-    # # make example traces
-    # make_GC_example_traces()
-    # make_timepoint_example_traces()
-    # make_gabazine_wash_in_traces()
-
-    # example_PSTH_fig = get_example_cell_PSTH("p14", "JH190828_c6")
-
-    # save_fig_to_png(
-    #     example_PSTH_fig,
-    #     legend=True,
-    #     rows=2,
-    #     cols=3,
-    #     png_filename="example_PSTH_fig.png",
-    # )
-
+    # plots previously analyzed mean trace peak data
     prev_analysis_fig = plot_previous_analysis()
     save_fig_to_png(
         prev_analysis_fig,
@@ -445,5 +399,22 @@ if __name__ == "__main__":
         png_filename="prev_analysis_fig.png",
     )
 
-    pdb.set_trace()
+    example_PSTH_fig = get_example_cell_PSTH("p14", "JH190828_c6")
+    save_fig_to_png(
+        example_PSTH_fig,
+        legend=True,
+        rows=2,
+        cols=3,
+        png_filename="example_PSTH_fig.png",
+    )
+
+
+if __name__ == "__main__":
+
+    plot_misc_data()
+
+    # make example traces
+    make_GC_example_traces()
+    make_timepoint_example_traces()
+    make_gabazine_wash_in_traces()
 

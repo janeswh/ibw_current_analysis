@@ -448,7 +448,9 @@ def save_dataset_stats(
 def save_response_counts(df_counts):
 
     csv_filename = "response_counts.csv"
-    path = os.path.join(FileSettings.TABLES_FOLDER, csv_filename)
+    path = os.path.join(
+        FileSettings.TABLES_FOLDER, "datasets_summaries", csv_filename
+    )
     df_counts.to_csv(path, float_format="%8.4f")
 
 
@@ -499,7 +501,11 @@ def get_ephys_sections_intensity():
     and mean peak freq of the recorded cells from each section.
     """
     sections_info = pd.read_csv(
-        os.path.join(FileSettings.TABLES_FOLDER, "ephys_GCL_intensity.csv"),
+        os.path.join(
+            FileSettings.TABLES_FOLDER,
+            "misc_csv_data",
+            "ephys_GCL_intensity.csv",
+        ),
         header=0,
     )
 

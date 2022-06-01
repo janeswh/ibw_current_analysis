@@ -15,3 +15,8 @@ class FileSettings(object):
     PAPER_FIGURES_FOLDER = (
         "/home/jhuang/Documents/phd_projects/injected_GC_data/paper_figures"
     )
+
+    PAPER_FIGS_DATA_FOLDER = (
+        "/home/jhuang/Documents/phd_projects/injected_GC_data/tables/"
+        "paper_figs_data"
+    )

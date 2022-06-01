@@ -8,7 +8,7 @@ from plotly.graph_objects import Layout
 from plotly.subplots import make_subplots
 import plotly.io as pio
 
-pio.kaleido.scope.default_scale = 1
+pio.kaleido.scope.default_scale = 2
 pio.kaleido.scope.default_format = "png"
 from scipy.stats import sem
 from collections import defaultdict
@@ -365,16 +365,6 @@ def plot_selected_averages(threshold, selected_avgs):
     return selected_summary_fig
 
 
-def save_selected_summary_fig(threshold, selected_summary_fig):
-
-    html_filename = "{}_ms_threshold_datasets_summary.html".format(threshold)
-    path = os.path.join(FileSettings.FIGURES_FOLDER, html_filename)
-
-    selected_summary_fig.write_html(
-        path, full_html=False, include_plotlyjs="cdn"
-    )
-
-
 def plot_response_counts(counts_dict):
     # response/no response is a trace
 
@@ -463,14 +453,18 @@ def save_response_counts_fig(response_counts_fig, data):
     """
 
     html_filename = "all_response_counts.html"
-    path = os.path.join(FileSettings.FIGURES_FOLDER, html_filename)
+    path = os.path.join(
+        FileSettings.FIGURES_FOLDER, "datasets_summaries", html_filename
+    )
 
     response_counts_fig.write_html(
         path, full_html=False, include_plotlyjs="cdn"
     )
 
     csv_filename = "all_response_counts_data.csv"
-    path = os.path.join(FileSettings.FIGURES_FOLDER, csv_filename)
+    path = os.path.join(
+        FileSettings.TABLES_FOLDER, "datasets_summaries_data", csv_filename
+    )
     data.to_csv(path, float_format="%8.4f")
 
 
@@ -1053,7 +1047,9 @@ def save_median_events_fig(
     Saves all median event figs into one html file.
     """
     html_filename = "windowed_event_medians.html"
-    path = os.path.join(FileSettings.FIGURES_FOLDER, html_filename)
+    path = os.path.join(
+        FileSettings.FIGURES_FOLDER, "datasets_summaries", html_filename
+    )
 
     windowed_medians_fig.write_html(
         path, full_html=False, include_plotlyjs="cdn"
@@ -1073,7 +1069,9 @@ def save_median_events_fig(
     ]
     for count, df in enumerate(dfs):
         csv_filename = filenames[count]
-        path = os.path.join(FileSettings.FIGURES_FOLDER, csv_filename)
+        path = os.path.join(
+            FileSettings.TABLES_FOLDER, "datasets_summaries_data", csv_filename
+        )
         df.to_csv(path, float_format="%8.4f")
 
 
@@ -1084,19 +1082,9 @@ def save_freq_mean_trace_figs(
     Saves mean trace stats and avg freq stats fig into one html file.
     """
     html_filename = "mean_trace_freq_stats.html"
-    path = os.path.join(FileSettings.FIGURES_FOLDER, html_filename)
-
-    # if not os.path.exists(FileSettings.PAPER_FIGURES_FOLDER):
-    #     os.makedirs(FileSettings.PAPER_FIGURES_FOLDER)
-
-    # figs = [mean_trace_fig, freq_stats_fig]
-    # png_filenames = [f"mean_trace_stats.png", "avg_freq_stats.png"]
-    # for count, fig in enumerate(figs):
-    #     fig.write_image(
-    #         os.path.join(
-    #             FileSettings.PAPER_FIGURES_FOLDER, png_filenames[count]
-    #         )
-    #     )
+    path = os.path.join(
+        FileSettings.FIGURES_FOLDER, "datasets_summaries", html_filename
+    )
 
     mean_trace_fig.write_html(path, full_html=False, include_plotlyjs="cdn")
 
@@ -1112,7 +1100,9 @@ def save_freq_mean_trace_figs(
     ]
     for count, df in enumerate(dfs):
         csv_filename = filenames[count]
-        path = os.path.join(FileSettings.FIGURES_FOLDER, csv_filename)
+        path = os.path.join(
+            FileSettings.TABLES_FOLDER, "datasets_summaries_data", csv_filename
+        )
         df.to_csv(path, float_format="%8.4f")
 
 
@@ -1398,30 +1388,6 @@ def plot_annotated_trace(trace, annotation_values, genotype):
     return annotated_plot, annotated_plot_noaxes
 
 
-def save_annotated_figs(axes, noaxes, cell, genotype):
-    """
-    Saves the example traces figs as static png file
-    """
-
-    if not os.path.exists(FileSettings.PAPER_FIGURES_FOLDER):
-        os.makedirs(FileSettings.PAPER_FIGURES_FOLDER)
-
-    axes_filename = "{}_{}_trace_annotated.png".format(
-        cell.cell_name, genotype
-    )
-    noaxes_filename = "{}_{}_trace_annotated_noaxes.png".format(
-        cell.cell_name, genotype
-    )
-
-    axes.write_image(
-        os.path.join(FileSettings.PAPER_FIGURES_FOLDER, axes_filename)
-    )
-
-    noaxes.write_image(
-        os.path.join(FileSettings.PAPER_FIGURES_FOLDER, noaxes_filename)
-    )
-
-
 def make_one_plot_trace(file_name, cell_trace, type=None, inset=False):
     """
     Makes the trace data used to plot later. "type" parameter determines the 
@@ -1627,460 +1593,8 @@ def save_example_traces_figs(fig, ephys_traces, type):
     fig.write_image(os.path.join(FileSettings.PAPER_FIGURES_FOLDER, filename))
 
     csv_filename = f"{type}_example_traces.csv"
-    path = os.path.join(FileSettings.PAPER_FIGURES_FOLDER, csv_filename)
+    path = os.path.join(FileSettings.PAPER_FIGS_DATA_FOLDER, csv_filename)
     ephys_traces.to_csv(path, float_format="%8.4f")
-
-
-def plot_spike_sweeps(genotype, trace):
-    """
-    Plots a single spike sweep to show STC physiology
-    """
-    color = {"OMP": "#ff9300", "Gg8": "#7a81ff"}
-
-    layout = Layout(plot_bgcolor="rgba(0,0,0,0)")
-    to_plot = trace[400:1600]
-    zoomed_to_plot = trace[530:605]
-
-    spikes_plots = make_subplots(
-        rows=1, cols=2, column_widths=[0.7, 0.3], horizontal_spacing=0.05
-    )
-    # spikes_plots = go.Figure(layout=layout)
-    # pdb.set_trace()
-
-    # add main spike train
-    spikes_plots.add_trace(
-        go.Scatter(
-            x=to_plot.index,
-            y=to_plot,
-            # name=type_names[0],
-            mode="lines",
-            line=dict(
-                # color=color[genotype],
-                color="#414145",
-                width=2,
-            ),
-            # legendgroup=duration,
-        ),
-        row=1,
-        col=1,
-    )
-
-    # add zoomed-in spikes
-    spikes_plots.add_trace(
-        go.Scatter(
-            x=zoomed_to_plot.index,
-            y=zoomed_to_plot,
-            # name=type_names[0],
-            mode="lines",
-            line=dict(
-                # color=color[genotype],
-                color="#414145",
-                width=2,
-            ),
-            # legendgroup=duration,
-        ),
-        row=1,
-        col=2,
-    )
-
-    spikes_plots.update_xaxes(
-        showline=True,
-        linewidth=1,
-        linecolor="black",
-        gridcolor="black",
-        ticks="outside",
-        tick0=400,
-        dtick=100,
-    )
-
-    spikes_plots.update_yaxes(
-        showline=True, linewidth=1, gridcolor="black", linecolor="black",
-    )
-
-    # add shaded box around spikes that we're zooming in on
-    spikes_plots.add_shape(
-        type="rect",
-        xref="x1",
-        yref="y1",
-        x0=528,
-        y0=-50,
-        x1=607,
-        y1=25,
-        line=dict(color="#B1EE81"),
-        fillcolor="#B1EE81",
-        opacity=0.5,
-        layer="below",
-    )
-
-    # add shaded border around zoomed in subplot
-    spikes_plots.add_shape(
-        type="rect",
-        xref="x2",
-        yref="y2",
-        x0=525,
-        y0=-52,
-        x1=610,
-        y1=25,
-        line=dict(color="#B1EE81"),
-    )
-
-    # adds horizontal line + text for main spikes scale bar
-    spikes_plots.add_shape(
-        type="line", xref="x1", yref="y1", x0=1400, y0=-10, x1=1600, y1=-10,
-    )
-    spikes_plots.add_annotation(
-        xref="x1",
-        yref="y1",
-        x=1500,
-        y=-10,
-        yshift=-20,
-        text="200 ms",
-        showarrow=False,
-        font=dict(size=20),
-    )
-
-    # adds vertical line + text for main spikes scale bar
-    spikes_plots.add_shape(
-        type="line", xref="x1", yref="y1", x0=1600, y0=-10, x1=1600, y1=10
-    )
-
-    spikes_plots.add_annotation(
-        xref="x1",
-        yref="y1",
-        x=1600,
-        y=0,
-        xshift=40,
-        text="20 mV",
-        showarrow=False,
-        # textangle=-90,
-        font=dict(size=20),
-    )
-
-    # add arrow annotation for Vr
-    spikes_plots.add_annotation(
-        xref="x1",
-        yref="y1",
-        x=450,
-        y=to_plot[450],
-        # xshift=25,
-        yshift=5,
-        # text="{} mV".format(round(to_plot[450])),
-        showarrow=True,
-        arrowhead=2,
-        arrowsize=1,
-        arrowwidth=2,
-    )
-
-    # add text annotation for Vr
-    spikes_plots.add_annotation(
-        xref="x1",
-        yref="y1",
-        x=450,
-        y=to_plot[450],
-        yshift=40,
-        xshift=-10,
-        text="{} mV".format(round(to_plot[450])),
-        showarrow=False,
-        font=dict(size=20),
-    )
-
-    # adds horizontal line + text for zoomed spikes scale bar
-    spikes_plots.add_shape(
-        type="line", xref="x2", yref="y2", x0=612.5, y0=0, x1=637.5, y1=0,
-    )
-    spikes_plots.add_annotation(
-        xref="x2",
-        yref="y2",
-        x=625,
-        y=0,
-        yshift=-20,
-        text="25 ms",
-        showarrow=False,
-        font=dict(size=20),
-    )
-
-    # adds vertical line + text for zoomed spikes scale bar
-    spikes_plots.add_shape(
-        type="line", xref="x2", yref="y2", x0=637.5, y0=0, x1=637.5, y1=10
-    )
-
-    spikes_plots.add_annotation(
-        xref="x2",
-        yref="y2",
-        x=637.5,
-        y=5,
-        xshift=40,
-        text="10 mV",
-        showarrow=False,
-        # textangle=-90,
-        font=dict(size=20),
-    )
-
-    spikes_plots.update_layout(
-        font_family="Arial",
-        showlegend=False,
-        width=1200,
-        height=600,
-        plot_bgcolor="rgba(0,0,0,0)",
-    )
-
-    spikes_plots_noaxes = go.Figure(spikes_plots)
-    spikes_plots_noaxes.update_xaxes(showgrid=False, visible=False)
-    spikes_plots_noaxes.update_yaxes(showgrid=False, visible=False)
-
-    # spikes_plots_noaxes.show()
-    # pdb.set_trace()
-
-    return spikes_plots, spikes_plots_noaxes
-
-
-def save_spike_figs(axes, noaxes, cell, genotype):
-    """
-    Saves the example traces figs as static png file
-    """
-
-    if not os.path.exists(FileSettings.PAPER_FIGURES_FOLDER):
-        os.makedirs(FileSettings.PAPER_FIGURES_FOLDER)
-
-    axes_filename = "{}_{}_spikes.png".format(cell.cell_name, genotype)
-    noaxes_filename = "{}_{}_spikes_noaxes.png".format(
-        cell.cell_name, genotype
-    )
-
-    axes.write_image(
-        os.path.join(FileSettings.PAPER_FIGURES_FOLDER, axes_filename)
-    )
-
-    noaxes.write_image(
-        os.path.join(FileSettings.PAPER_FIGURES_FOLDER, noaxes_filename)
-    )
-
-
-def plot_power_curve_traces(mean_trace_df, sweeps_df):
-    """
-    Plots the baseline-subtracted mean trace for each stimulus condition around the response time, 
-    one subplot for each duration, if applicable. Does this for one cell.
-    """
-
-    # intensities and durations, and color might need to become self variables
-
-    sweep_analysis_values = sweeps_df
-    intensities = sweep_analysis_values["Light Intensity"].unique()
-    durations = sweep_analysis_values["Light Duration"].unique()
-
-    # blue colors
-    color = ["#0859C6", "#10A5F5", "#00DBFF"]
-
-    stim_columns = mean_trace_df.loc[:, ["Light Intensity", "Light Duration"]]
-    traces_to_plot = mean_trace_df.loc[
-        :, 500.00:700.00
-    ]  # only plots first 400-1000 ms
-    traces_to_plot_combined = pd.concat([stim_columns, traces_to_plot], axis=1)
-
-    power_curve_traces = make_subplots(
-        # rows=len(intensities), cols=1,
-        rows=1,
-        cols=len(intensities),
-        subplot_titles=(intensities[::-1]),
-        shared_yaxes=True,
-        x_title="Time (ms)",
-        y_title="Amplitude (pA)",
-    )
-
-    # new method for hiding duplicate legends:
-    # create a list to track each time a duration has been plotted, and only show legends
-    # for the first time the duration is plotted
-    duration_checker = []
-
-    for intensity_count, intensity in enumerate(intensities):
-        for duration_count, duration in enumerate(durations):
-
-            # plot sweeps from all intensities of one duration
-            y_toplot = traces_to_plot_combined.loc[
-                (traces_to_plot_combined["Light Intensity"] == intensity)
-                & (traces_to_plot_combined["Light Duration"] == duration),
-                500.00::,
-            ].squeeze()
-            power_curve_traces.add_trace(
-                go.Scatter(
-                    x=traces_to_plot.columns,
-                    y=y_toplot,
-                    name=duration,
-                    mode="lines",
-                    line=dict(color=color[duration_count]),
-                    showlegend=False if duration in duration_checker else True,
-                    legendgroup=duration,
-                ),
-                # row=intensity_count+1, col=1
-                row=1,
-                col=len(intensities) - intensity_count,
-            )
-            if len(y_toplot) != 0:
-                duration_checker.append(duration)
-
-    # below is code from stack overflow to hide duplicate legends
-    # names = set()
-    # mean_traces_fig.for_each_trace(
-    #     lambda trace:
-    #         trace.update(showlegend=False)
-    #         if (trace.name in names) else names.add(trace.name))
-
-    power_curve_traces.update_layout(
-        title_text="Light Intensity",
-        title_x=0.45,
-        legend_title_text="Light Duration",
-        title_font=dict(size=20, family="Arial"),
-        legend=dict(font=dict(family="Arial", size=16)),
-    )
-
-    power_curve_traces.update_xaxes(
-        title_font=dict(size=24, family="Arial"),
-        tickfont=dict(size=16, family="Arial"),
-        tickangle=45,
-        automargin=True,
-        autorange=True,
-    )
-
-    power_curve_traces.update_yaxes(
-        title_font=dict(size=24, family="Arial"),
-        tickfont=dict(size=16, family="Arial"),
-        tick0=500,
-        dtick=100,
-        automargin=True,
-    )
-
-    power_curve_traces.update_annotations(font_size=20, font_family="Arial")
-    # power_curve_traces.show()
-
-    return power_curve_traces
-
-
-def save_power_curve_traces(genotype, cell_name, fig):
-    """
-    Saves the power curve traces figs as static png file
-    """
-
-    if not os.path.exists(FileSettings.PAPER_FIGURES_FOLDER):
-        os.makedirs(FileSettings.PAPER_FIGURES_FOLDER)
-
-    filename = "{}_{}_power_curve_traces.png".format(cell_name, genotype)
-
-    fig.write_image(os.path.join(FileSettings.PAPER_FIGURES_FOLDER, filename))
-
-
-def graph_power_curve(power_curve_stats, sweep_analysis_values):
-    """
-        do a loop through available durations and intensities instead of hard
-        coding. maybe need MultiIndex after all?? Put power curve + all stats 
-        measurements in subplots
-        """
-
-    intensities = sweep_analysis_values["Light Intensity"].unique()
-    durations = sweep_analysis_values["Light Duration"].unique()
-
-    color = ["#0859C6", "#10A5F5", "#00DBFF"]
-
-    power_curve = go.Figure()
-
-    # make the x-axis of light intensity to be used in each subplot
-
-    x_sweep_dict = {}
-
-    for duration in durations:
-        x_sweep_intensity = sweep_analysis_values.loc[
-            sweep_analysis_values["Light Duration"] == duration,
-            ["Light Intensity"],
-        ]
-
-        x_sweep_dict[duration] = x_sweep_intensity
-
-    # pdb.set_trace()
-    for count, duration in enumerate(durations):
-
-        error = power_curve_stats.loc[
-            power_curve_stats["Light Duration"] == duration, ["SEM"]
-        ].squeeze()
-
-        if len(intensities) > 1:
-            if isinstance(error, float) != True:
-                # only make power curve if more than one intensity exists
-
-                # power curve
-                power_curve.add_trace(
-                    go.Scatter(
-                        x=power_curve_stats.loc[
-                            power_curve_stats["Light Duration"] == duration,
-                            ["Light Intensity"],
-                        ].squeeze(),
-                        y=power_curve_stats.loc[
-                            power_curve_stats["Light Duration"] == duration,
-                            ["Mean Response Amplitude (pA)"],
-                        ].squeeze(),
-                        name=duration,
-                        error_y=dict(
-                            type="data", array=error.values, visible=True
-                        ),
-                        mode="lines+markers",
-                        line=dict(color=color[count]),
-                        legendgroup=duration,
-                    ),
-                )
-
-        # Update xaxis properties
-        # curve_stats_fig.update_xaxes(autorange="reversed")
-        # this defines the intensities order for x-axes
-        power_curve.update_xaxes(
-            title_text="Light Intensity",
-            categoryorder="array",
-            categoryarray=np.flip(intensities),
-            title_font=dict(size=20, family="Arial"),
-            tickfont=dict(size=16, family="Arial"),
-        )
-
-        # Update yaxis properties
-        power_curve.update_yaxes(
-            title_text="Response Amplitude (pA)",
-            autorange="reversed",
-            title_font=dict(size=20, family="Arial"),
-            tickfont=dict(size=16, family="Arial"),
-        )
-
-    power_curve.update_layout(
-        # yaxis_title='Onset Latency (ms)',
-        boxmode="group"  # group together boxes of the different traces for each value of x
-    )
-
-    # below is code from stack overflow to hide duplicate legends
-    names = set()
-    power_curve.for_each_trace(
-        lambda trace: trace.update(showlegend=False)
-        if (trace.name in names)
-        else names.add(trace.name)
-    )
-
-    power_curve.update_layout(
-        legend_title_text="Light Duration",
-        font=dict(family="Arial", size=20),
-        legend=dict(font=dict(family="Arial", size=16)),
-    )
-    power_curve.update_annotations(font_size=20, font_family="Arial")
-
-    # power_curve.show()
-
-    return power_curve
-
-
-def save_power_curve(genotype, cell_name, fig):
-    """
-    Saves the power curve traces figs as static png file
-    """
-
-    if not os.path.exists(FileSettings.PAPER_FIGURES_FOLDER):
-        os.makedirs(FileSettings.PAPER_FIGURES_FOLDER)
-
-    filename = "{}_{}_power_curve.png".format(cell_name, genotype)
-
-    fig.write_image(os.path.join(FileSettings.PAPER_FIGURES_FOLDER, filename))
 
 
 def make_event_hist_trace(trace_color, condition, data):
@@ -2359,7 +1873,9 @@ def save_ephys_sections_fig(fig, data, regression):
     """
 
     html_filename = "ephys_sections_comparisons.html"
-    path = os.path.join(FileSettings.FIGURES_FOLDER, html_filename)
+    path = os.path.join(
+        FileSettings.FIGURES_FOLDER, "datasets_summaries", html_filename
+    )
 
     fig.write_html(path, full_html=False, include_plotlyjs="cdn")
 
@@ -2370,7 +1886,7 @@ def save_ephys_sections_fig(fig, data, regression):
     ]
     for count, df in enumerate(dfs):
         csv_filename = filenames[count]
-        path = os.path.join(FileSettings.FIGURES_FOLDER, csv_filename)
+        path = os.path.join(FileSettings.PAPER_FIGS_DATA_FOLDER, csv_filename)
         df.to_csv(path, float_format="%8.4f")
 
 
@@ -2382,7 +1898,11 @@ def plot_EPL_intensity():
     """
 
     intensities = pd.read_csv(
-        os.path.join(FileSettings.TABLES_FOLDER, "IHC_EPL_intensity.csv"),
+        os.path.join(
+            FileSettings.TABLES_FOLDER,
+            "misc_csv_data",
+            "IHC_EPL_intensity.csv",
+        ),
         header=0,
     )
 
@@ -2448,7 +1968,9 @@ def save_epl_plot(fig):
     """
 
     html_filename = "EPL_intensity_plot.html"
-    path = os.path.join(FileSettings.FIGURES_FOLDER, html_filename)
+    path = os.path.join(
+        FileSettings.FIGURES_FOLDER, "datasets_summaries", html_filename
+    )
 
     fig.write_html(path, full_html=False, include_plotlyjs="cdn")
 
@@ -2513,7 +2035,7 @@ def save_p2_6wpi_counts_fig(fig):
     """
 
     html_filename = "p2_6wpi_response_plot.html"
-    path = os.path.join(FileSettings.FIGURES_FOLDER, html_filename)
+    path = os.path.join(FileSettings.FIGURES_FOLDER, "p2_6wpi", html_filename)
 
     fig.write_html(path, full_html=False, include_plotlyjs="cdn")
 
@@ -2834,7 +2356,9 @@ def save_all_mean_trace_fig(fig, data):
     """
 
     html_filename = "all_mean_trace_freq_stats.html"
-    path = os.path.join(FileSettings.FIGURES_FOLDER, html_filename)
+    path = os.path.join(
+        FileSettings.FIGURES_FOLDER, "datasets_summaries", html_filename
+    )
 
     fig.write_html(path, full_html=False, include_plotlyjs="cdn")
 
@@ -2847,7 +2371,9 @@ def save_all_mean_trace_fig(fig, data):
     )
 
     csv_filename = "all_mean_trace_freq_stats.csv"
-    path = os.path.join(FileSettings.FIGURES_FOLDER, csv_filename)
+    path = os.path.join(
+        FileSettings.TABLES_FOLDER, "datasets_summaries_folder", csv_filename
+    )
     data.to_csv(path, float_format="%8.4f")
 
 
@@ -2869,6 +2395,7 @@ def plot_previous_analysis():
         df = pd.read_csv(
             os.path.join(
                 FileSettings.TABLES_FOLDER,
+                "misc_csv_data",
                 f"old_{timepoint}_mean_trace_peaks.csv",
             ),
             header=0,
