@@ -665,7 +665,8 @@ class JaneCell(object):
             The time to peak from response onset, in ms
 
         """
-        peak_time = window.idxmin()
+        peak_time = window.idxmax()
+
         time_to_peak = peak_time - response_onset
 
         return time_to_peak
@@ -1199,11 +1200,13 @@ class JaneCell(object):
 
         # latency_mean = np.asarray(latency).mean()
 
-        # # find time to peak, in ms
-        # time_to_peak = self.calculate_timetopeak(peak_window, onset)
+        # find time to peak, in ms
+
         # mean_trace_time_to_peak = self.calculate_timetopeak(
         #     mean_peak_window, mean_trace_onset
         # )
+        mean_trace_time_to_peak = mean_trace_peak_time - mean_trace_onset
+
         # time_to_peak_mean = time_to_peak.mean()
 
         # determines whether the cell is responding, using mean_trace_filtered
@@ -1219,8 +1222,8 @@ class JaneCell(object):
                 "Cell Type": self.cell_type,
                 "Mean Trace Peak (pA)": mean_trace_peak[0],
                 "Mean Trace Peak Time (ms)": mean_trace_peak_time,
-                # "Mean Trace Onset Latency (ms)": mean_trace_latency[0],
-                # "Mean Trace Time to Peak (ms)": mean_trace_time_to_peak[0],
+                "Mean Trace Onset Latency (ms)": mean_trace_latency[0],
+                "Mean Trace Time to Peak (ms)": mean_trace_time_to_peak[0],
                 "Response 4x STD": responses["Response 4x STD"][0],
                 "Response 3x STD": responses["Response 3x STD"][0],
             },
