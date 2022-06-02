@@ -484,7 +484,7 @@ def plot_mean_trace_stats(mean_trace_dict, all_cells=False):
         measures_list = [
             "Mean Trace Peak (pA)",
             "Log Mean Trace Peak",
-            "Mean Trace Peak Time (ms)",
+            "Mean Trace Time to Peak (ms)",
         ]
     else:
         measures_list = [
