@@ -674,7 +674,7 @@ def plot_risetime_amp_corr(data_df, data_type):
     fig.add_annotation(
         x=0.5,
         y=-0.12,
-        # font=dict(size=16, color="blue"),
+        font=dict(size=26),
         showarrow=False,
         text=x_axis_label,
         textangle=-0,
@@ -1483,11 +1483,11 @@ def make_one_plot_trace(file_name, cell_trace, type=None, inset=False):
     color = {
         "GC cell-attached": "#414145",
         "GC break-in": "#7A7A81",
-        "Control": "#414145",
+        "MC Control": "#414145",
         "NBQX": "#EE251F",
         "MC": "#609a00",
         "TC": "#388bf7",
-        "Gabazine": "#EE251F",
+        "MC Gabazine": "#EE251F",
     }
 
     if inset is True:
@@ -1875,8 +1875,8 @@ def plot_ephys_sections_intensity(data):
     sections_fig.for_each_annotation(lambda a: a.update(text=""))
     sections_fig.add_annotation(
         x=0.5,
-        y=-0.15,
-        # font=dict(size=16, color="blue"),
+        y=-0.20,
+        font=dict(size=26),
         showarrow=False,
         text="Integrated intensity density/area \u03BCm\u00b2",
         textangle=-0,
@@ -2117,6 +2117,7 @@ def plot_example_GC_traces(traces_dict):
     """
     fig = make_subplots(rows=1, cols=2,)
     stim_time = p2_acq_parameters.STIM_TIME
+    fig.update_layout(template="plotly")
 
     # for count, trace in enumerate(traces):
     #     fig.add_trace(trace, row=count + 1, col=1)
@@ -2216,6 +2217,7 @@ def plot_example_cell_type_traces(traces_dict, timepoint):
     """
 
     fig = make_subplots(rows=2, cols=2, shared_yaxes=True, shared_xaxes=True)
+    fig.update_layout(template="plotly")
 
     if timepoint == "p2":
         stim_time = p2_acq_parameters.STIM_TIME
@@ -2327,6 +2329,7 @@ def plot_single_trace(traces_dict, timepoint):
 
     for count, (cell, info) in enumerate(traces_dict.items()):
         fig.add_trace(info["plotting trace"],)
+    fig.update_layout(template="plotly")
 
     # adds horizontal line + text for plot scale bar
     fig.add_shape(type="line", x0=800, y0=-700, x1=900, y1=-700)
@@ -2388,6 +2391,7 @@ def plot_gabazine_wash_traces(traces_dict):
     makes a subplot for each. Arrangement depends on type of plot shown.
     """
     fig = make_subplots(rows=1, cols=2, shared_yaxes=True)
+    fig.update_layout(template="plotly")
     stim_time = p2_acq_parameters.STIM_TIME
 
     # for count, trace in enumerate(traces):

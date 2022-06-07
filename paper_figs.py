@@ -275,15 +275,15 @@ def make_timepoint_example_traces():
 def make_gabazine_wash_in_traces():
 
     files_dict = {
-        "Control": {
+        "MC Control": {
             "name": "JH190828_c6_light100.ibw",
-            "cell type": "Control",
+            "cell type": "MC Control",
             "timepoint": "p14",
             "sweep to use": 3,
         },
-        "Gabazine": {
+        "MC Gabazine": {
             "name": "JH190828Gabazine_c6_light100.ibw",
-            "cell type": "Gabazine",
+            "cell type": "MC Gabazine",
             "timepoint": "extra_sweeps",
             "sweep to use": 26,
         },
@@ -327,7 +327,7 @@ def make_example_huge_trace():
     files_dict = {
         "MC": {
             "name": "JH20210824_c4_light100.ibw",
-            "cell type": "Control",
+            "cell type": "MC Control",
             "timepoint": "p2_6wpi",
             "sweep to use": 0,
         }
@@ -385,6 +385,18 @@ def get_example_cell_PSTH(dataset, cell_name):
 
     fig = example_cell.annotated_freq_fig
 
+    # gives x-axis label room to breathe
+    fig.for_each_annotation(lambda a: a.update(yshift=-50))
+
+    save_fig_to_png(
+        fig,
+        legend=True,
+        rows=2,
+        cols=3,
+        png_filename="test.png",
+        extra_bottom=True,
+    )
+
     return fig
 
 
@@ -433,6 +445,7 @@ def plot_misc_data():
         rows=1,
         cols=2,
         png_filename="ephys_sections_comparisons.png",
+        extra_bottom=True,
     )
 
     epl_fig = plot_EPL_intensity()  # should move this to paper figs
@@ -474,6 +487,7 @@ def plot_misc_data():
         rows=2,
         cols=3,
         png_filename="example_PSTH_fig.png",
+        extra_bottom=True,
     )
 
 
