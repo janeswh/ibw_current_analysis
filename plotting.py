@@ -8,6 +8,9 @@ from plotly.graph_objects import Layout
 from plotly.subplots import make_subplots
 import plotly.io as pio
 
+pio.templates.default = "simple_white"
+
+
 pio.kaleido.scope.default_scale = 2
 pio.kaleido.scope.default_format = "png"
 from scipy.stats import sem

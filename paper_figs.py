@@ -479,15 +479,15 @@ def plot_misc_data():
 
 if __name__ == "__main__":
 
-    # plot_misc_data()
+    plot_misc_data()
 
-    # get_event_risetime_amp(data_type="event")
-    # get_event_risetime_amp(data_type="frequency")
+    get_event_risetime_amp(data_type="event")
+    get_event_risetime_amp(data_type="frequency")
 
     make_example_huge_trace()
 
-    # # make example traces
-    # make_GC_example_traces()
-    # make_timepoint_example_traces()
-    # make_gabazine_wash_in_traces()
+    # make example traces
+    make_GC_example_traces()
+    make_timepoint_example_traces()
+    make_gabazine_wash_in_traces()
 
