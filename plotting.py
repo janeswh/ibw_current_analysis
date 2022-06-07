@@ -556,7 +556,7 @@ def plot_mean_trace_stats(mean_trace_dict, all_cells=False):
                     marker_color=cell_type_bar_colors[cell_type],
                     marker=dict(
                         line=dict(
-                            color=cell_type_line_colors[cell_type], width=1
+                            color=cell_type_line_colors[cell_type], width=2
                         ),
                         size=15,
                     ),
@@ -583,9 +583,10 @@ def plot_mean_trace_stats(mean_trace_dict, all_cells=False):
                         # if measure == "Mean Trace Peak (pA)"
                         # else cell_sem_df[measure],
                         color=cell_type_line_colors[cell_type],
-                        thickness=1,
+                        thickness=3,
                         visible=True,
                     ),
+                    marker_line_width=3,
                     marker_line_color=cell_type_line_colors[cell_type],
                     marker_color=cell_type_bar_colors[cell_type],
                     # marker=dict(markercolor=cell_type_colors[cell_type]),
@@ -864,7 +865,7 @@ def plot_freq_stats(dataset_freq_stats):
                     marker_color=cell_type_bar_colors[cell_type],
                     marker=dict(
                         line=dict(
-                            color=cell_type_line_colors[cell_type], width=1
+                            color=cell_type_line_colors[cell_type], width=2
                         ),
                         size=15,
                     ),
@@ -885,9 +886,10 @@ def plot_freq_stats(dataset_freq_stats):
                         type="data",
                         array=cell_sem_df[measure],
                         color=cell_type_line_colors[cell_type],
-                        thickness=1,
+                        thickness=3,
                         visible=True,
                     ),
+                    marker_line_width=3,
                     marker_line_color=cell_type_line_colors[cell_type],
                     marker_color=cell_type_bar_colors[cell_type],
                     # marker=dict(markercolor=cell_type_colors[cell_type]),
@@ -1001,7 +1003,7 @@ def plot_windowed_median_event_stats(median_dict, cell_types_list):
                         marker_color=cell_type_bar_colors[cell_type],
                         marker=dict(
                             line=dict(
-                                color=cell_type_line_colors[cell_type], width=1
+                                color=cell_type_line_colors[cell_type], width=2
                             ),
                             size=15,
                         ),
@@ -1022,9 +1024,10 @@ def plot_windowed_median_event_stats(median_dict, cell_types_list):
                             type="data",
                             array=all_sems[measure],
                             color=cell_type_line_colors[cell_type],
-                            thickness=1,
+                            thickness=3,
                             visible=True,
                         ),
+                        marker_line_width=3,
                         marker_line_color=cell_type_line_colors[cell_type],
                         marker_color=cell_type_bar_colors[cell_type],
                         # marker=dict(markercolor=cell_type_colors[cell_type]),
@@ -1149,6 +1152,23 @@ def save_freq_mean_trace_figs(
         df.to_csv(path, float_format="%8.4f")
 
 
+def save_all_mean_trace_fig(all_mean_trace_fig, all_mean_trace_data):
+    html_filename = "all_mean_trace_stats.html"
+    path = os.path.join(
+        FileSettings.FIGURES_FOLDER, "datasets_summaries", html_filename
+    )
+
+    all_mean_trace_fig.write_html(
+        path, full_html=False, include_plotlyjs="cdn"
+    )
+
+    csv_filename = "all_mean_trace_data.csv"
+    path = os.path.join(
+        FileSettings.TABLES_FOLDER, "datasets_summaries_data", csv_filename
+    )
+    all_mean_trace_data.to_csv(path, float_format="%8.4f")
+
+
 def plot_cell_type_event_comparisons(median_dict):
     """
     Compares event kinetics between MCs and TCs, for light-response windows only
@@ -1213,7 +1233,7 @@ def plot_cell_type_event_comparisons(median_dict):
                     marker_color=cell_type_bar_colors[cell_type],
                     marker=dict(
                         line=dict(
-                            color=cell_type_line_colors[cell_type], width=1
+                            color=cell_type_line_colors[cell_type], width=2
                         ),
                         size=15,
                     ),
@@ -1234,9 +1254,10 @@ def plot_cell_type_event_comparisons(median_dict):
                         type="data",
                         array=cell_sem_df[measure],
                         color=cell_type_line_colors[cell_type],
-                        thickness=1,
+                        thickness=3,
                         visible=True,
                     ),
+                    marker_line_width=3,
                     marker_line_color=cell_type_line_colors[cell_type],
                     marker_color=cell_type_bar_colors[cell_type],
                     # marker=dict(markercolor=cell_type_colors[cell_type]),
@@ -2486,17 +2507,9 @@ def save_all_mean_trace_fig(fig, data):
 
     fig.write_html(path, full_html=False, include_plotlyjs="cdn")
 
-    save_fig_to_png(
-        fig,
-        legend=True,
-        rows=1,
-        cols=2,
-        png_filename="all_mean_trace_freq_stats.png",
-    )
-
-    csv_filename = "all_mean_trace_freq_stats.csv"
+    csv_filename = "all_mean_trace_data.csv"
     path = os.path.join(
-        FileSettings.TABLES_FOLDER, "datasets_summaries_folder", csv_filename
+        FileSettings.TABLES_FOLDER, "datasets_summaries_data", csv_filename
     )
     data.to_csv(path, float_format="%8.4f")
 

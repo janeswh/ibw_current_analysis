@@ -410,6 +410,7 @@ def make_cell_type_summary_dfs(
 
 def save_dataset_stats(
     dataset,
+    all_mean_trace_stats_df,
     response_cells_list,
     mean_trace_stats,
     dataset_counts_df,
@@ -423,6 +424,7 @@ def save_dataset_stats(
     for all the datasets.
     """
     filenames = [
+        f"{dataset}_all_mean_trace_stats.csv",
         f"{dataset}_response_cells_list.csv",
         f"{dataset}_mean_trace_stats.csv",
         f"{dataset}_response_counts.csv",
@@ -431,6 +433,7 @@ def save_dataset_stats(
         f"{dataset}_avg_frequency_stats.csv",
     ]
     dfs = [
+        all_mean_trace_stats_df,
         response_cells_list,
         mean_trace_stats,
         dataset_counts_df,

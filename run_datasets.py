@@ -106,6 +106,7 @@ def collect_dataset_stats(dataset_list):
 
         save_dataset_stats(
             dataset,
+            all_mean_trace_stats_df,
             response_cells_list,
             mean_trace_stats_df,
             dataset_counts_df,
@@ -122,6 +123,7 @@ def collect_dataset_stats(dataset_list):
 
     return (
         cell_types_list,
+        dataset_all_mean_trace_stats,
         dataset_cell_counts,
         dataset_mean_trace_stats,
         dataset_median_stats,
@@ -131,6 +133,7 @@ def collect_dataset_stats(dataset_list):
 
 def make_summary_plots(
     cell_types_list,
+    dataset_all_mean_trace_stats,
     dataset_cell_counts,
     dataset_mean_trace_stats,
     dataset_median_stats,
@@ -152,10 +155,18 @@ def make_summary_plots(
     mean_trace_stats_fig, mean_trace_stats_fig_data = plot_mean_trace_stats(
         dataset_mean_trace_stats
     )
+
+    # plots all mean trace stats
+    (
+        all_mean_trace_stats_fig,
+        all_mean_trace_stats_fig_data,
+    ) = plot_mean_trace_stats(dataset_all_mean_trace_stats)
     # plots avg freq stats
     freq_stats_fig, freq_stats_fig_data = plot_freq_stats(dataset_freq_stats)
 
     return (
+        all_mean_trace_stats_fig,
+        all_mean_trace_stats_fig_data,
         response_fig,
         response_fig_data,
         windowed_event_medians_fig,
@@ -170,6 +181,8 @@ def make_summary_plots(
 
 
 def save_summary_plots(
+    all_mean_trace_stats_fig,
+    all_mean_trace_stats_fig_data,
     response_fig,
     response_fig_data,
     windowed_event_medians_fig,
@@ -183,6 +196,10 @@ def save_summary_plots(
 ):
 
     # save as html, also saves plotted data as csvs
+    save_all_mean_trace_fig(
+        all_mean_trace_stats_fig, all_mean_trace_stats_fig_data
+    )
+
     save_response_counts_fig(response_fig, response_fig_data)
     save_median_events_fig(
         windowed_event_medians_fig,
@@ -198,6 +215,14 @@ def save_summary_plots(
     )
 
     # save to png
+    save_fig_to_png(
+        all_mean_trace_stats_fig,
+        legend=True,
+        rows=1,
+        cols=3,
+        png_filename="all_mean_trace_stats.png",
+    )
+
     save_fig_to_png(
         response_fig,
         legend=True,
@@ -244,6 +269,7 @@ def main():
 
     (
         cell_types_list,
+        dataset_all_mean_trace_stats,
         dataset_cell_counts,
         dataset_mean_trace_stats,
         dataset_median_stats,
@@ -251,6 +277,8 @@ def main():
     ) = collect_dataset_stats(dataset_list)
 
     (
+        all_mean_trace_stats_fig,
+        all_mean_trace_stats_fig_data,
         response_fig,
         response_fig_data,
         windowed_event_medians_fig,
@@ -263,6 +291,7 @@ def main():
         freq_stats_fig_data,
     ) = make_summary_plots(
         cell_types_list,
+        dataset_all_mean_trace_stats,
         dataset_cell_counts,
         dataset_mean_trace_stats,
         dataset_median_stats,
@@ -270,6 +299,8 @@ def main():
     )
 
     save_summary_plots(
+        all_mean_trace_stats_fig,
+        all_mean_trace_stats_fig_data,
         response_fig,
         response_fig_data,
         windowed_event_medians_fig,
