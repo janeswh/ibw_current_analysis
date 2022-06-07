@@ -143,9 +143,11 @@ def make_summary_plots(
     response_fig, response_fig_data = plot_response_counts(dataset_cell_counts)
 
     (
-        windowed_event_medians_fig,
+        windowed_event_medians_figs,
         medians_fig_data,
-    ) = plot_windowed_median_event_stats(dataset_median_stats, cell_types_list)
+    ) = test_plot_windowed_median_event_stats(
+        dataset_median_stats, cell_types_list
+    )
     (
         event_comparisons_fig,
         event_comparisons_fig_data,
@@ -169,7 +171,7 @@ def make_summary_plots(
         all_mean_trace_stats_fig_data,
         response_fig,
         response_fig_data,
-        windowed_event_medians_fig,
+        windowed_event_medians_figs,
         medians_fig_data,
         event_comparisons_fig,
         event_comparisons_fig_data,
@@ -185,7 +187,7 @@ def save_summary_plots(
     all_mean_trace_stats_fig_data,
     response_fig,
     response_fig_data,
-    windowed_event_medians_fig,
+    windowed_event_medians_figs,
     medians_fig_data,
     event_comparisons_fig,
     event_comparisons_fig_data,
@@ -202,7 +204,7 @@ def save_summary_plots(
 
     save_response_counts_fig(response_fig, response_fig_data)
     save_median_events_fig(
-        windowed_event_medians_fig,
+        windowed_event_medians_figs,
         event_comparisons_fig,
         medians_fig_data,
         event_comparisons_fig_data,
@@ -241,17 +243,25 @@ def save_summary_plots(
     save_fig_to_png(
         freq_stats_fig,
         legend=True,
-        rows=1,
-        cols=4,
+        rows=2,
+        cols=2,
         png_filename="avg_freq_stats.png",
     )
 
     save_fig_to_png(
-        windowed_event_medians_fig,
+        windowed_event_medians_figs[0],
         legend=True,
         rows=3,
-        cols=4,
-        png_filename="windowed_event_medians.png",
+        cols=2,
+        png_filename="p2_windowed_event_medians.png",
+    )
+
+    save_fig_to_png(
+        windowed_event_medians_figs[1],
+        legend=True,
+        rows=3,
+        cols=2,
+        png_filename="p14_windowed_event_medians.png",
     )
 
     save_fig_to_png(
