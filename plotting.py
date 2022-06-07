@@ -625,6 +625,172 @@ def plot_mean_trace_stats(mean_trace_dict, all_cells=False):
     return mean_trace_stats_fig, all_stats
 
 
+def plot_risetime_amp_corr(data_df, data_type):
+    """
+    Plots the amplitude of frequency/event against their rise times
+    """
+
+    cell_type_line_colors = {"MC": "#609a00", "TC": "#388bf7"}
+    if data_type == "event":
+        x_label = "Adjusted amplitude (pA)"
+        y_label = "Rise time (ms)"
+        x_axis_label = "Peak Amplitude (pA)"
+
+        annotation_y = 1.4
+    elif data_type == "frequency":
+        x_label = "Baseline-sub Peak Freq (Hz)"
+        y_label = "Rise Time (ms)"
+        x_axis_label = "Peak Frequency (Hz)"
+
+        annotation_y = 120
+
+    fig = px.scatter(
+        data_df,
+        x=x_label,
+        y=y_label,
+        color="Cell Type",
+        facet_col="Dataset",
+        facet_row="Cell Type",
+        facet_row_spacing=0.05,
+        trendline="ols",
+        color_discrete_map=cell_type_line_colors,
+    )
+    fig.update_traces(marker=dict(size=15), line=dict(width=4))
+
+    fig.update_xaxes(
+        autorange="reversed" if data_type == "event" else True, matches=None
+    )
+    fig.for_each_xaxis(lambda xaxis: xaxis.update(showticklabels=True))
+
+    fig.layout.xaxis.title.update(text="P2")
+    fig.layout.xaxis2.title.update(text="P14")
+
+    # # hides facet plot individual titles
+    fig.for_each_annotation(lambda a: a.update(text=""))
+    fig.add_annotation(
+        x=0.5,
+        y=-0.12,
+        # font=dict(size=16, color="blue"),
+        showarrow=False,
+        text=x_axis_label,
+        textangle=-0,
+        xref="paper",
+        yref="paper",
+    )
+
+    # fig.update_layout(width=2400, height=3000)
+    regression_results = pd.DataFrame()
+    # gets regression results
+    models = px.get_trendline_results(fig)
+
+    for time_count, timepoint in enumerate(models["Dataset"].unique()):
+
+        annotations = []
+        timepoint_model = models.loc[models["Dataset"] == timepoint]
+        for count, model_row in timepoint_model.iterrows():
+
+            timepoint = model_row["Dataset"]
+            cell_type = model_row["Cell Type"]
+            results = model_row["px_fit_results"]
+            alpha = results.params[0]
+            beta = results.params[1]
+            p_beta = results.pvalues[1]
+            r_squared = results.rsquared
+
+            list = pd.DataFrame(
+                [timepoint, cell_type, alpha, beta, p_beta, r_squared]
+            ).T
+            regression_results = pd.concat([regression_results, list])
+
+            # makes regression annotation
+            if beta > 0:
+                sign = "+"
+            else:
+                sign = "-"
+            line1 = f"y = {str(round(alpha, 4))} {sign} {abs(beta):.1E}x <br>"
+            line2 = f"p-value = {p_beta:.3f} <br>"
+            line3 = f"R\u00b2 = {str(round(r_squared, 4))} <br>"
+            summary = line1 + line2 + line3
+            annotations.append(summary)
+
+        # annotates facet plot with regression values
+        # sets positions of facet plots to annotate
+        if timepoint == "P2":
+            mc_xref = "x3"
+            mc_yref = "y3"
+            tc_xref = "x"
+            tc_yref = "y"
+        elif timepoint == "P14":
+            mc_xref = "x4"
+            mc_yref = "y4"
+            tc_xref = "x2"
+            tc_yref = "y2"
+
+        fig.add_annotation(
+            xref=mc_xref,
+            yref=mc_yref,
+            x=data_df.loc[
+                (data_df["Dataset"] == timepoint)
+                & (data_df["Cell Type"] == "MC")
+            ][x_label].min()
+            * 0.9
+            if data_type == "event"
+            else data_df.loc[
+                (data_df["Dataset"] == timepoint)
+                & (data_df["Cell Type"] == "MC")
+            ][x_label].max()
+            * 0.9,  # relative to x
+            y=annotation_y,
+            text=annotations[0],
+            align="left",
+            showarrow=False,
+        )
+
+        fig.add_annotation(
+            xref=tc_xref,
+            yref=tc_yref,
+            x=data_df.loc[
+                (data_df["Dataset"] == timepoint)
+                & (data_df["Cell Type"] == "TC")
+            ][x_label].min()
+            * 0.9
+            if data_type == "event"
+            else data_df.loc[
+                (data_df["Dataset"] == timepoint)
+                & (data_df["Cell Type"] == "TC")
+            ][x_label].max()
+            * 0.9,  # relative to x
+            y=annotation_y,
+            text=annotations[1],
+            align="left",
+            showarrow=False,
+        )
+
+    regression_results.columns = [
+        "timepoint",
+        "cell type",
+        "alpha",
+        "beta",
+        "p_beta",
+        "r_squared",
+    ]
+
+    return fig, regression_results
+
+
+def save_risetime_amp_corr_fig(fig, regression, data_type):
+    html_filename = f"{data_type}_risetime_amp_corr.html"
+    path = os.path.join(
+        FileSettings.FIGURES_FOLDER, "datasets_summaries", html_filename
+    )
+
+    fig.write_html(path, full_html=False, include_plotlyjs="cdn")
+
+    csv_filename = f"{data_type}_risetime_amp_regression.csv"
+    path = os.path.join(FileSettings.PAPER_FIGS_DATA_FOLDER, csv_filename)
+    regression.to_csv(path, float_format="%8.4f")
+
+
 def plot_freq_stats(dataset_freq_stats):
     """
     Plots average frequency kinetic properties for responding cells in the 
@@ -2119,6 +2285,78 @@ def plot_example_cell_type_traces(traces_dict, timepoint):
     return fig_noaxes
 
 
+def plot_single_trace(traces_dict, timepoint):
+    """
+    Takes the plotting traces for each sweep that needs to be plotted and 
+    makes a subplot for each. Arrangement depends on type of plot shown.
+    """
+    fig = go.Figure()
+
+    if timepoint == "p2":
+        stim_time = p2_acq_parameters.STIM_TIME
+    elif timepoint == "p14":
+        stim_time = p14_acq_parameters.STIM_TIME
+
+    # for count, trace in enumerate(traces):
+    #     fig.add_trace(trace, row=count + 1, col=1)
+
+    for count, (cell, info) in enumerate(traces_dict.items()):
+        fig.add_trace(info["plotting trace"],)
+
+    # adds horizontal line + text for plot scale bar
+    fig.add_shape(type="line", x0=800, y0=-700, x1=900, y1=-700)
+    fig.add_annotation(
+        x=850, y=-800, text="100 ms", showarrow=False, font=dict(size=20),
+    )
+
+    # adds vertical line + text for scale bar
+    fig.add_shape(type="line", x0=900, y0=-700, x1=900, y1=-300)
+
+    fig.add_annotation(
+        x=950, y=-500, text="400 pA", showarrow=False, font=dict(size=20),
+    )
+
+    # adds line for light stim
+    fig.add_vrect(
+        type="rect",
+        x0=stim_time,
+        x1=stim_time + 100,
+        fillcolor="#33F7FF",
+        opacity=0.5,
+        layer="below",
+        line_width=0,
+    )
+
+    fig.update_xaxes(
+        showline=True,
+        linewidth=1,
+        linecolor="black",
+        gridcolor="black",
+        ticks="outside",
+        tick0=520,
+        dtick=10,
+    )
+    fig.update_yaxes(
+        showline=True, linewidth=1, gridcolor="black", linecolor="black",
+    )
+
+    fig.update_layout(
+        plot_bgcolor="rgba(0,0,0,0)",
+        font_family="Arial",
+        legend=dict(font=dict(family="Arial", size=26)),
+        width=600,
+        height=300,
+    )
+
+    fig_noaxes = go.Figure(fig)
+    fig_noaxes.update_xaxes(showgrid=False, visible=False)
+    fig_noaxes.update_yaxes(showgrid=False, visible=False)
+
+    # inset_plot_noaxes.show()
+
+    return fig_noaxes
+
+
 def plot_gabazine_wash_traces(traces_dict):
     """
     Takes the plotting traces for each sweep that needs to be plotted and 
@@ -2202,11 +2440,15 @@ def plot_gabazine_wash_traces(traces_dict):
     return fig_noaxes
 
 
-def save_fig_to_png(fig, legend, rows, cols, png_filename):
+def save_fig_to_png(fig, legend, rows, cols, png_filename, extra_bottom=False):
     """
     Formats a plot made for html to make it appropriate for png/paper figs
     """
     # set font size and image wize
+
+    if extra_bottom == True:
+        fig.update_layout(margin=dict(b=150))
+
     fig.update_layout(
         font_family="Arial",
         legend=dict(font=dict(family="Arial", size=26)),

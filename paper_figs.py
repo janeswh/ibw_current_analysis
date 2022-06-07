@@ -322,6 +322,49 @@ def make_gabazine_wash_in_traces():
     )
 
 
+def make_example_huge_trace():
+
+    files_dict = {
+        "MC": {
+            "name": "JH20210824_c4_light100.ibw",
+            "cell type": "Control",
+            "timepoint": "p2_6wpi",
+            "sweep to use": 0,
+        }
+    }
+
+    ephys_traces_plotted = pd.DataFrame()
+
+    for cell, info in files_dict.items():
+        dataset = info["timepoint"]
+        csvfile_name = f"{dataset}_data_notes.csv"
+        csvfile = os.path.join(
+            FileSettings.TABLES_FOLDER, dataset, csvfile_name,
+        )
+        sweep_info = pd.read_csv(csvfile, index_col=0)
+        file = os.path.join(FileSettings.DATA_FOLDER, dataset, info["name"])
+
+        file_sweeps = JaneCell(dataset, sweep_info, file, info["name"])
+        file_sweeps.initialize_cell()
+        file_traces = file_sweeps.process_traces_for_plotting()
+        file_plotting_trace, plotted_trace = make_one_plot_trace(
+            info["name"],
+            cell_trace=file_traces[info["sweep to use"]],
+            type=info["cell type"],
+            inset=False,
+        )
+        files_dict[cell]["plotting trace"] = file_plotting_trace
+        files_dict[cell]["ephys trace"] = plotted_trace
+
+        plotted_trace = pd.DataFrame({cell: plotted_trace})
+        ephys_traces_plotted = pd.concat(
+            [ephys_traces_plotted, plotted_trace], axis=1
+        )
+
+    fig = plot_single_trace(files_dict, timepoint="p2")
+    save_example_traces_figs(fig, ephys_traces_plotted, "p2_6wpi_huge")
+
+
 def get_example_cell_PSTH(dataset, cell_name):
     """
     Gets the raster plot and PSTH plot of one cell for showing an example.
@@ -343,6 +386,31 @@ def get_example_cell_PSTH(dataset, cell_name):
     fig = example_cell.annotated_freq_fig
 
     return fig
+
+
+def get_event_risetime_amp(data_type):
+    if data_type == "event":
+        csvfile_name = "cell_comparison_medians_data.csv"
+    elif data_type == "frequency":
+        csvfile_name = "freq_stats_data.csv"
+
+    csvfile = os.path.join(
+        FileSettings.TABLES_FOLDER, "datasets_summaries_data", csvfile_name,
+    )
+
+    df = pd.read_csv(csvfile, index_col=0, header=0)
+
+    corr_fig, regression_stats = plot_risetime_amp_corr(df, data_type)
+    save_risetime_amp_corr_fig(corr_fig, regression_stats, data_type)
+
+    save_fig_to_png(
+        corr_fig,
+        legend=True,
+        rows=2,
+        cols=2,
+        png_filename=f"{data_type}_risetime_amp_corr.png",
+        extra_bottom=True,
+    )
 
 
 def plot_misc_data():
@@ -411,10 +479,15 @@ def plot_misc_data():
 
 if __name__ == "__main__":
 
-    plot_misc_data()
+    # plot_misc_data()
 
-    # make example traces
-    make_GC_example_traces()
-    make_timepoint_example_traces()
-    make_gabazine_wash_in_traces()
+    # get_event_risetime_amp(data_type="event")
+    # get_event_risetime_amp(data_type="frequency")
+
+    make_example_huge_trace()
+
+    # # make example traces
+    # make_GC_example_traces()
+    # make_timepoint_example_traces()
+    # make_gabazine_wash_in_traces()
 
