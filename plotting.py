@@ -14,11 +14,13 @@ pio.templates.default = "simple_white"
 pio.kaleido.scope.default_scale = 2
 pio.kaleido.scope.default_format = "png"
 from scipy.stats import sem
+from scipy.stats import spearmanr
 from collections import defaultdict
 import plotly.io as pio
 from file_settings import FileSettings
 import p2_acq_parameters
 import p14_acq_parameters
+from run_stats import calc_spearman
 
 pio.renderers.default = "browser"
 import pdb
@@ -629,24 +631,23 @@ def plot_mean_trace_stats(mean_trace_dict, all_cells=False):
     return mean_trace_stats_fig, all_stats
 
 
-def plot_risetime_amp_corr(data_df, data_type):
+def plot_correlations(data_df, data_type, x_label, y_label):
     """
     Plots the amplitude of frequency/event against their rise times
     """
 
     cell_type_line_colors = {"MC": "#609a00", "TC": "#388bf7"}
-    if data_type == "event":
-        x_label = "Adjusted amplitude (pA)"
-        y_label = "Rise time (ms)"
+
+    if (data_type == "event") & (x_label == "Adjusted amplitude (pA)"):
         x_axis_label = "Peak Amplitude (pA)"
 
-        annotation_y = 1.4
-    elif data_type == "frequency":
-        x_label = "Baseline-sub Peak Freq (Hz)"
-        y_label = "Rise Time (ms)"
+    elif (data_type == "frequency") & (
+        x_label == "Baseline-sub Peak Freq (Hz)"
+    ):
         x_axis_label = "Peak Frequency (Hz)"
 
-        annotation_y = 120
+    else:
+        x_axis_label = x_label
 
     fig = px.scatter(
         data_df,
@@ -662,7 +663,8 @@ def plot_risetime_amp_corr(data_df, data_type):
     fig.update_traces(marker=dict(size=15), line=dict(width=4))
 
     fig.update_xaxes(
-        autorange="reversed" if data_type == "event" else True, matches=None
+        autorange="reversed" if x_label == "Adjusted amplitude (pA)" else True,
+        matches=None,
     )
     fig.for_each_xaxis(lambda xaxis: xaxis.update(showticklabels=True))
 
@@ -682,43 +684,17 @@ def plot_risetime_amp_corr(data_df, data_type):
         yref="paper",
     )
 
-    # fig.update_layout(width=2400, height=3000)
-    regression_results = pd.DataFrame()
-    # gets regression results
-    models = px.get_trendline_results(fig)
+    # gets spearman correlation coefficient
+    spearman_stats = calc_spearman(data_df, data_type, x_label, y_label)
 
-    for time_count, timepoint in enumerate(models["Dataset"].unique()):
+    for timepoint in spearman_stats["Timepoint"].unique():
+        stats = spearman_stats.loc[spearman_stats["Timepoint"] == timepoint]
+        rs_MC = stats.loc[stats["Cell type"] == "MC"]["Spearman r"][0]
+        pval_MC = stats.loc[stats["Cell type"] == "MC"]["p-value"][0]
 
-        annotations = []
-        timepoint_model = models.loc[models["Dataset"] == timepoint]
-        for count, model_row in timepoint_model.iterrows():
+        rs_TC = stats.loc[stats["Cell type"] == "TC"]["Spearman r"][0]
+        pval_TC = stats.loc[stats["Cell type"] == "TC"]["p-value"][0]
 
-            timepoint = model_row["Dataset"]
-            cell_type = model_row["Cell Type"]
-            results = model_row["px_fit_results"]
-            alpha = results.params[0]
-            beta = results.params[1]
-            p_beta = results.pvalues[1]
-            r_squared = results.rsquared
-
-            list = pd.DataFrame(
-                [timepoint, cell_type, alpha, beta, p_beta, r_squared]
-            ).T
-            regression_results = pd.concat([regression_results, list])
-
-            # makes regression annotation
-            if beta > 0:
-                sign = "+"
-            else:
-                sign = "-"
-            line1 = f"y = {str(round(alpha, 4))} {sign} {abs(beta):.1E}x <br>"
-            line2 = f"p-value = {p_beta:.3f} <br>"
-            line3 = f"R\u00b2 = {str(round(r_squared, 4))} <br>"
-            summary = line1 + line2 + line3
-            annotations.append(summary)
-
-        # annotates facet plot with regression values
-        # sets positions of facet plots to annotate
         if timepoint == "P2":
             mc_xref = "x3"
             mc_yref = "y3"
@@ -730,6 +706,8 @@ def plot_risetime_amp_corr(data_df, data_type):
             tc_xref = "x2"
             tc_yref = "y2"
 
+        annotation_y = data_df[y_label].max() * 0.95
+
         fig.add_annotation(
             xref=mc_xref,
             yref=mc_yref,
@@ -738,14 +716,16 @@ def plot_risetime_amp_corr(data_df, data_type):
                 & (data_df["Cell Type"] == "MC")
             ][x_label].min()
             * 0.9
-            if data_type == "event"
+            if x_label == "Adjusted amplitude (pA)"
             else data_df.loc[
                 (data_df["Dataset"] == timepoint)
                 & (data_df["Cell Type"] == "MC")
-            ][x_label].max()
-            * 0.9,  # relative to x
+            ][
+                x_label
+            ].max(),  # relative to x
             y=annotation_y,
-            text=annotations[0],
+            text=f"r\u209b = {np.round(rs_MC, 3)}<br>"
+            f"p = {np.round(pval_MC, 3)}",
             align="left",
             showarrow=False,
         )
@@ -758,41 +738,88 @@ def plot_risetime_amp_corr(data_df, data_type):
                 & (data_df["Cell Type"] == "TC")
             ][x_label].min()
             * 0.9
-            if data_type == "event"
+            if x_label == "Adjusted amplitude (pA)"
             else data_df.loc[
                 (data_df["Dataset"] == timepoint)
                 & (data_df["Cell Type"] == "TC")
-            ][x_label].max()
-            * 0.9,  # relative to x
+            ][
+                x_label
+            ].max(),  # relative to x
             y=annotation_y,
-            text=annotations[1],
+            text=f"r\u209b = {np.round(rs_TC, 3)}<br>"
+            f"p = {np.round(pval_TC, 3)}",
             align="left",
             showarrow=False,
         )
 
-    regression_results.columns = [
-        "timepoint",
-        "cell type",
-        "alpha",
-        "beta",
-        "p_beta",
-        "r_squared",
-    ]
+    # unused regression stuff
+    # regression_results = pd.DataFrame()
+    # # gets regression results
+    # models = px.get_trendline_results(fig)
 
-    return fig, regression_results
+    # for time_count, timepoint in enumerate(models["Dataset"].unique()):
+
+    #     annotations = []
+    #     timepoint_model = models.loc[models["Dataset"] == timepoint]
+    #     for count, model_row in timepoint_model.iterrows():
+
+    #         timepoint = model_row["Dataset"]
+    #         cell_type = model_row["Cell Type"]
+    #         results = model_row["px_fit_results"]
+    #         alpha = results.params[0]
+    #         beta = results.params[1]
+    #         p_beta = results.pvalues[1]
+    #         r_squared = results.rsquared
+
+    #         list = pd.DataFrame(
+    #             [timepoint, cell_type, alpha, beta, p_beta, r_squared]
+    #         ).T
+    #         regression_results = pd.concat([regression_results, list])
+
+    #         # makes regression annotation
+    #         if beta > 0:
+    #             sign = "+"
+    #         else:
+    #             sign = "-"
+    #         line1 = f"y = {str(round(alpha, 4))} {sign} {abs(beta):.1E}x <br>"
+    #         line2 = f"p-value = {p_beta:.3f} <br>"
+    #         line3 = f"R\u00b2 = {str(round(r_squared, 4))} <br>"
+    #         summary = line1 + line2 + line3
+    #         annotations.append(summary)
+
+    # regression_results.columns = [
+    #     "timepoint",
+    #     "cell type",
+    #     "alpha",
+    #     "beta",
+    #     "p_beta",
+    #     "r_squared",
+    # ]
+
+    return fig, spearman_stats
 
 
-def save_risetime_amp_corr_fig(fig, regression, data_type):
-    html_filename = f"{data_type}_risetime_amp_corr.html"
+def save_corr_fig(figs_list, stats, data_type):
+    html_filename = f"{data_type}_kinetics_correlations.html"
     path = os.path.join(
         FileSettings.FIGURES_FOLDER, "datasets_summaries", html_filename
     )
 
-    fig.write_html(path, full_html=False, include_plotlyjs="cdn")
+    figs_list[0].write_html(path, full_html=False, include_plotlyjs="cdn")
 
-    csv_filename = f"{data_type}_risetime_amp_regression.csv"
+    if data_type == "event":
+        with open(path, "a") as f:
+            f.write(
+                figs_list[1].to_html(full_html=False, include_plotlyjs=False)
+            )
+        with open(path, "a") as f:
+            f.write(
+                figs_list[2].to_html(full_html=False, include_plotlyjs=False)
+            )
+
+    csv_filename = f"{data_type}_kinetics_correlations.csv"
     path = os.path.join(FileSettings.PAPER_FIGS_DATA_FOLDER, csv_filename)
-    regression.to_csv(path, float_format="%8.4f")
+    stats.to_csv(path, float_format="%8.4f")
 
 
 def plot_freq_stats(dataset_freq_stats):
@@ -2047,29 +2074,28 @@ def plot_ephys_sections_intensity(data):
     )
     # sections_fig.show()
 
-    regression_results = pd.DataFrame()
-    # gets regression results
-    models = px.get_trendline_results(sections_fig)
-    for count, model_row in models.iterrows():
-        variable = model_row["variable"]
-        results = model_row["px_fit_results"]
-        alpha = results.params[0]
-        beta = results.params[1]
-        p_beta = results.pvalues[1]
-        r_squared = results.rsquared
+    # gets spearman correlation coefficient
 
-        list = pd.DataFrame([variable, alpha, beta, p_beta, r_squared]).T
-        regression_results = pd.concat([regression_results, list])
+    all_correlation_stats = pd.DataFrame()
+    correlations = [
+        ["Integrated density/area", "Response %"],
+        ["Integrated density/area", "Mean Peak Frequency (Hz)"],
+    ]
+    for count, pair in enumerate(correlations):
+        data.reset_index(inplace=True)
+        x = data[pair[0]]
+        y = data[pair[1]]
 
-        # makes regression annotation
-        if beta > 0:
-            sign = "+"
-        else:
-            sign = "-"
-        line1 = f"y = {str(round(alpha, 4))} {sign} {abs(beta):.1E}x <br>"
-        line2 = f"p-value = {p_beta:.3f} <br>"
-        line3 = f"R\u00b2 = {str(round(r_squared, 4))} <br>"
-        summary = line1 + line2 + line3
+        if pair[1] == "Mean Peak Frequency (Hz)":
+            # find indices where peak freq is null
+            na_drops = data[data[pair[1]].isnull()].index
+            x = data[pair[0]].drop(labels=na_drops)
+            y = data[pair[1]].drop(labels=na_drops)
+
+        r, p_val = spearmanr(x, y, nan_policy="omit")
+        stats = pd.DataFrame([pair[0], pair[1], r, p_val]).T
+        stats.columns = ["X value", "Y value", "Spearman r", "p-value"]
+        all_correlation_stats = pd.concat([all_correlation_stats, stats])
 
         # annotates facet plot with regression values
         sections_fig.add_annotation(
@@ -2077,27 +2103,63 @@ def plot_ephys_sections_intensity(data):
             yref=f"y{count+1}",
             x=long_data["Integrated density/area"].max()
             * 0.9,  # relative to x
-            y=long_data.loc[long_data["variable"] == variable]["value"].max()
-            * 0.9,
-            text=summary,
+            y=data[pair[1]].max() * 0.95,
+            text=f"r\u209b = {np.round(r, 3)}<br>" f"p = {np.round(p_val, 3)}",
             align="left",
             showarrow=False,
         )
 
-    regression_results.columns = [
-        "variable",
-        "alpha",
-        "beta",
-        "p_beta",
-        "r_squared",
-    ]
+    # regression_results = pd.DataFrame()
+    # # gets regression results
+    # models = px.get_trendline_results(sections_fig)
+    # for count, model_row in models.iterrows():
+    #     variable = model_row["variable"]
+    #     results = model_row["px_fit_results"]
+    #     alpha = results.params[0]
+    #     beta = results.params[1]
+    #     p_beta = results.pvalues[1]
+    #     r_squared = results.rsquared
+
+    #     list = pd.DataFrame([variable, alpha, beta, p_beta, r_squared]).T
+    #     regression_results = pd.concat([regression_results, list])
+
+    #     # makes regression annotation
+    #     if beta > 0:
+    #         sign = "+"
+    #     else:
+    #         sign = "-"
+    #     line1 = f"y = {str(round(alpha, 4))} {sign} {abs(beta):.1E}x <br>"
+    #     line2 = f"p-value = {p_beta:.3f} <br>"
+    #     line3 = f"R\u00b2 = {str(round(r_squared, 4))} <br>"
+    #     summary = line1 + line2 + line3
+
+    #     # annotates facet plot with regression values
+    #     sections_fig.add_annotation(
+    #         xref=f"x{count+1}",
+    #         yref=f"y{count+1}",
+    #         x=long_data["Integrated density/area"].max()
+    #         * 0.9,  # relative to x
+    #         y=long_data.loc[long_data["variable"] == variable]["value"].max()
+    #         * 0.9,
+    #         text=summary,
+    #         align="left",
+    #         showarrow=False,
+    #     )
+
+    # regression_results.columns = [
+    #     "variable",
+    #     "alpha",
+    #     "beta",
+    #     "p_beta",
+    #     "r_squared",
+    # ]
 
     # sections_fig.show()
 
-    return sections_fig, long_data, regression_results
+    return sections_fig, long_data, all_correlation_stats
 
 
-def save_ephys_sections_fig(fig, data, regression):
+def save_ephys_sections_fig(fig, data, corr):
     """
     Saves plot comparing fixed ephys section intensities vs. response rate and
     peak frequency. Also saves data used to plot, along with regression results.
@@ -2110,10 +2172,10 @@ def save_ephys_sections_fig(fig, data, regression):
 
     fig.write_html(path, full_html=False, include_plotlyjs="cdn")
 
-    dfs = [data, regression]
+    dfs = [data, corr]
     filenames = [
         "ephys_sections_data.csv",
-        "ephys_sections_regression.csv",
+        "ephys_sections_correlation.csv",
     ]
     for count, df in enumerate(dfs):
         csv_filename = filenames[count]

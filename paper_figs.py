@@ -400,7 +400,7 @@ def get_example_cell_PSTH(dataset, cell_name):
     return fig
 
 
-def get_event_risetime_amp(data_type):
+def get_correlations(data_type):
     if data_type == "event":
         csvfile_name = "cell_comparison_medians_data.csv"
     elif data_type == "frequency":
@@ -411,18 +411,41 @@ def get_event_risetime_amp(data_type):
     )
 
     df = pd.read_csv(csvfile, index_col=0, header=0)
+    all_corrs = pd.DataFrame()
+    figs_list = []
 
-    corr_fig, regression_stats = plot_risetime_amp_corr(df, data_type)
-    save_risetime_amp_corr_fig(corr_fig, regression_stats, data_type)
+    if data_type == "event":
+        correlations = [
+            ["Adjusted amplitude (pA)", "Rise time (ms)"],
+            ["Adjusted amplitude (pA)", "Tau (ms)"],
+            ["Rise time (ms)", "Tau (ms)"],
+        ]
 
-    save_fig_to_png(
-        corr_fig,
-        legend=True,
-        rows=2,
-        cols=2,
-        png_filename=f"{data_type}_risetime_amp_corr.png",
-        extra_bottom=True,
-    )
+        fig_names = ["amp_rise", "amp_tau", "rise_tau"]
+
+    if data_type == "frequency":
+        correlations = [["Baseline-sub Peak Freq (Hz)", "Rise Time (ms)"]]
+        fig_names = ["peak_freq_rise"]
+
+    for corr_pair in correlations:
+        corr_fig, corr_stats = plot_correlations(
+            df, data_type, corr_pair[0], corr_pair[1]
+        )
+
+        figs_list.append(corr_fig)
+        all_corrs = pd.concat([all_corrs, corr_stats])
+
+    save_corr_fig(figs_list, all_corrs, data_type)
+
+    for count, fig in enumerate(figs_list):
+        save_fig_to_png(
+            fig,
+            legend=True,
+            rows=2,
+            cols=2,
+            png_filename=f"{data_type}_{fig_names[count]}_corr.png",
+            extra_bottom=True,
+        )
 
 
 def plot_misc_data():
@@ -432,12 +455,10 @@ def plot_misc_data():
     (
         sections_fig,
         sections_fig_data,
-        sections_regression,
+        sections_corr,
     ) = plot_ephys_sections_intensity(sections_data)
 
-    save_ephys_sections_fig(
-        sections_fig, sections_fig_data, sections_regression
-    )
+    save_ephys_sections_fig(sections_fig, sections_fig_data, sections_corr)
 
     save_fig_to_png(
         sections_fig,
@@ -495,8 +516,8 @@ if __name__ == "__main__":
 
     plot_misc_data()
 
-    get_event_risetime_amp(data_type="event")
-    get_event_risetime_amp(data_type="frequency")
+    get_correlations(data_type="event")
+    get_correlations(data_type="frequency")
 
     make_example_huge_trace()
 
