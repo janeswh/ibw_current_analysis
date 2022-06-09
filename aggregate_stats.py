@@ -566,6 +566,7 @@ def get_ephys_sections_intensity():
 
         section_list = pd.DataFrame(
             [
+                timepoint,
                 intensity,
                 response_ratio,
                 peak_freqs,
@@ -576,6 +577,7 @@ def get_ephys_sections_intensity():
         sections_data = pd.concat([sections_data, section_list])
 
     sections_data.columns = [
+        "Dataset",
         "Integrated density/area",
         "Response %",
         "Peak Frequency (Hz)",

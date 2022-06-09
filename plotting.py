@@ -44,7 +44,7 @@ def plot_averages(dataset, genotype, threshold, averages_df):
     for count, duration in enumerate(durations):
 
         y_df = averages_df.loc[averages_df["Light Duration"] == duration]
-        # pdb.set_trace()
+
         x_intensity = y_df["Light Intensity"]
 
         # mean trace peak amplitude
@@ -209,7 +209,6 @@ def plot_selected_averages(threshold, selected_avgs):
 
     genotypes = selected_avgs["Genotype"].unique()
 
-    # pdb.set_trace()
     for genotype in genotypes:
 
         x_datasets = selected_avgs.loc[selected_avgs["Genotype"] == genotype][
@@ -978,154 +977,6 @@ def plot_windowed_median_event_stats(median_dict, cell_types_list):
 
     datasets = median_dict.keys()
     measures_list = ["Adjusted amplitude (pA)", "Rise time (ms)", "Tau (ms)"]
-    median_fig = make_subplots(
-        rows=len(measures_list),
-        cols=len(datasets) * len(cell_types_list),
-        shared_xaxes=True,
-        shared_yaxes=True,
-        horizontal_spacing=0.02,
-        vertical_spacing=0.02,
-    )
-
-    plot_data = pd.DataFrame()
-
-    col_count = 1
-    for timepoint in datasets:
-        for cell_type_ct, cell_type in enumerate(cell_types_list):
-            df = median_dict[timepoint][cell_type]
-            win_con_labels = {
-                ("Light", "response win"): "Light<br> RW",
-                ("Spontaneous", "response win"): "Light Off<br> RW",
-                ("Light", "outside win"): "Light<br> OW",
-                ("Spontaneous", "outside win"): "Light Off<br> OW",
-            }
-
-            all_medians = pd.DataFrame()
-            all_means = pd.DataFrame()
-            all_sems = pd.DataFrame()
-
-            for win in df.keys():
-                for condition in df[win]["Condition"].unique():
-                    label = win_con_labels[(condition, win)]
-
-                    temp_df = (
-                        df[win].loc[df[win]["Condition"] == condition].copy()
-                    )
-                    temp_df.insert(0, "window condition", label)
-
-                    means = pd.DataFrame(temp_df.mean()).T
-                    means.index = [label]
-
-                    sem = pd.DataFrame(temp_df.sem()).T
-                    sem.index = [label]
-
-                    all_medians = pd.concat([all_medians, temp_df])
-                    all_means = pd.concat([all_means, means])
-                    all_sems = pd.concat([all_sems, sem])
-
-            for measure_ct, measure in enumerate(measures_list):
-                median_fig.add_trace(
-                    go.Box(
-                        x=all_medians["window condition"],
-                        y=all_medians[measure],
-                        line=dict(color="rgba(0,0,0,0)"),
-                        fillcolor="rgba(0,0,0,0)",
-                        boxpoints="all",
-                        pointpos=0,
-                        marker_color=cell_type_bar_colors[cell_type],
-                        marker=dict(
-                            line=dict(
-                                color=cell_type_line_colors[cell_type], width=2
-                            ),
-                            size=15,
-                        ),
-                        name=cell_type,
-                        legendgroup=cell_type,
-                        offsetgroup=dataset_order[timepoint] + cell_type_ct,
-                    ),
-                    row=measure_ct + 1,
-                    col=col_count,
-                )
-                # list = [timepoint, cell_type, win_]
-                # tries bar plot instead, plots mean of median with sem
-                median_fig.add_trace(
-                    go.Bar(
-                        x=all_medians["window condition"].unique(),
-                        y=all_means[measure],
-                        error_y=dict(
-                            type="data",
-                            array=all_sems[measure],
-                            color=cell_type_line_colors[cell_type],
-                            thickness=3,
-                            visible=True,
-                        ),
-                        marker_line_width=3,
-                        marker_line_color=cell_type_line_colors[cell_type],
-                        marker_color=cell_type_bar_colors[cell_type],
-                        # marker=dict(markercolor=cell_type_colors[cell_type]),
-                        name=cell_type,
-                        legendgroup=cell_type,
-                        offsetgroup=dataset_order[timepoint] + cell_type_ct,
-                    ),
-                    row=measure_ct + 1,
-                    col=col_count,
-                )
-
-                if measure == "Adjusted amplitude (pA)":
-                    median_fig.update_yaxes(
-                        autorange="reversed",
-                        row=measure_ct + 1,
-                        col=col_count,
-                        # title_standoff=500,
-                    )
-
-                #  below is code from stack overflow to hide duplicate legends
-                names = set()
-                median_fig.for_each_trace(
-                    lambda trace: trace.update(showlegend=False)
-                    if (trace.name in names)
-                    else names.add(trace.name)
-                )
-                median_fig.update_yaxes(
-                    title_text="Event amplitude (pA)"
-                    if measure == "Adjusted amplitude (pA)"
-                    else measure,
-                    row=measure_ct + 1,
-                    col=1,
-                    # title_standoff=500,
-                )
-
-            median_fig.update_xaxes(
-                title_text=f"{timepoint.capitalize()} {cell_type}",
-                row=len(measures_list),
-                col=col_count,
-            )
-
-            plot_data = pd.concat([plot_data, all_medians])
-            col_count += 1
-
-    median_fig.update_layout(
-        boxmode="group",
-        title_text="Median event kinetics by response window",
-        title_x=0.5,
-    )
-
-    # median_fig.show()
-
-    return median_fig, plot_data
-
-
-def test_plot_windowed_median_event_stats(median_dict, cell_types_list):
-    """
-    Returns two plots for easier arranging on paper, one fig per timepoint
-    """
-
-    dataset_order = {"p2": 0, "p14": 1}
-    cell_type_line_colors = {"MC": "#609a00", "TC": "#388bf7"}
-    cell_type_bar_colors = {"MC": "#CEEE98", "TC": "#ACCEFA"}
-
-    datasets = median_dict.keys()
-    measures_list = ["Adjusted amplitude (pA)", "Rise time (ms)", "Tau (ms)"]
 
     plot_data = pd.DataFrame()
 
@@ -1832,8 +1683,6 @@ def make_inset_plot_fig(
     # inset_plot.show()
     # inset_plot_noaxes.show()
 
-    # pdb.set_trace()
-
     return inset_plot, inset_plot_noaxes
 
 
@@ -2019,6 +1868,194 @@ def plot_response_win_comparison(
     return stats_fig
 
 
+def plot_ephys_sections_intensity_timepoint(data):
+    """
+    Plots the fixed ephys section intensities against response rates
+    and mean peak freq of the recorded cells from each section. Separates
+    out the timepoints.
+    """
+    data["Dataset"] = data["Dataset"].str.upper()
+
+    long_data = pd.melt(
+        data,
+        id_vars=["Integrated density/area", "Dataset"],
+        value_vars=["Response %", "Mean Peak Frequency (Hz)"],
+    )
+    timepoint_line_colors = {"P2": "#af6fae", "P14": "#ff3a35"}
+
+    sections_fig = px.scatter(
+        long_data,
+        x="Integrated density/area",
+        y="value",
+        facet_row="variable",
+        facet_col_spacing=0.2,
+        facet_col="Dataset",
+        color="Dataset",
+        color_discrete_map=timepoint_line_colors,
+        trendline="ols",
+    )
+
+    sections_fig.update_traces(marker=dict(size=15), line=dict(width=4))
+
+    # # hide subplot x-axis titles
+    # for axis in sections_fig.layout:
+    #     if type(sections_fig.layout[axis]) == go.layout.XAxis:
+    #         sections_fig.layout[axis].title.text = ""
+
+    sections_fig.update_yaxes(matches=None)
+    sections_fig.update_xaxes(matches=None)
+    # # hides facet plot individual titles
+    sections_fig.for_each_annotation(lambda a: a.update(text=""))
+
+    sections_fig.layout.xaxis.title.update(text="P2")
+    sections_fig.layout.xaxis2.title.update(text="P14")
+
+    sections_fig.layout.yaxis3.title.text = "Response %"
+    sections_fig.layout.yaxis.title.text = "Mean Peak Frequency (Hz)"
+
+    sections_fig.for_each_yaxis(
+        lambda yaxis: yaxis.update(showticklabels=True)
+    )
+
+    # sections_fig.for_each_xaxis(
+    #     lambda xaxis: xaxis.title.update(
+    #         text="Integrated intensity density/area \u03BCm\u00b2"
+    #     )
+    # )
+
+    # hides facet plot individual titles
+    sections_fig.for_each_annotation(lambda a: a.update(text=""))
+    sections_fig.add_annotation(
+        x=0.5,
+        y=-0.20,
+        font=dict(size=26),
+        showarrow=False,
+        text="Integrated intensity density/area \u03BCm\u00b2",
+        textangle=-0,
+        xref="paper",
+        yref="paper",
+    )
+
+    # gets spearman correlation coefficient
+
+    all_correlation_stats = pd.DataFrame()
+    correlations = [
+        ["Integrated density/area", "Response %"],
+        ["Integrated density/area", "Mean Peak Frequency (Hz)"],
+    ]
+    for timepoint in data["Dataset"].unique():
+        timepoint_df = data.loc[data["Dataset"] == timepoint].copy()
+        timepoint_correlations = []
+        for count, pair in enumerate(correlations):
+            x = timepoint_df[pair[0]]
+            y = timepoint_df[pair[1]]
+
+            if pair[1] == "Mean Peak Frequency (Hz)":
+                # find indices where peak freq is null
+                na_drops = timepoint_df[timepoint_df[pair[1]].isnull()].index
+                x = timepoint_df[pair[0]].drop(labels=na_drops)
+                y = timepoint_df[pair[1]].drop(labels=na_drops)
+
+            r, p_val = spearmanr(x, y, nan_policy="omit")
+            stats = pd.DataFrame([timepoint, pair[0], pair[1], r, p_val]).T
+            stats.columns = [
+                "Dataset",
+                "X value",
+                "Y value",
+                "Spearman r",
+                "p-value",
+            ]
+            all_correlation_stats = pd.concat([all_correlation_stats, stats])
+            timepoint_correlations.append([r, p_val])
+
+        if timepoint == "P2":
+            response_xref = "x3"
+            response_yref = "y3"
+            freq_xref = "x"
+            freq_yref = "y"
+        elif timepoint == "P14":
+            response_xref = "x4"
+            response_yref = "y4"
+            freq_xref = "x2"
+            freq_yref = "y2"
+
+        response_annotation_y = 1
+        freq_annotation_y = timepoint_df["Mean Peak Frequency (Hz)"].max()
+
+        sections_fig.add_annotation(
+            xref=response_xref,
+            yref=response_yref,
+            x=timepoint_df["Integrated density/area"].max(),  # relative to x
+            y=response_annotation_y,
+            text=f"r\u209b = {np.round(timepoint_correlations[0][0], 3)}<br>"
+            f"p = {np.round(timepoint_correlations[0][1], 3)}",
+            align="left",
+            showarrow=False,
+        )
+
+        sections_fig.add_annotation(
+            xref=freq_xref,
+            yref=freq_yref,
+            x=timepoint_df["Integrated density/area"].max(),  # relative to x
+            y=freq_annotation_y,
+            text=f"r\u209b = {np.round(timepoint_correlations[1][0], 3)}<br>"
+            f"p = {np.round(timepoint_correlations[1][1], 3)}",
+            align="left",
+            showarrow=False,
+        )
+
+    # sections_fig.show()
+
+    # regression_results = pd.DataFrame()
+    # # gets regression results
+    # models = px.get_trendline_results(sections_fig)
+    # for count, model_row in models.iterrows():
+    #     variable = model_row["variable"]
+    #     results = model_row["px_fit_results"]
+    #     alpha = results.params[0]
+    #     beta = results.params[1]
+    #     p_beta = results.pvalues[1]
+    #     r_squared = results.rsquared
+
+    #     list = pd.DataFrame([variable, alpha, beta, p_beta, r_squared]).T
+    #     regression_results = pd.concat([regression_results, list])
+
+    #     # makes regression annotation
+    #     if beta > 0:
+    #         sign = "+"
+    #     else:
+    #         sign = "-"
+    #     line1 = f"y = {str(round(alpha, 4))} {sign} {abs(beta):.1E}x <br>"
+    #     line2 = f"p-value = {p_beta:.3f} <br>"
+    #     line3 = f"R\u00b2 = {str(round(r_squared, 4))} <br>"
+    #     summary = line1 + line2 + line3
+
+    #     # annotates facet plot with regression values
+    #     sections_fig.add_annotation(
+    #         xref=f"x{count+1}",
+    #         yref=f"y{count+1}",
+    #         x=long_data["Integrated density/area"].max()
+    #         * 0.9,  # relative to x
+    #         y=long_data.loc[long_data["variable"] == variable]["value"].max()
+    #         * 0.9,
+    #         text=summary,
+    #         align="left",
+    #         showarrow=False,
+    #     )
+
+    # regression_results.columns = [
+    #     "variable",
+    #     "alpha",
+    #     "beta",
+    #     "p_beta",
+    #     "r_squared",
+    # ]
+
+    # sections_fig.show()
+
+    return sections_fig, long_data, all_correlation_stats
+
+
 def plot_ephys_sections_intensity(data):
     """
     Plots the fixed ephys section intensities against response rates
@@ -2159,13 +2196,16 @@ def plot_ephys_sections_intensity(data):
     return sections_fig, long_data, all_correlation_stats
 
 
-def save_ephys_sections_fig(fig, data, corr):
+def save_ephys_sections_fig(fig, data, corr, timepoint=False):
     """
     Saves plot comparing fixed ephys section intensities vs. response rate and
     peak frequency. Also saves data used to plot, along with regression results.
     """
-
-    html_filename = "ephys_sections_comparisons.html"
+    if timepoint == True:
+        timepoint_label = "timepoint"
+    else:
+        timepoint_label = "combined"
+    html_filename = f"{timepoint_label}_ephys_sections_comparisons.html"
     path = os.path.join(
         FileSettings.FIGURES_FOLDER, "datasets_summaries", html_filename
     )
@@ -2174,8 +2214,8 @@ def save_ephys_sections_fig(fig, data, corr):
 
     dfs = [data, corr]
     filenames = [
-        "ephys_sections_data.csv",
-        "ephys_sections_correlation.csv",
+        f"{timepoint_label}_ephys_sections_data.csv",
+        f"{timepoint_label}_ephys_sections_correlation.csv",
     ]
     for count, df in enumerate(dfs):
         csv_filename = filenames[count]
@@ -2787,7 +2827,6 @@ def plot_previous_analysis():
         cell_stats_df = all_amps[f"ln({cell_type})"]
         cell_mean_df = all_means[f"ln({cell_type})"]
         cell_sem_df = all_sems[f"ln({cell_type})"]
-        # pdb.set_trace()
 
         fig.add_trace(
             go.Box(

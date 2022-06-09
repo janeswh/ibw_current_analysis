@@ -452,6 +452,7 @@ def plot_misc_data():
 
     # gets ephys intensity data
     sections_data = get_ephys_sections_intensity()
+
     (
         sections_fig,
         sections_fig_data,
@@ -465,10 +466,33 @@ def plot_misc_data():
         legend=False,
         rows=1,
         cols=2,
-        png_filename="ephys_sections_comparisons.png",
+        png_filename="combined_ephys_sections_comparisons.png",
         extra_bottom=True,
     )
 
+    # gets ephys intensity data but separated out timepoints
+    (
+        timepoint_sections_fig,
+        timepoint_sections_fig_data,
+        timepoint_sections_corr,
+    ) = plot_ephys_sections_intensity_timepoint(sections_data)
+
+    save_ephys_sections_fig(
+        timepoint_sections_fig,
+        timepoint_sections_fig_data,
+        timepoint_sections_corr,
+        timepoint=True,
+    )
+
+    save_fig_to_png(
+        timepoint_sections_fig,
+        legend=True,
+        rows=2,
+        cols=2,
+        png_filename="timepoint_ephys_sections_comparisons.png",
+        extra_bottom=True,
+    )
+    pdb.set_trace()
     epl_fig = plot_EPL_intensity()  # should move this to paper figs
     save_epl_plot(epl_fig)
 
