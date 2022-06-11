@@ -145,9 +145,7 @@ def make_summary_plots(
     (
         windowed_event_medians_figs,
         medians_fig_data,
-    ) = test_plot_windowed_median_event_stats(
-        dataset_median_stats, cell_types_list
-    )
+    ) = plot_windowed_median_event_stats(dataset_median_stats, cell_types_list)
     (
         event_comparisons_fig,
         event_comparisons_fig_data,
