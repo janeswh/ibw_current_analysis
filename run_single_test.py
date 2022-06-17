@@ -887,7 +887,7 @@ if __name__ == "__main__":
         dataset,
         csvfile_name,
     )
-    cell_name = "JH20210826_c6"
+    cell_name = "JH200313_c2"
     # cell_name = "JH190904_c2"
 
     run_both_conditions(dataset, csvfile, cell_name)

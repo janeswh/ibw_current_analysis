@@ -653,9 +653,9 @@ def plot_correlations(data_df, data_type, x_label, y_label):
         x=x_label,
         y=y_label,
         color="Cell Type",
-        facet_col="Dataset",
-        facet_row="Cell Type",
-        facet_row_spacing=0.05,
+        facet_row="Dataset",
+        facet_col="Cell Type",
+        facet_row_spacing=0.15,
         trendline="ols",
         color_discrete_map=cell_type_line_colors,
     )
@@ -667,8 +667,10 @@ def plot_correlations(data_df, data_type, x_label, y_label):
     )
     fig.for_each_xaxis(lambda xaxis: xaxis.update(showticklabels=True))
 
-    fig.layout.xaxis.title.update(text="P2")
-    fig.layout.xaxis2.title.update(text="P14")
+    fig.layout.xaxis.title.update(text="P14 MC")
+    fig.layout.xaxis3.title.update(text="P2 MC")
+    fig.layout.xaxis2.title.update(text="P14 TC")
+    fig.layout.xaxis4.title.update(text="P2 TC")
 
     # # hides facet plot individual titles
     fig.for_each_annotation(lambda a: a.update(text=""))
@@ -697,11 +699,11 @@ def plot_correlations(data_df, data_type, x_label, y_label):
         if timepoint == "P2":
             mc_xref = "x3"
             mc_yref = "y3"
-            tc_xref = "x"
-            tc_yref = "y"
+            tc_xref = "x4"
+            tc_yref = "y4"
         elif timepoint == "P14":
-            mc_xref = "x4"
-            mc_yref = "y4"
+            mc_xref = "x"
+            mc_yref = "y"
             tc_xref = "x2"
             tc_yref = "y2"
 
@@ -839,9 +841,9 @@ def plot_freq_stats(dataset_freq_stats):
     freq_stats_fig = make_subplots(
         rows=2,
         cols=len(measures_list[0]),
-        shared_xaxes=True,
+        # shared_xaxes=True,
         horizontal_spacing=0.2,  # x_title="Timepoint"
-        vertical_spacing=0.05,
+        vertical_spacing=0.10,
     )
     all_stats = pd.DataFrame()
     all_means = pd.DataFrame()
@@ -989,7 +991,7 @@ def plot_windowed_median_event_stats(median_dict, cell_types_list):
             shared_xaxes=True,
             shared_yaxes=True,
             horizontal_spacing=0.02,
-            vertical_spacing=0.02,
+            vertical_spacing=0.10,
         )
 
         for cell_type_ct, cell_type in enumerate(cell_types_list):
@@ -1072,6 +1074,12 @@ def plot_windowed_median_event_stats(median_dict, cell_types_list):
                     col=cell_type_ct + 1,
                 )
 
+                median_fig.update_xaxes(
+                    title_text=f"{timepoint.capitalize()} {cell_type}",
+                    row=measure_ct + 1,
+                    col=cell_type_ct + 1,
+                )
+
                 if measure == "Adjusted amplitude (pA)":
                     median_fig.update_yaxes(
                         autorange="reversed",
@@ -1095,12 +1103,6 @@ def plot_windowed_median_event_stats(median_dict, cell_types_list):
                     col=1,
                     # title_standoff=500,
                 )
-
-            median_fig.update_xaxes(
-                title_text=f"{timepoint.capitalize()} {cell_type}",
-                row=len(measures_list),
-                col=cell_type_ct + 1,
-            )
 
             plot_data = pd.concat([plot_data, all_medians])
         figs_list.append(median_fig)

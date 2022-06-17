@@ -8,7 +8,7 @@ from aggregate_stats import *
 from file_settings import FileSettings
 
 from single_test import JaneCell
-
+from plotting import *
 
 import pdb
 
