@@ -1,3 +1,4 @@
+from unicodedata import name
 import pandas as pd
 import matplotlib.pyplot as plt
 import pynwb
@@ -12,6 +13,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from file_settings import FileSettings
 
+import collections
 from scipy.stats import sem
 
 import plotly.io as pio
@@ -24,6 +26,7 @@ import pdb
 from single_test import JaneCell
 from plotting import *
 from aggregate_stats import *
+from run_datasets import get_datasets
 
 
 def get_single_cell(dataset, csvfile, nwbfile_name):
@@ -492,7 +495,7 @@ def plot_misc_data():
         png_filename="timepoint_ephys_sections_comparisons.png",
         extra_bottom=True,
     )
-    pdb.set_trace()
+
     epl_fig = plot_EPL_intensity()  # should move this to paper figs
     save_epl_plot(epl_fig)
 
@@ -536,7 +539,92 @@ def plot_misc_data():
     )
 
 
+def get_avg_frequencies():
+    """
+    Gets the average frequencies for each cell for plotting
+    """
+    dataset_list = get_datasets()
+
+    avg_freqs_dict = collections.defaultdict(dict)
+    for dataset in dataset_list:
+        cell_types = [
+            path
+            for path in os.listdir(
+                os.path.join(FileSettings.TABLES_FOLDER, dataset)
+            )
+            if os.path.isdir(
+                os.path.join(FileSettings.TABLES_FOLDER, dataset, path)
+            )
+        ]
+
+        cell_responses = pd.read_csv(
+            os.path.join(
+                FileSettings.TABLES_FOLDER,
+                dataset,
+                f"{dataset}_response_cells_list.csv",
+            ),
+            index_col=0,
+        )
+
+        responding_cells = cell_responses.loc[
+            cell_responses["datanotes eye response"] == True
+        ]
+
+        for cell_type in cell_types:
+            freqs_df = pd.DataFrame()
+            cells_list = os.listdir(
+                os.path.join(FileSettings.TABLES_FOLDER, dataset, cell_type)
+            )
+
+            cells_list = responding_cells.loc[
+                responding_cells["cell type"] == cell_type
+            ]
+
+            for cell_name in cells_list["cell_name"]:
+                freq_file = f"{cell_name}_avg_frequency.csv"
+                csvfile = os.path.join(
+                    FileSettings.TABLES_FOLDER,
+                    dataset,
+                    cell_type,
+                    cell_name,
+                    freq_file,
+                )
+                cell_df = pd.read_csv(csvfile, index_col=0)
+                cell_df.drop(
+                    labels="Spontaneous Avg Frequency (Hz)",
+                    axis=1,
+                    inplace=True,
+                )
+                cell_df = cell_df.rename(
+                    columns={"Light Avg Frequency (Hz)": cell_name}
+                )
+                freqs_df = pd.concat([freqs_df, cell_df], axis=1)
+
+            avg_freqs_dict[dataset][cell_type] = freqs_df
+
+    return avg_freqs_dict
+
+
+def make_avg_freq_traces():
+    freqs = get_avg_frequencies()
+
+    for dataset in list(freqs.keys()):
+        fig = plot_avg_freq(
+            freqs[dataset]["MC"], freqs[dataset]["TC"], dataset
+        )
+        save_fig_to_png(
+            fig,
+            legend=True,
+            rows=2,
+            cols=1,
+            png_filename=f"{dataset}_frequency_traces.png",
+        )
+
+
 if __name__ == "__main__":
+    make_avg_freq_traces()
+
+    pdb.set_trace()
 
     plot_misc_data()
 

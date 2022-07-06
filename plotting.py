@@ -2482,7 +2482,7 @@ def plot_example_cell_type_traces(traces_dict, timepoint):
     wash-in on the proper cell.    
     """
 
-    fig = make_subplots(rows=2, cols=2, shared_yaxes=True, shared_xaxes=True)
+    fig = make_subplots(rows=2, cols=2, shared_yaxes="all", shared_xaxes=True)
     fig.update_layout(template="plotly")
 
     if timepoint == "p2":
@@ -2752,9 +2752,11 @@ def save_fig_to_png(fig, legend, rows, cols, png_filename, extra_bottom=False):
         width=cols * 500
         if legend == False
         else cols * 500 + 200,  # each subplot counts as 500
-        height=rows * 600,  # each row is 600
         title="",
     )
+
+    if "frequency_traces" not in png_filename:
+        fig.update_layout(height=rows * 600)  # each row is 600)
 
     fig.for_each_annotation(
         lambda a: a.update(font=dict(family="Arial", size=26))
@@ -2886,3 +2888,140 @@ def plot_previous_analysis():
     # fig.show()
 
     return fig
+
+
+def plot_avg_freq(MC_df, TC_df, dataset):
+    """
+    Takes df containing the average frequencies for one dataset and one cell
+    type, and plots each avg frequency as a trace
+    """
+    MC_df = MC_df.loc[350:1000]
+    TC_df = TC_df.loc[350:1000]
+
+    MC_df = MC_df.T
+    TC_df = TC_df.T
+
+    # drops cells with no big light-evoked differences in frequency
+    if dataset == "p2":
+        stim_time = p2_acq_parameters.STIM_TIME
+        mcs_to_drop = ["JH200311_c3", "JH200311_c6"]
+        tcs_to_drop = ["JH200311_c5", "JH20210812_c5"]
+    else:
+        stim_time = p14_acq_parameters.STIM_TIME
+        mcs_to_drop = [
+            "JH190905_c3",
+            "JH190904_c2",
+            "JH191009_c5",
+            "JH190829_c2",
+        ]
+        tcs_to_drop = ["JH190905_c1", "JH190828_c5"]
+    MC_df.drop(mcs_to_drop, inplace=True)
+    TC_df.drop(tcs_to_drop, inplace=True)
+
+    MC_df.reset_index(inplace=True)
+    TC_df.reset_index(inplace=True)
+
+    MC_df.drop("index", axis=1, inplace=True)
+    TC_df.drop("index", axis=1, inplace=True)
+
+    cell_type_colors = {"MC": "#609a00", "TC": "#388bf7"}
+
+    fig = make_subplots(
+        rows=len(MC_df),
+        cols=2,
+        x_title="Time (ms)",
+        y_title="IPSC Frequency (Hz) <br>",
+        shared_xaxes=True,
+        shared_yaxes=False,
+        horizontal_spacing=0.15,
+    )
+
+    # fig.update_layout(template="plotly")
+
+    for index, cell_freq in MC_df.iterrows():
+        fig.add_trace(
+            go.Scatter(
+                x=cell_freq.index,
+                y=cell_freq.values,
+                mode="lines",
+                line=dict(color=cell_type_colors["MC"], width=2),
+                name="MC",
+                legendgroup="MC",
+            ),
+            row=index + 1,
+            col=1,
+        )
+
+        fig.update_yaxes(
+            tickvals=[np.round(cell_freq.min()), np.round(cell_freq.max()),],
+            row=index + 1,
+            col=1,
+            automargin=True,
+        )
+
+    for index, cell_freq in TC_df.iterrows():
+        fig.add_trace(
+            go.Scatter(
+                x=cell_freq.index,
+                y=cell_freq.values,
+                mode="lines",
+                line=dict(color=cell_type_colors["TC"], width=2),
+                name="TC",
+                legendgroup="TC",
+            ),
+            row=index + 1,
+            col=2,
+        )
+
+        fig.update_yaxes(
+            tickvals=[np.round(cell_freq.min()), np.round(cell_freq.max()),],
+            row=index + 1,
+            col=2,
+        )
+
+    # adds line for light stim
+    fig.add_vrect(
+        type="rect",
+        x0=stim_time,
+        x1=stim_time + 100,
+        fillcolor="#33F7FF",
+        opacity=0.5,
+        layer="below",
+        line_width=0,
+    )
+
+    # below is code from stack overflow to hide duplicate legends
+    names = set()
+    fig.for_each_trace(
+        lambda trace: trace.update(showlegend=False)
+        if (trace.name in names)
+        else names.add(trace.name)
+    )
+
+    fig.update_layout(
+        plot_bgcolor="rgba(0,0,0,0)",
+        font_family="Arial",
+        legend=dict(font=dict(family="Arial", size=26)),
+        title_text=f"{dataset.capitalize()}",
+        title_x=0.5,
+        font=dict(family="Arial", size=26),
+        width=600,
+        height=900 if dataset == "p14" else 692,
+    ),
+
+    fig.update_yaxes(
+        tickfont=dict(family="Arial", size=18),
+        automargin=True,
+        # title_standoff=50,
+    )
+    fig.update_xaxes(showticklabels=False)  # hide all the xticks
+    fig.update_xaxes(showticklabels=True, row=len(MC_df), col=1)
+    fig.update_xaxes(showticklabels=True, row=len(TC_df), col=2)
+    fig.update_xaxes(tickfont=dict(family="Arial", size=18))
+
+    fig_noaxes = go.Figure(fig)
+    fig_noaxes.update_xaxes(showgrid=False, visible=True)
+    fig_noaxes.update_yaxes(showgrid=False, visible=True)
+    # fig_noaxes.show()
+
+    return fig_noaxes
