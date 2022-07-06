@@ -539,9 +539,9 @@ def plot_misc_data():
     )
 
 
-def get_avg_frequencies():
+def get_frequencies():
     """
-    Gets the average frequencies for each cell for plotting
+    Gets the frequencies for each cell for plotting
     """
     dataset_list = get_datasets()
 
@@ -606,12 +606,10 @@ def get_avg_frequencies():
 
 
 def make_avg_freq_traces():
-    freqs = get_avg_frequencies()
+    freqs = get_frequencies()
 
     for dataset in list(freqs.keys()):
-        fig = plot_avg_freq(
-            freqs[dataset]["MC"], freqs[dataset]["TC"], dataset
-        )
+        fig = plot_freq(freqs[dataset]["MC"], freqs[dataset]["TC"], dataset)
         save_fig_to_png(
             fig,
             legend=True,
@@ -621,10 +619,47 @@ def make_avg_freq_traces():
         )
 
 
-if __name__ == "__main__":
-    make_avg_freq_traces()
+def get_example_freq(dataset, cell_name, cell_type):
+    csv_path = os.path.join(
+        FileSettings.TABLES_FOLDER, dataset, cell_type, cell_name
+    )
+    freq_file = f"{cell_name}_avg_frequency.csv"
+    example_freq = pd.read_csv(os.path.join(csv_path, freq_file), index_col=0)
+    example_freq.drop(
+        labels="Spontaneous Avg Frequency (Hz)", axis=1, inplace=True,
+    )
 
+    freq_stats_file = f"{cell_name}_avg_freq_stats.csv"
+    freq_stats = pd.read_csv(
+        os.path.join(csv_path, freq_stats_file), index_col=0, header=0
+    )
+    freq_stats.drop(1, inplace=True)
+
+    freq_stats = freq_stats[
+        [
+            "Peak Frequency (Hz)",
+            "Baseline-sub Peak Freq (Hz)",
+            "Peak Frequency Time (ms)",
+            "Time to Peak Frequency (ms)",
+            "Baseline Frequency (Hz)",
+            "Rise Time (ms)",
+        ]
+    ]
+
+    plot_annotated_freq(example_freq, freq_stats, dataset)
     pdb.set_trace()
+
+
+def make_annotated_freq():
+    get_example_cell_PSTH("p14", "JH190828_c6")
+
+
+if __name__ == "__main__":
+
+    get_example_freq("p2", "JH200303_c7", "MC")
+    # get_example_freq("p14", "JH190828_c6", "MC")
+    pdb.set_trace()
+    make_avg_freq_traces()
 
     plot_misc_data()
 

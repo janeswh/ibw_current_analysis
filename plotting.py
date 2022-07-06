@@ -2890,10 +2890,10 @@ def plot_previous_analysis():
     return fig
 
 
-def plot_avg_freq(MC_df, TC_df, dataset):
+def plot_freq(MC_df, TC_df, dataset):
     """
-    Takes df containing the average frequencies for one dataset and one cell
-    type, and plots each avg frequency as a trace
+    Takes df containing the frequencies for one dataset and one cell
+    type, and plots each frequency as a trace
     """
     MC_df = MC_df.loc[350:1000]
     TC_df = TC_df.loc[350:1000]
@@ -3025,3 +3025,174 @@ def plot_avg_freq(MC_df, TC_df, dataset):
     # fig_noaxes.show()
 
     return fig_noaxes
+
+
+def plot_annotated_freq(df, stats, dataset):
+    """
+    Plots the frequency for one example cell with annotations for the kinetic
+    properties analyzed
+    """
+    df = df.loc[350:1000]
+
+    if dataset == "p2":
+        stim_time = p2_acq_parameters.STIM_TIME
+    else:
+        stim_time = p14_acq_parameters.STIM_TIME
+
+    rise_window = df.loc[stim_time:]
+
+    root = rise_window.loc[stim_time][0]
+    rise_window = rise_window - root
+
+    df = df - root
+    peak = stats["Peak Frequency (Hz)"][0]
+    root_sub_peak = peak - root
+    sub_peak = stats["Baseline-sub Peak Freq (Hz)"][0]
+    peak_time = stats["Peak Frequency Time (ms)"][0]
+    time_to_peak = stats["Time to Peak Frequency (ms)"][0]
+    baseline_freq = stats["Baseline Frequency (Hz)"][0]
+    rise_time = stats["Rise Time (ms)"][0]
+
+    rise_start_idx = np.argmax(rise_window >= root_sub_peak * 0.2)
+    rise_end_idx = np.argmax(rise_window >= root_sub_peak * 0.8)
+
+    rise_start = rise_window.index[rise_start_idx]
+    rise_end = rise_window.index[rise_end_idx]
+
+    rise_start_freq = rise_window.loc[rise_start][0]
+    rise_end_freq = rise_window.loc[rise_end][0]
+
+    layout = go.Layout(plot_bgcolor="rgba(0,0,0,0)")
+    fig = go.Figure(layout=layout)
+    fig.update_layout(template="plotly")
+    fig.add_trace(
+        go.Scatter(
+            x=df["Light Avg Frequency (Hz)"].index,
+            y=df["Light Avg Frequency (Hz)"],
+            mode="lines",
+            line=dict(width=4),
+        )
+    )
+
+    # adds line for light stim
+    fig.add_vrect(
+        type="rect",
+        x0=stim_time,
+        x1=stim_time + 100,
+        fillcolor="#33F7FF",
+        opacity=0.5,
+        layer="below",
+        line_width=0,
+    )
+
+    # adds annotation for peak freq
+    fig.add_annotation(
+        x=peak_time + 1,
+        y=peak + 5,
+        text="Peak Frequency:<br>{} Hz".format(round(sub_peak)),
+        showarrow=False,
+        font=dict(size=24, family="Arial"),
+    )
+
+    fig.add_trace(
+        go.Scatter(
+            x=[peak_time], y=[peak], mode="markers", marker=dict(size=20)
+        )
+    )
+
+    # add line and annotation for time to peak
+    fig.add_shape(
+        type="line",
+        x0=stim_time,
+        y0=peak,
+        x1=peak_time,
+        y1=peak,
+        line=dict(dash="dash", width=3, color="gray"),
+    )
+    fig.add_annotation(
+        x=stim_time,
+        y=peak,
+        text="Time to peak:<br>{} ms".format(round(time_to_peak, 1)),
+        showarrow=False,
+        # yshift=50,
+        xshift=-70,
+        font=dict(size=24, family="Arial"),
+    )
+
+    # add line and annotation for rise time
+    fig.add_trace(
+        go.Scatter(
+            x=[rise_start],
+            y=[rise_start_freq],
+            mode="markers",
+            marker=dict(size=14, color="gray"),
+        )
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=[rise_end],
+            y=[rise_end_freq],
+            mode="markers",
+            marker=dict(size=14, color="gray"),
+        )
+    )
+    fig.add_shape(
+        type="line",
+        x0=rise_start,
+        y0=rise_start_freq,
+        x1=rise_end,
+        y1=rise_start_freq,
+        line=dict(dash="dash", width=3, color="gray"),
+    )
+
+    fig.add_shape(
+        type="line",
+        x0=rise_end,
+        y0=rise_start_freq,
+        x1=rise_end,
+        y1=rise_end_freq,
+        line=dict(dash="dash", width=3, color="gray"),
+    )
+
+    fig.add_annotation(
+        x=rise_end,
+        y=rise_start_freq,
+        text="Rise time:<br>{} ms".format(round(rise_time, 1)),
+        showarrow=False,
+        yshift=-40,
+        xshift=25,
+        font=dict(size=24, family="Arial"),
+    )
+
+    fig.add_annotation(
+        x=rise_start,
+        y=rise_start_freq,
+        text="Rise start",
+        showarrow=False,
+        yshift=0,
+        xshift=-70,
+        font=dict(size=24, family="Arial"),
+    )
+
+    fig.add_annotation(
+        x=rise_end,
+        y=rise_end_freq,
+        text="Rise end",
+        showarrow=False,
+        # yshift=50,
+        xshift=-70,
+        font=dict(size=24, family="Arial"),
+    )
+
+    # add annotations for baseline frequency
+    fig.add_shape(
+        type="line",
+        x0=df.index[0],
+        y0=baseline_freq + 5,
+        x1=stim_time,
+        y1=baseline_freq + 5,
+        line=dict(dash="dash", width=3, color="gray"),
+    )
+
+    fig.show()
+    pdb.set_trace()
