@@ -656,9 +656,9 @@ def make_annotated_freq():
 
 if __name__ == "__main__":
 
-    get_example_freq("p2", "JH200303_c7", "MC")
+    # get_example_freq("p2", "JH20210812_c7", "MC")
     # get_example_freq("p14", "JH190828_c6", "MC")
-    pdb.set_trace()
+    # pdb.set_trace()
     make_avg_freq_traces()
 
     plot_misc_data()

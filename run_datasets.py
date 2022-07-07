@@ -241,8 +241,8 @@ def save_summary_plots(
     save_fig_to_png(
         freq_stats_fig,
         legend=True,
-        rows=2,
-        cols=2,
+        rows=1,
+        cols=3,
         png_filename="avg_freq_stats.png",
     )
 
