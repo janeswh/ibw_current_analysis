@@ -1357,7 +1357,7 @@ class JaneCell(object):
         events_fig.show()
         self.events_fig = events_fig
 
-    def analyze_avg_frequency(self, bin_width=10):
+    def analyze_avg_frequency(self, bin_width=10, example=False):
         """
         bin_width is width of bins in ms
         time_stop is time of last timepoint wanted for BARS, in ms
@@ -1432,6 +1432,7 @@ class JaneCell(object):
             y_array=freq,
             x_plot=windowed_x_plot,
             smoothed=windowed_raw_avg_frequency,
+            rise_points=True if example == False else False,
         )
 
         # raw_avg_frequency = run_BARS_smoothing(
@@ -1679,9 +1680,11 @@ class JaneCell(object):
         root_time=None,
         data_type=None,
     ):
-        # do root subtraction for events
+        response_window = response_window[root_time:peak_time]
+        if data_type == "frequency":
+            root = response_window.loc[root_time][0]
+
         if data_type == "event":
-            response_window = response_window[root_time:peak_time]
             root = response_window[root_time]
             response_window = response_window - root
             peak = peak - root
@@ -1968,11 +1971,22 @@ class JaneCell(object):
             if (max_freq > 1) and (
                 freq_peak_time <= self.stim_time + self.post_stim
             ):
+
+                # calculate root time to start finding rise_start
+                root_window_start = (
+                    p14_acq_parameters.TP_START + p14_acq_parameters.TP_LENGTH
+                )
+                root_window = self.avg_frequency_df.loc[
+                    root_window_start:freq_peak_time
+                ]
+                root_time = root_window.idxmin()[0]
+
                 rise_time, rise_start, rise_end = self.calculate_rise_time(
                     max_freq,
                     freq_peak_time,
-                    response_window,
+                    root_window,
                     polarity="+",
+                    root_time=root_time,
                     data_type="frequency",
                 )
 
@@ -1998,6 +2012,8 @@ class JaneCell(object):
                 "Baseline Frequency (Hz)": avg_baseline_freq,
                 "Baseline-sub Peak Freq (Hz)": max_freq - avg_baseline_freq,
                 # "Response Onset Latency (ms)": onset_time - self.stim_time,
+                "20% Rise Start (ms)": rise_start,
+                "80% Rise End (ms)": rise_end,
                 "Rise Time (ms)": rise_time,
                 "Decay tau": tau,
             },
@@ -2008,7 +2024,14 @@ class JaneCell(object):
         self.avg_frequency_stats = avg_freq_stats
 
     def plot_annotated_freq_histogram(
-        self, event_times, x_stop, x_array, y_array, x_plot, smoothed
+        self,
+        event_times,
+        x_stop,
+        x_array,
+        y_array,
+        x_plot,
+        smoothed,
+        rise_points=False,
     ):
         """
         Makes raster plot + annotated freq histogram, with decay fit if
@@ -2138,12 +2161,45 @@ class JaneCell(object):
             go.Scatter(
                 x=[self.avg_frequency_stats["Peak Frequency Time (ms)"][0]],
                 y=[self.avg_frequency_stats["Peak Frequency (Hz)"][0]],
-                marker=dict(color="#FFB233", size=12),
+                marker=dict(color="#FFB233", size=10),
                 name="peak frequency",
             ),
             row=2,
             col=1,
         )
+
+        if rise_points is True and self.condition == "light":
+            # add 20% rise start, 80% rise end
+            rise_start_time = self.avg_frequency_stats["20% Rise Start (ms)"][
+                0
+            ]
+            rise_end_time = self.avg_frequency_stats["80% Rise End (ms)"][0]
+            if np.isnan(rise_start_time) == False:
+
+                rise_start_idx = np.where(x_plot == rise_start_time)[0][0]
+                rise_end_idx = np.where(x_plot == rise_end_time)[0][0]
+
+                annotated_freq.add_trace(
+                    go.Scatter(
+                        x=[rise_start_time],
+                        y=[smoothed[rise_start_idx]],
+                        marker=dict(color="gray", size=8),
+                        name="20% Rise start",
+                    ),
+                    row=2,
+                    col=1,
+                )
+
+                annotated_freq.add_trace(
+                    go.Scatter(
+                        x=[rise_end_time],
+                        y=[smoothed[rise_end_idx]],
+                        marker=dict(color="gray", size=8),
+                        name="80% Rise end",
+                    ),
+                    row=2,
+                    col=1,
+                )
 
         # plots mean trace with annotations
         window_toplot = self.sub_mean_trace[
@@ -2174,6 +2230,7 @@ class JaneCell(object):
             row=3,
             col=1,
         )
+
         annotated_freq.update_yaxes(
             title_text="Current (pA)", row=3, col=1,
         )

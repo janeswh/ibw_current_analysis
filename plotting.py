@@ -834,16 +834,17 @@ def plot_freq_stats(dataset_freq_stats):
 
     datasets = dataset_freq_stats.keys()
     measures_list = [
-        ["Baseline-sub Peak Freq (Hz)", "Time to Peak Frequency (ms)"],
-        ["Baseline Frequency (Hz)", "Rise Time (ms)",],
+        "Baseline-sub Peak Freq (Hz)",
+        "Baseline Frequency (Hz)",
+        "Rise Time (ms)",
     ]
 
     freq_stats_fig = make_subplots(
-        rows=2,
-        cols=len(measures_list[0]),
+        rows=1,
+        cols=len(measures_list),
         # shared_xaxes=True,
-        horizontal_spacing=0.2,  # x_title="Timepoint"
-        vertical_spacing=0.10,
+        horizontal_spacing=0.1,  # x_title="Timepoint"
+        # vertical_spacing=0.10,
     )
     all_stats = pd.DataFrame()
     all_means = pd.DataFrame()
@@ -879,83 +880,80 @@ def plot_freq_stats(dataset_freq_stats):
         cell_mean_df = all_means.loc[all_means["Cell Type"] == cell_type]
         cell_sem_df = all_sems.loc[all_sems["Cell Type"] == cell_type]
 
-        for measure_list_ct, measure_sublist in enumerate(measures_list):
-            for measure_ct, measure in enumerate(measure_sublist):
+        for measure_ct, measure in enumerate(measures_list):
 
-                freq_stats_fig.add_trace(
-                    go.Box(
-                        x=cell_stats_df["Dataset"],
-                        y=cell_stats_df[measure],
-                        line=dict(color="rgba(0,0,0,0)"),
-                        fillcolor="rgba(0,0,0,0)",
-                        boxpoints="all",
-                        pointpos=0,
-                        marker_color=cell_type_bar_colors[cell_type],
-                        marker=dict(
-                            line=dict(
-                                color=cell_type_line_colors[cell_type], width=2
-                            ),
-                            size=15,
+            freq_stats_fig.add_trace(
+                go.Box(
+                    x=cell_stats_df["Dataset"],
+                    y=cell_stats_df[measure],
+                    line=dict(color="rgba(0,0,0,0)"),
+                    fillcolor="rgba(0,0,0,0)",
+                    boxpoints="all",
+                    pointpos=0,
+                    marker_color=cell_type_bar_colors[cell_type],
+                    marker=dict(
+                        line=dict(
+                            color=cell_type_line_colors[cell_type], width=2
                         ),
-                        name=cell_type,
-                        legendgroup=cell_type,
-                        offsetgroup=dataset_order[timepoint] + cell_type_ct,
+                        size=15,
                     ),
-                    row=measure_list_ct + 1,
-                    col=measure_ct + 1,
-                )
+                    name=cell_type,
+                    legendgroup=cell_type,
+                    offsetgroup=dataset_order[timepoint] + cell_type_ct,
+                ),
+                row=1,
+                col=measure_ct + 1,
+            )
 
-                # tries bar plot instead, plots mean of median with sem
-                freq_stats_fig.add_trace(
-                    go.Bar(
-                        x=cell_stats_df["Dataset"].unique(),
-                        y=cell_mean_df[measure],
-                        error_y=dict(
-                            type="data",
-                            array=cell_sem_df[measure],
-                            color=cell_type_line_colors[cell_type],
-                            thickness=3,
-                            visible=True,
-                        ),
-                        marker_line_width=3,
-                        marker_line_color=cell_type_line_colors[cell_type],
-                        marker_color=cell_type_bar_colors[cell_type],
-                        # marker=dict(markercolor=cell_type_colors[cell_type]),
-                        name=cell_type,
-                        legendgroup=cell_type,
-                        offsetgroup=dataset_order[timepoint] + cell_type_ct,
+            # tries bar plot instead, plots mean of median with sem
+            freq_stats_fig.add_trace(
+                go.Bar(
+                    x=cell_stats_df["Dataset"].unique(),
+                    y=cell_mean_df[measure],
+                    error_y=dict(
+                        type="data",
+                        array=cell_sem_df[measure],
+                        color=cell_type_line_colors[cell_type],
+                        thickness=3,
+                        visible=True,
                     ),
-                    row=measure_list_ct + 1,
-                    col=measure_ct + 1,
-                )
+                    marker_line_width=3,
+                    marker_line_color=cell_type_line_colors[cell_type],
+                    marker_color=cell_type_bar_colors[cell_type],
+                    # marker=dict(markercolor=cell_type_colors[cell_type]),
+                    name=cell_type,
+                    legendgroup=cell_type,
+                    offsetgroup=dataset_order[timepoint] + cell_type_ct,
+                ),
+                row=1,
+                col=measure_ct + 1,
+            )
 
-                if measure == "Mean Trace Peak (pA)":
-                    freq_stats_fig.update_yaxes(
-                        autorange="reversed",
-                        row=measure_list_ct + 1,
-                        col=measure_ct + 1,
-                    )
-
-                #  below is code from stack overflow to hide duplicate legends
-                names = set()
-                freq_stats_fig.for_each_trace(
-                    lambda trace: trace.update(showlegend=False)
-                    if (trace.name in names)
-                    else names.add(trace.name)
-                )
+            if measure == "Mean Trace Peak (pA)":
                 freq_stats_fig.update_yaxes(
-                    title_text="Peak Frequency (Hz)"
-                    if measure == "Baseline-sub Peak Freq (Hz)"
-                    else measure,
-                    row=measure_list_ct + 1,
-                    col=measure_ct + 1,
+                    autorange="reversed", row=1, col=measure_ct + 1,
                 )
-                freq_stats_fig.update_xaxes(
-                    categoryorder="array",
-                    categoryarray=list(dataset_order.keys()),
-                    row=measure_list_ct + 1,
-                    col=measure_ct + 1,
-                )
+
+            #  below is code from stack overflow to hide duplicate legends
+            names = set()
+            freq_stats_fig.for_each_trace(
+                lambda trace: trace.update(showlegend=False)
+                if (trace.name in names)
+                else names.add(trace.name)
+            )
+            freq_stats_fig.update_yaxes(
+                title_text="Peak Frequency (Hz)"
+                if measure == "Baseline-sub Peak Freq (Hz)"
+                else measure,
+                row=1,
+                col=measure_ct + 1,
+            )
+            freq_stats_fig.update_xaxes(
+                categoryorder="array",
+                categoryarray=list(dataset_order.keys()),
+                row=1,
+                col=measure_ct + 1,
+            )
 
     freq_stats_fig.update_layout(
         boxmode="group",
@@ -3039,28 +3037,37 @@ def plot_annotated_freq(df, stats, dataset):
     else:
         stim_time = p14_acq_parameters.STIM_TIME
 
-    rise_window = df.loc[stim_time:]
+    # rise_window = df.loc[stim_time:]
 
-    root = rise_window.loc[stim_time][0]
-    rise_window = rise_window - root
+    # root = rise_window.loc[stim_time][0]
+    # rise_window = rise_window - root
 
-    df = df - root
+    # df = df - root
+
     peak = stats["Peak Frequency (Hz)"][0]
-    root_sub_peak = peak - root
     sub_peak = stats["Baseline-sub Peak Freq (Hz)"][0]
     peak_time = stats["Peak Frequency Time (ms)"][0]
     time_to_peak = stats["Time to Peak Frequency (ms)"][0]
     baseline_freq = stats["Baseline Frequency (Hz)"][0]
-    rise_time = stats["Rise Time (ms)"][0]
+    # rise_time = stats["Rise Time (ms)"][0]
 
-    rise_start_idx = np.argmax(rise_window >= root_sub_peak * 0.2)
-    rise_end_idx = np.argmax(rise_window >= root_sub_peak * 0.8)
+    # calculate root point for baseline
+    root_start = 350
+    root_window = df[root_start:peak_time]
+    root_time = root_window.idxmin()[0]
+    root = root_window.min()
 
-    rise_start = rise_window.index[rise_start_idx]
-    rise_end = rise_window.index[rise_end_idx]
+    response_window = df[root_time:peak_time]
 
-    rise_start_freq = rise_window.loc[rise_start][0]
-    rise_end_freq = rise_window.loc[rise_end][0]
+    rise_start_idx = np.argmax(response_window >= peak * 0.2)
+    rise_end_idx = np.argmax(response_window >= peak * 0.8)
+
+    rise_start = response_window.index[rise_start_idx]
+    rise_end = response_window.index[rise_end_idx]
+    rise_time = rise_end - rise_start
+
+    rise_start_freq = df.loc[rise_start][0]
+    rise_end_freq = df.loc[rise_end][0]
 
     layout = go.Layout(plot_bgcolor="rgba(0,0,0,0)")
     fig = go.Figure(layout=layout)
