@@ -384,7 +384,7 @@ def get_example_cell_PSTH(dataset, cell_name):
     example_cell.get_mod_events()
     example_cell.calculate_event_stats()
     example_cell.calculate_mean_trace_stats()
-    example_cell.analyze_avg_frequency()
+    example_cell.analyze_avg_frequency(example=True)
 
     fig = example_cell.annotated_freq_fig
 
@@ -640,14 +640,21 @@ def get_example_freq(dataset, cell_name, cell_type):
             "Peak Frequency (Hz)",
             "Baseline-sub Peak Freq (Hz)",
             "Peak Frequency Time (ms)",
-            "Time to Peak Frequency (ms)",
             "Baseline Frequency (Hz)",
+            "20% Rise Start (ms)",
+            "80% Rise End (ms)",
             "Rise Time (ms)",
         ]
     ]
 
-    plot_annotated_freq(example_freq, freq_stats, dataset)
-    pdb.set_trace()
+    fig = plot_annotated_freq(example_freq, freq_stats, dataset)
+    save_fig_to_png(
+        fig,
+        legend=False,
+        rows=1,
+        cols=2,
+        png_filename=f"annotated_frequency_trace.png",
+    )
 
 
 def make_annotated_freq():
@@ -656,9 +663,8 @@ def make_annotated_freq():
 
 if __name__ == "__main__":
 
-    # get_example_freq("p2", "JH20210812_c7", "MC")
-    # get_example_freq("p14", "JH190828_c6", "MC")
-    # pdb.set_trace()
+    get_example_freq("p14", "JH190828_c3", "MC")
+    pdb.set_trace()
     make_avg_freq_traces()
 
     plot_misc_data()

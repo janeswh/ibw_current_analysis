@@ -3030,41 +3030,35 @@ def plot_annotated_freq(df, stats, dataset):
     Plots the frequency for one example cell with annotations for the kinetic
     properties analyzed
     """
-    df = df.loc[350:1000]
+    df = df.loc[400:850]
 
     if dataset == "p2":
         stim_time = p2_acq_parameters.STIM_TIME
     else:
         stim_time = p14_acq_parameters.STIM_TIME
 
-    # rise_window = df.loc[stim_time:]
-
-    # root = rise_window.loc[stim_time][0]
-    # rise_window = rise_window - root
-
-    # df = df - root
-
     peak = stats["Peak Frequency (Hz)"][0]
     sub_peak = stats["Baseline-sub Peak Freq (Hz)"][0]
     peak_time = stats["Peak Frequency Time (ms)"][0]
-    time_to_peak = stats["Time to Peak Frequency (ms)"][0]
     baseline_freq = stats["Baseline Frequency (Hz)"][0]
-    # rise_time = stats["Rise Time (ms)"][0]
+    rise_start = stats["20% Rise Start (ms)"][0]
+    rise_end = stats["80% Rise End (ms)"][0]
+    rise_time = stats["Rise Time (ms)"][0]
 
-    # calculate root point for baseline
-    root_start = 350
-    root_window = df[root_start:peak_time]
-    root_time = root_window.idxmin()[0]
-    root = root_window.min()
+    # # calculate root point for baseline
+    # root_start = 350
+    # root_window = df[root_start:peak_time]
+    # root_time = root_window.idxmin()[0]
+    # root = root_window.min()
 
-    response_window = df[root_time:peak_time]
+    # response_window = df[root_time:peak_time]
 
-    rise_start_idx = np.argmax(response_window >= peak * 0.2)
-    rise_end_idx = np.argmax(response_window >= peak * 0.8)
+    # rise_start_idx = np.argmax(response_window >= peak * 0.2)
+    # rise_end_idx = np.argmax(response_window >= peak * 0.8)
 
-    rise_start = response_window.index[rise_start_idx]
-    rise_end = response_window.index[rise_end_idx]
-    rise_time = rise_end - rise_start
+    # rise_start = response_window.index[rise_start_idx]
+    # rise_end = response_window.index[rise_end_idx]
+    # rise_time = rise_end - rise_start
 
     rise_start_freq = df.loc[rise_start][0]
     rise_end_freq = df.loc[rise_end][0]
@@ -3095,8 +3089,8 @@ def plot_annotated_freq(df, stats, dataset):
     # adds annotation for peak freq
     fig.add_annotation(
         x=peak_time + 1,
-        y=peak + 5,
-        text="Peak Frequency:<br>{} Hz".format(round(sub_peak)),
+        y=peak + 2,
+        text="Peak frequency:<br>{} Hz".format(round(sub_peak)),
         showarrow=False,
         font=dict(size=24, family="Arial"),
     )
@@ -3105,25 +3099,6 @@ def plot_annotated_freq(df, stats, dataset):
         go.Scatter(
             x=[peak_time], y=[peak], mode="markers", marker=dict(size=20)
         )
-    )
-
-    # add line and annotation for time to peak
-    fig.add_shape(
-        type="line",
-        x0=stim_time,
-        y0=peak,
-        x1=peak_time,
-        y1=peak,
-        line=dict(dash="dash", width=3, color="gray"),
-    )
-    fig.add_annotation(
-        x=stim_time,
-        y=peak,
-        text="Time to peak:<br>{} ms".format(round(time_to_peak, 1)),
-        showarrow=False,
-        # yshift=50,
-        xshift=-70,
-        font=dict(size=24, family="Arial"),
     )
 
     # add line and annotation for rise time
@@ -3165,9 +3140,9 @@ def plot_annotated_freq(df, stats, dataset):
         x=rise_end,
         y=rise_start_freq,
         text="Rise time:<br>{} ms".format(round(rise_time, 1)),
-        showarrow=False,
-        yshift=-40,
-        xshift=25,
+        showarrow=True,
+        yshift=-60,
+        xshift=55,
         font=dict(size=24, family="Arial"),
     )
 
@@ -3195,11 +3170,57 @@ def plot_annotated_freq(df, stats, dataset):
     fig.add_shape(
         type="line",
         x0=df.index[0],
-        y0=baseline_freq + 5,
+        y0=baseline_freq,
         x1=stim_time,
-        y1=baseline_freq + 5,
+        y1=baseline_freq,
         line=dict(dash="dash", width=3, color="gray"),
     )
 
-    fig.show()
-    pdb.set_trace()
+    fig.add_annotation(
+        x=df.index[0] + (stim_time - df.index[0]) / 2,
+        y=rise_start_freq,
+        text="Baseline frequency",
+        showarrow=False,
+        yshift=-80,
+        # xshift=-5,
+        font=dict(size=24, family="Arial"),
+    )
+
+    # adds horizontal line + text for scale bar
+    fig.add_shape(
+        type="line", x0=700, y0=5, x1=800, y1=5,
+    )
+    fig.add_annotation(
+        x=750,
+        y=5,
+        yshift=-18,
+        text="100 ms",
+        showarrow=False,
+        font=dict(size=20),
+    )
+
+    # adds vertical line + text for scale bar
+    fig.add_shape(type="line", x0=800, y0=5, x1=800, y1=10)
+
+    fig.add_annotation(
+        x=800,
+        y=7.5,
+        xshift=30,
+        text="5 Hz",
+        showarrow=False,
+        # textangle=-90,
+        font=dict(size=20),
+    )
+
+    fig.update_layout(font=dict(family="Arial",), showlegend=False)
+
+    annotated_plot_noaxes = go.Figure(fig)
+    annotated_plot_noaxes.update_xaxes(showgrid=False, visible=False)
+    annotated_plot_noaxes.update_yaxes(showgrid=False, visible=False)
+
+    # annotated_plot.show()
+    # annotated_plot_noaxes.show()
+
+    # fig.show()
+
+    return annotated_plot_noaxes
