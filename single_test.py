@@ -8,10 +8,13 @@ import pandas as pd
 import os
 import numpy as np
 from neo.io import IgorIO
+import neo
 import elephant
+import quantities as pq
 import scipy
 
 import plotly.graph_objects as go
+import plotly.express as px
 from plotly.subplots import make_subplots
 
 import collections
@@ -138,6 +141,19 @@ def run_BARS_smoothing(x_stop, x_array, y_array, x_plot):
     # BARS_fig.show()
 
     return smoothed_avg
+
+
+def convolve_FR_gaussian(freq, bar_bins, gaussian_width):
+    """
+    Convolves IPSC frequency (from PSTH) with gaussian kernel
+    """
+    sigma = gaussian_width / 2.385
+    kernel_x = np.arange(len(freq))
+
+    kernel = np.exp(-((kernel_x) ** 2) / (2 * sigma ** 2))
+    r_avg = np.convolve(freq, kernel / kernel.sum())  # kernel normalized
+    # pdb.set_trace()
+    return r_avg
 
 
 def decay_func(time, a, tau, offset):
@@ -975,6 +991,88 @@ class JaneCell(object):
         self.decay_fits_dict = decay_fits_dict
         self.event_stats = event_stats
 
+    def make_neo_SpikeTrains(self):
+        """
+        Takes the new positions from  mod_events and generates a SpikeTrain
+        object for each sweep
+        """
+
+        spiketrains_list = []
+        for sweep in self.updated_mod_events["Sweep"].unique():
+            spiketimes_list = self.updated_mod_events.loc[
+                self.updated_mod_events["Sweep"] == sweep
+            ]["New pos"].tolist()
+            spktrain = neo.SpikeTrain(
+                spiketimes_list, t_stop=self.sweep_length_ms, units="ms"
+            )
+            spiketrains_list.append(spktrain)
+
+        self.spiketrains_list = spiketrains_list
+
+    def make_elephant_PSTH(self):
+        """
+        Puts elephant SpikeTrain list into bins for PSTH
+        """
+        spiketrains_list = self.spiketrains_list.copy()
+        bst = elephant.conversion.BinnedSpikeTrain(
+            spiketrains_list, binsize=10 * pq.ms
+        )
+        bst_array = bst.to_array()
+        bins = bst.bin_edges.magnitude
+        bin_centers = bst.bin_centers
+        bst_sum = sum(bst_array)
+
+        # do frequency in Hz, # of events per second, divided by # of sweeps
+        freq = bst_sum / self.num_sweeps / 1e-2
+
+        return freq, bins, bin_centers
+
+    def get_IPSC_frequency(self):
+        """
+        Convolves event times with gaussian kernel to get smoothed firing rate
+        """
+        freq, bins, bin_centers = self.make_elephant_PSTH()
+
+        x_stop = len(bins)
+        x_plot = np.linspace(bins[0], bins[-1], x_stop)
+
+        fig = go.Figure()
+        fig.add_trace(
+            go.Bar(
+                x=bin_centers,
+                y=freq,
+                marker=dict(color="#D39DDD"),
+                name="PSTH",
+            )
+        )
+
+        # this removes the white outline of the bar graph to emulate histogram
+        fig.update_traces(marker=dict(line=dict(width=0)))
+
+        fig.update_yaxes(title_text="Frequency (Hz)", title_standoff=50)
+
+        fig.update_layout(bargap=0)
+
+        # adds blue overlay to show light stim duration
+        fig.add_vrect(
+            x0=self.stim_time,
+            x1=self.stim_time + 100,
+            fillcolor="#33F7FF",
+            opacity=0.5,
+            layer="below",
+            line_width=0,
+        )
+
+        # fig.add_trace(
+        #     go.Scatter(
+        #         x=x_plot,
+        #         y=r_avg,
+        #         marker=dict(color="#A613C4", size=4),
+        #         name="gaussian smoothing",
+        #     ),
+        # )
+        # fig.show()
+
     def plot_annotated_events(self):
         """
         Plots all the events for every sweep, with the decay fits, rise times,
@@ -1375,19 +1473,19 @@ class JaneCell(object):
             bin_width, window="whole sweep"
         )
 
-        # calculates bins for response window
-        (
-            windowed_raster_df,
-            windowed_bins,
-            windowed_bar_bins,
-            windowed_freq,
-        ) = self.get_bin_parameters(bin_width, window="response window")
+        # # calculates bins for response window
+        # (
+        #     windowed_raster_df,
+        #     windowed_bins,
+        #     windowed_bar_bins,
+        #     windowed_freq,
+        # ) = self.get_bin_parameters(bin_width, window="response window")
 
-        # trying to shorten BARS window to 1500 ms after stim time
-        windowed_x_stop = len(windowed_bins)
-        windowed_x_plot = np.linspace(
-            windowed_bins[0], windowed_bins[-1], windowed_x_stop
-        )
+        # # trying to shorten BARS window to 1500 ms after stim time
+        # windowed_x_stop = len(windowed_bins)
+        # windowed_x_plot = np.linspace(
+        #     windowed_bins[0], windowed_bins[-1], windowed_x_stop
+        # )
 
         x_stop = len(bins)  # number of bins to stop at
 
@@ -1404,40 +1502,47 @@ class JaneCell(object):
         # baseline_freq = freq[:baseline_bins].mean()
         # windowed_freq_sub = windowed_freq
 
-        windowed_raw_avg_frequency = run_BARS_smoothing(
-            windowed_x_stop,
-            x_array=windowed_bar_bins,
-            y_array=windowed_freq,
-            x_plot=windowed_x_plot,
+        # windowed_raw_avg_frequency = run_BARS_smoothing(
+        #     windowed_x_stop,
+        #     x_array=windowed_bar_bins,
+        #     y_array=windowed_freq,
+        #     x_plot=windowed_x_plot,
+        # )
+
+        # r_avg = convolve_FR_gaussian(freq, bar_bins, gaussian_width=10)
+
+        r_avg = scipy.ndimage.gaussian_filter1d(
+            freq, sigma=1.2, mode="constant"
         )
 
         self.plot_smoothed_PSTH(
-            windowed_x_stop,
-            x_array=windowed_bar_bins,
-            y_array=windowed_freq,
-            x_plot=windowed_x_plot,
-            smoothed=windowed_raw_avg_frequency,
+            x_stop,
+            x_array=bar_bins,
+            y_array=freq,
+            x_plot=bar_bins,
+            smoothed=r_avg,
         )
 
-        self.calculate_avg_freq_stats(
-            bin_width, windowed_x_plot, windowed_raw_avg_frequency
-        )
+        # r_avg_adj = self.adjust_convolv_freq_x(r_avg, x_plot)
+
+        self.calculate_avg_freq_stats(bar_bins, r_avg)
 
         # this plots the BARS smoothing for response window ontop of freq
         # histogram for the whole sweep
         self.plot_annotated_freq_histogram(
             raster_df,
-            windowed_x_stop,
+            x_stop,
             x_array=bar_bins,
             y_array=freq,
-            x_plot=windowed_x_plot,
-            smoothed=windowed_raw_avg_frequency,
+            x_plot=bar_bins,
+            smoothed=r_avg,
             rise_points=True if example == False else False,
         )
 
         # raw_avg_frequency = run_BARS_smoothing(
         #     x_stop, x_array=bar_bins, y_array=freq, x_plot=x_plot
         # )
+
         # self.plot_smoothed_PSTH(
         #     x_stop,
         #     x_array=bar_bins,
@@ -1565,6 +1670,7 @@ class JaneCell(object):
         counts, bins = np.histogram(
             psth_df, bins=range(self.baseline_start, bin_stop, bin_width)
         )
+
         # this puts bar in between the edges of the bin
         bar_bins = 0.5 * (bins[:-1] + bins[1:])
 
@@ -1614,11 +1720,12 @@ class JaneCell(object):
                 x=x_plot,
                 y=smoothed,
                 marker=dict(color="#A613C4", size=2),
-                name="spline estimate",
+                name="gaussian smoothing",
             )
         )
 
-        # smoothed_psth.show()
+        smoothed_psth.show()
+        pdb.set_trace()
 
     def replace_avg_extrapolation(self, freq, smoothed):
         # replace tail end of avg trace, if freq = 0, replace with pre-stim
@@ -1929,10 +2036,21 @@ class JaneCell(object):
 
         return tau, decay_fit
 
-    def calculate_avg_freq_stats(self, bin_width, x_plot, avg_frequency):
+    def adjust_convolv_freq_x(self, freq, x_plot):
+        """
+        The convolved frequency is twice as long as the bins, truncate it
+        and shift so that values line up
+        """
+        freq_end = len(x_plot)  # cut smoothed freq to match x bins length???
+        freq_cut = freq[1 : freq_end + 1]
+
+        return freq_cut
+
+    def calculate_avg_freq_stats(self, x_plot, avg_frequency):
 
         avg_frequency_df = pd.DataFrame()
         avg_frequency_df["Avg Frequency (Hz)"] = avg_frequency
+
         avg_frequency_df.index = x_plot
         self.avg_frequency_df = avg_frequency_df
 
@@ -1973,9 +2091,10 @@ class JaneCell(object):
             ):
 
                 # calculate root time to start finding rise_start
-                root_window_start = (
-                    p14_acq_parameters.TP_START + p14_acq_parameters.TP_LENGTH
-                )
+                # root_window_start = (
+                #     p14_acq_parameters.TP_START + p14_acq_parameters.TP_LENGTH
+                # )
+                root_window_start = 490
                 root_window = self.avg_frequency_df.loc[
                     root_window_start:freq_peak_time
                 ]
