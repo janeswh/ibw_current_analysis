@@ -837,6 +837,8 @@ def run_single(dataset, csvfile, file_name):
     # 4 runs stats on sweeps and creates a dict for each stim condition
     condition_sweeps.get_mod_events()
     condition_sweeps.calculate_event_stats()
+    # condition_sweeps.make_neo_SpikeTrains()
+    # condition_sweeps.get_IPSC_frequency()
     # condition_sweeps.plot_mod_events  # sanity check only
     condition_sweeps.calculate_mean_trace_stats()
     condition_sweeps.plot_annotated_events()
@@ -887,7 +889,7 @@ if __name__ == "__main__":
         dataset,
         csvfile_name,
     )
-    cell_name = "JH200303_c4"
+    cell_name = "JH20210812_c6"
     # cell_name = "JH190904_c2"
 
     run_both_conditions(dataset, csvfile, cell_name)
