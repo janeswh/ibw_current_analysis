@@ -3273,7 +3273,7 @@ def plot_within_slice_amps(df):
         rows=1,
         cols=2,
         shared_yaxes=True,
-        x_title="Timepoint",
+        # x_title="Timepoint",
         # y_title="Avg log mean trace peak",
     )
 
@@ -3350,7 +3350,13 @@ def plot_within_slice_amps(df):
             fig.update_xaxes(
                 title_text=f"{timepoint.upper()}", row=1, col=ct + 1
             )
-    fig.update_yaxes(title_text="Avg Log Mean Trace Peak", row=1, col=1)
+
+            fig.update_yaxes(
+                title_text=f"{timepoint.upper()} Avg Log Mean Trace Peak",
+                row=1,
+                col=ct + 1,
+            )
+
     fig.update_layout(
         showlegend=False,
         # font_family="Arial",
