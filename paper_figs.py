@@ -661,10 +661,116 @@ def make_annotated_freq():
     get_example_cell_PSTH("p14", "JH190828_c6")
 
 
+def get_slice_amps():
+    slicesfile_name = f"slices_list.csv"
+    slicesfile = os.path.join(
+        FileSettings.TABLES_FOLDER, "misc_csv_data", slicesfile_name
+    )
+    slices_list = pd.read_csv(slicesfile)
+
+    for timepoint in slices_list["Timepoint"].unique():
+        timepoint_slices_list = slices_list.loc[
+            slices_list["Timepoint"] == timepoint
+        ]
+
+        meantrace_file_name = f"{timepoint}_all_mean_trace_stats.csv"
+        mean_trace_file = os.path.join(
+            FileSettings.TABLES_FOLDER, timepoint, meantrace_file_name,
+        )
+        mean_trace_stats = pd.read_csv(mean_trace_file, index_col=0)
+
+        # freq_file_name = f"{timepoint}_avg_frequency_stats.csv"
+        # freq_file = os.path.join(
+        #     FileSettings.TABLES_FOLDER, timepoint, freq_file_name,
+        # )
+        # freq_stats = pd.read_csv(freq_file, index_col=0)
+
+        for cell in timepoint_slices_list["Cell name"].unique():
+            cell_type = mean_trace_stats.loc[
+                mean_trace_stats["Cell name"] == cell
+            ]["Cell Type"][0]
+
+            cell_mean_trace_peak = mean_trace_stats.loc[
+                mean_trace_stats["Cell name"] == cell
+            ]["Mean Trace Peak (pA)"][0]
+
+            cell_log_peak = np.log(abs(cell_mean_trace_peak))
+
+            slices_list.loc[
+                slices_list["Cell name"] == cell, "Cell type"
+            ] = cell_type
+            slices_list.loc[
+                slices_list["Cell name"] == cell, "Mean trace peak (pA)"
+            ] = cell_mean_trace_peak
+            slices_list.loc[
+                slices_list["Cell name"] == cell, "Log mean trace peak"
+            ] = cell_log_peak
+
+    return slices_list
+
+
+def get_slice_avg_amps(amps):
+    """
+    Gets the avg log-transformed peak amplitudes from each slice
+    """
+
+    mean_amps = (
+        amps.groupby(["Timepoint", "Slice", "Cell type"])[
+            "Mean trace peak (pA)", "Log mean trace peak"
+        ]
+        .mean()
+        .reset_index()
+    )
+
+    mean_amps.rename(
+        columns={
+            "Mean trace peak (pA)": "Avg Mean trace peak (pA)",
+            "Log mean trace peak": "Avg log mean trace peak",
+        },
+        inplace=True,
+    )
+
+    mean_amps = mean_amps.pivot(
+        index=["Timepoint", "Slice"],
+        columns="Cell type",
+        values="Avg log mean trace peak",
+    )
+
+    mean_amps.reset_index(inplace=True)
+
+    return mean_amps
+
+
+def make_within_slice_comparisons():
+
+    slice_amps = get_slice_amps()
+    slice_avg_amps = get_slice_avg_amps(slice_amps)
+    cell_type_amp_corr_fig = plot_slice_amp_corr(slice_avg_amps)
+    within_slice_amps_fig = plot_within_slice_amps(slice_amps)
+
+    save_fig_to_png(
+        cell_type_amp_corr_fig,
+        legend=False,
+        rows=1,
+        cols=2,
+        png_filename=f"slices_cell_type_amp_corr.png",
+    )
+
+    save_fig_to_png(
+        within_slice_amps_fig,
+        legend=False,
+        rows=1,
+        cols=2,
+        png_filename=f"within_slice_amps_fig.png",
+    )
+
+    pdb.set_trace()
+
+
 if __name__ == "__main__":
 
+    make_within_slice_comparisons()
     get_example_freq("p2", "JH200303_c8", "TC")
-    pdb.set_trace()
     make_avg_freq_traces()
 
     plot_misc_data()

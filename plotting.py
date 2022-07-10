@@ -3224,3 +3224,192 @@ def plot_annotated_freq(df, stats, dataset):
     # fig.show()
 
     return annotated_plot_noaxes
+
+
+def plot_within_slice_amps(df):
+
+    # df["Timepoint"] = df["Timepoint"].str.upper()
+    cell_type_line_colors = {"MC": "#609a00", "TC": "#388bf7"}
+    cell_type_bar_colors = {"MC": "#CEEE98", "TC": "#ACCEFA"}
+
+    color_scale = [
+        "#15401E",
+        "#1D552F",
+        "#246A43",
+        "#2C7F5A",
+        "#349474",
+        "#3CA890",
+        "#44BDB0",
+        "#4CD1D2",
+        "#54D5E6",
+        "#61E0E8",
+        "#6DE9EA",
+        "#7AEDE7",
+        "#86EFE4",
+        "#93F1E2",
+        "#A0F3E1",
+        "#ADF4E2",
+        "#B9F6E3",
+    ]
+
+    timepoints = ["p2", "p14"]
+    cell_types = ["MC", "TC"]
+    plot_refs = [["x", "y"], ["x2", "y2"]]
+
+    fig = make_subplots(
+        rows=1,
+        cols=2,
+        shared_yaxes=True,
+        x_title="Timepoint",
+        y_title="Avg log mean trace peak",
+    )
+
+    for ct, timepoint in enumerate(timepoints):
+        timepoint_df = df.loc[df["Timepoint"] == timepoint]
+        slices = timepoint_df["Slice"].unique()
+
+        for slice_ct, slice in enumerate(slices):
+
+            timepoint_df.groupby(["Slice", "Cell type"])["Log mean trace peak"]
+
+            slice_df = timepoint_df.loc[timepoint_df["Slice"] == slice]
+
+            mc_list = slice_df.loc[slice_df["Cell type"] == "MC"]["Cell name"]
+            tc_list = slice_df.loc[slice_df["Cell type"] == "TC"]["Cell name"]
+
+            fig.add_trace(
+                go.Box(
+                    x=timepoint_df.loc[timepoint_df["Slice"] == slice][
+                        "Cell type"
+                    ],
+                    y=timepoint_df.loc[timepoint_df["Slice"] == slice][
+                        "Log mean trace peak"
+                    ],
+                    line=dict(color="rgba(0,0,0,0)"),
+                    fillcolor="rgba(0,0,0,0)",
+                    boxpoints="all",
+                    pointpos=0,
+                    marker_color=color_scale[slice_ct],
+                    marker=dict(
+                        line=dict(color=color_scale[slice_ct], width=2,),
+                        size=12,
+                    ),
+                    name=slice,
+                    legendgroup=slice,
+                    # offsetgroup=slice_ct + 1,
+                ),
+                row=1,
+                col=ct + 1,
+            )
+
+            # draw lines between all possible pairs if both cell types are
+            # recorded in the slice
+
+            slice_cell_types = slice_df["Cell type"].unique().tolist()
+            import itertools
+
+            if "MC" in slice_cell_types and "TC" in slice_cell_types:
+                pairs = list(itertools.product(mc_list, tc_list))
+                for pair in pairs:
+                    mc_name = pair[0]
+                    tc_name = pair[1]
+
+                    mc_amp = timepoint_df.loc[
+                        (timepoint_df["Slice"] == slice)
+                        & (timepoint_df["Cell name"] == mc_name)
+                    ]["Log mean trace peak"]
+                    tc_amp = timepoint_df.loc[
+                        (timepoint_df["Slice"] == slice)
+                        & (timepoint_df["Cell name"] == tc_name)
+                    ]["Log mean trace peak"]
+
+                    fig.add_shape(
+                        type="line",
+                        xref=plot_refs[ct][0],
+                        yref=plot_refs[ct][1],
+                        x0="MC",
+                        y0=float(mc_amp),
+                        x1="TC",
+                        y1=float(tc_amp),
+                        line=dict(color="gray", width=3),
+                    )
+
+            fig.update_xaxes(
+                title_text=f"{timepoint.upper()}", row=1, col=ct + 1
+            )
+    fig.update_layout(
+        showlegend=False,
+        font_family="Arial",
+        font=dict(family="Arial", size=26),
+        legend=dict(font=dict(family="Arial", size=26)),
+    )
+
+    return fig
+
+
+def plot_slice_amp_corr(avg_amps):
+    timepoint_line_colors = {"P2": "#af6fae", "P14": "#ff3a35"}
+    avg_amps["Timepoint"] = avg_amps["Timepoint"].str.upper()
+    avg_amps.dropna(axis=0, inplace=True)
+
+    # puts P2 first
+    avg_amps.sort_values(by="Timepoint", ascending=False, inplace=True)
+
+    fig = px.scatter(
+        avg_amps,
+        x="MC",
+        y="TC",
+        facet_col="Timepoint",
+        facet_col_spacing=0.15,
+        color="Timepoint",
+        color_discrete_map=timepoint_line_colors,
+        trendline="ols",
+    )
+
+    fig.update_traces(marker=dict(size=15), line=dict(width=4))
+
+    # fig.update_yaxes(matches=None)
+    fig.update_xaxes(matches=None)
+    # # hides facet plot individual titles
+    fig.for_each_annotation(lambda a: a.update(text=""))
+
+    fig.layout.xaxis.title.update(text="P2 MC Log Mean Trace Peaks")
+    fig.layout.xaxis2.title.update(text="P14 MC Log Mean Trace Peaks")
+    fig.layout.yaxis.title.text = "TC Log Mean Trace Peaks"
+
+    fig.for_each_yaxis(lambda yaxis: yaxis.update(showticklabels=True))
+
+    # gets spearman correlation coefficient
+
+    all_correlation_stats = pd.DataFrame()
+
+    for count, timepoint in enumerate(avg_amps["Timepoint"].unique()):
+        timepoint_df = avg_amps.loc[avg_amps["Timepoint"] == timepoint].copy()
+        timepoint_correlations = []
+        x = timepoint_df["MC"]
+        y = timepoint_df["TC"]
+
+        r, p_val = spearmanr(x, y, nan_policy="omit")
+        stats = pd.DataFrame([timepoint, "MC", "TC", r, p_val]).T
+        stats.columns = [
+            "Dataset",
+            "X value",
+            "Y value",
+            "Spearman r",
+            "p-value",
+        ]
+        all_correlation_stats = pd.concat([all_correlation_stats, stats])
+        timepoint_correlations.append([r, p_val])
+
+        # annotates facet plot with regression values
+        fig.add_annotation(
+            xref=f"x{count+1}",
+            yref=f"y{count+1}",
+            x=avg_amps["MC"].max() * 0.9,  # relative to x
+            y=avg_amps["TC"].max() * 0.95,
+            text=f"r\u209b = {np.round(r, 3)}<br>" f"p = {np.round(p_val, 3)}",
+            align="left",
+            showarrow=False,
+        )
+
+    return fig
