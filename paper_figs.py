@@ -764,8 +764,6 @@ def make_within_slice_comparisons():
         png_filename=f"within_slice_amps_fig.png",
     )
 
-    pdb.set_trace()
-
 
 if __name__ == "__main__":
 

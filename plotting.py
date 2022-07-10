@@ -380,7 +380,7 @@ def plot_response_counts(counts_dict):
         rows=1,
         cols=len(counts_dict.keys()),
         # x_title="Timepoint",
-        y_title="Number of Cells",
+        # y_title="Number of Cells",
         shared_yaxes=True
         # subplot_titles=dataset_list,
     )
@@ -442,6 +442,8 @@ def plot_response_counts(counts_dict):
         if (trace.name in names)
         else names.add(trace.name)
     )
+
+    response_counts_fig.update_yaxes(title="Number of Cells", row=1, col=1)
 
     response_counts_fig.update_layout(
         legend_title_text="Cell Responses",
@@ -656,6 +658,7 @@ def plot_correlations(data_df, data_type, x_label, y_label):
         facet_row="Dataset",
         facet_col="Cell Type",
         facet_row_spacing=0.15,
+        facet_col_spacing=0.2,
         trendline="ols",
         color_discrete_map=cell_type_line_colors,
     )
@@ -667,23 +670,33 @@ def plot_correlations(data_df, data_type, x_label, y_label):
     )
     fig.for_each_xaxis(lambda xaxis: xaxis.update(showticklabels=True))
 
-    fig.layout.xaxis.title.update(text="P14 MC")
-    fig.layout.xaxis3.title.update(text="P2 MC")
-    fig.layout.xaxis2.title.update(text="P14 TC")
-    fig.layout.xaxis4.title.update(text="P2 TC")
+    fig.layout.xaxis.title.update(text=f"P14 MC {x_axis_label}")
+    fig.layout.yaxis.title.update(text=f"P14 MC {y_label}")
+
+    fig.layout.xaxis3.title.update(text=f"P2 MC {x_axis_label}")
+    fig.layout.yaxis3.title.update(text=f"P2 MC {y_label}")
+
+    fig.layout.xaxis2.title.update(text=f"P14 TC {x_axis_label}")
+    fig.layout.yaxis2.title.update(text=f"P14 TC {y_label}")
+
+    fig.layout.xaxis4.title.update(text=f"P2 TC {x_axis_label}")
+    fig.layout.yaxis4.title.update(text=f"P2 TC {y_label}")
+
+    # fig.update_yaxes(matches=None)
+    fig.for_each_yaxis(lambda yaxis: yaxis.update(showticklabels=True))
 
     # # hides facet plot individual titles
     fig.for_each_annotation(lambda a: a.update(text=""))
-    fig.add_annotation(
-        x=0.5,
-        y=-0.12,
-        font=dict(size=26),
-        showarrow=False,
-        text=x_axis_label,
-        textangle=-0,
-        xref="paper",
-        yref="paper",
-    )
+    # fig.add_annotation(
+    #     x=0.5,
+    #     y=-0.12,
+    #     font=dict(size=26),
+    #     showarrow=False,
+    #     text=x_axis_label,
+    #     textangle=-0,
+    #     xref="paper",
+    #     yref="paper",
+    # )
 
     # gets spearman correlation coefficient
     spearman_stats = calc_spearman(data_df, data_type, x_label, y_label)
@@ -3261,7 +3274,7 @@ def plot_within_slice_amps(df):
         cols=2,
         shared_yaxes=True,
         x_title="Timepoint",
-        y_title="Avg log mean trace peak",
+        # y_title="Avg log mean trace peak",
     )
 
     for ct, timepoint in enumerate(timepoints):
@@ -3337,11 +3350,12 @@ def plot_within_slice_amps(df):
             fig.update_xaxes(
                 title_text=f"{timepoint.upper()}", row=1, col=ct + 1
             )
+    fig.update_yaxes(title_text="Avg Log Mean Trace Peak", row=1, col=1)
     fig.update_layout(
         showlegend=False,
-        font_family="Arial",
-        font=dict(family="Arial", size=26),
-        legend=dict(font=dict(family="Arial", size=26)),
+        # font_family="Arial",
+        # font=dict(family="Arial", size=26),
+        # legend=dict(font=dict(family="Arial", size=26)),
     )
 
     return fig
