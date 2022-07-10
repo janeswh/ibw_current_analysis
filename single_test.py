@@ -1724,8 +1724,7 @@ class JaneCell(object):
             )
         )
 
-        smoothed_psth.show()
-        pdb.set_trace()
+        # smoothed_psth.show()
 
     def replace_avg_extrapolation(self, freq, smoothed):
         # replace tail end of avg trace, if freq = 0, replace with pre-stim

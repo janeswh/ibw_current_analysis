@@ -2940,7 +2940,7 @@ def plot_freq(MC_df, TC_df, dataset):
     fig = make_subplots(
         rows=len(MC_df),
         cols=2,
-        x_title="Time (ms)",
+        # x_title="Time (ms)",
         y_title="IPSC Frequency (Hz) <br>",
         shared_xaxes=True,
         shared_yaxes=False,
@@ -3029,6 +3029,13 @@ def plot_freq(MC_df, TC_df, dataset):
     fig.update_xaxes(showticklabels=True, row=len(MC_df), col=1)
     fig.update_xaxes(showticklabels=True, row=len(TC_df), col=2)
     fig.update_xaxes(tickfont=dict(family="Arial", size=18))
+
+    fig.update_xaxes(
+        title="Time (ms)", col=1, row=len(MC_df), title_font=dict(size=24)
+    )
+    fig.update_xaxes(
+        title="Time (ms)", col=2, row=len(TC_df), title_font=dict(size=24)
+    )
 
     fig_noaxes = go.Figure(fig)
     fig_noaxes.update_xaxes(showgrid=False, visible=True)
@@ -3191,7 +3198,7 @@ def plot_annotated_freq(df, stats, dataset):
 
     fig.add_annotation(
         x=df.index[0] + (stim_time - df.index[0]) / 2,
-        y=rise_start_freq,
+        y=rise_start_freq - 0.5,
         text="Baseline frequency",
         showarrow=False,
         yshift=-80,
@@ -3218,7 +3225,7 @@ def plot_annotated_freq(df, stats, dataset):
     fig.add_annotation(
         x=800,
         y=7.5,
-        xshift=30,
+        xshift=35,
         text="5 Hz",
         showarrow=False,
         # textangle=-90,
@@ -3273,6 +3280,7 @@ def plot_within_slice_amps(df):
         rows=1,
         cols=2,
         shared_yaxes=True,
+        horizontal_spacing=0.2,
         # x_title="Timepoint",
         # y_title="Avg log mean trace peak",
     )
@@ -3347,22 +3355,15 @@ def plot_within_slice_amps(df):
                         line=dict(color="gray", width=3),
                     )
 
-            fig.update_xaxes(
-                title_text=f"{timepoint.upper()}", row=1, col=ct + 1
-            )
-
             fig.update_yaxes(
                 title_text=f"{timepoint.upper()} Avg Log Mean Trace Peak",
                 row=1,
                 col=ct + 1,
             )
 
-    fig.update_layout(
-        showlegend=False,
-        # font_family="Arial",
-        # font=dict(family="Arial", size=26),
-        # legend=dict(font=dict(family="Arial", size=26)),
-    )
+    fig.update_layout(showlegend=False,)
+
+    fig.for_each_yaxis(lambda yaxis: yaxis.update(showticklabels=True))
 
     return fig
 
@@ -3380,7 +3381,7 @@ def plot_slice_amp_corr(avg_amps):
         x="MC",
         y="TC",
         facet_col="Timepoint",
-        facet_col_spacing=0.15,
+        facet_col_spacing=0.2,
         color="Timepoint",
         color_discrete_map=timepoint_line_colors,
         trendline="ols",
@@ -3395,7 +3396,8 @@ def plot_slice_amp_corr(avg_amps):
 
     fig.layout.xaxis.title.update(text="P2 MC Log Mean Trace Peaks")
     fig.layout.xaxis2.title.update(text="P14 MC Log Mean Trace Peaks")
-    fig.layout.yaxis.title.text = "TC Log Mean Trace Peaks"
+    fig.layout.yaxis.title.text = "P2 TC Log Mean Trace Peaks"
+    fig.layout.yaxis2.title.text = "P14 TC Log Mean Trace Peaks"
 
     fig.for_each_yaxis(lambda yaxis: yaxis.update(showticklabels=True))
 

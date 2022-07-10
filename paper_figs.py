@@ -771,7 +771,7 @@ if __name__ == "__main__":
     get_example_freq("p2", "JH200303_c8", "TC")
     make_avg_freq_traces()
 
-    plot_misc_data()
+    # plot_misc_data()
 
     get_correlations(data_type="event")
     get_correlations(data_type="frequency")
