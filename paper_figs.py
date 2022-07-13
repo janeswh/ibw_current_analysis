@@ -12,6 +12,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from file_settings import FileSettings
+import itertools
 
 import collections
 from scipy.stats import sem
@@ -741,13 +742,42 @@ def get_slice_avg_amps(amps):
     return mean_amps
 
 
+def get_all_amp_pairs(amps):
+    """
+    Gets all the pairs of mean trace peak amplitudes for MCs and TCs from
+    the same slice
+    """
+    timepoints = ["p2", "p14"]
+    for ct, timepoint in enumerate(timepoints):
+        timepoint_df = amps.loc[amps["Timepoint"] == timepoint]
+        slices = timepoint_df["Slice"].unique()
+
+        for slice_ct, slice in enumerate(slices):
+            timepoint_df.groupby(["Slice", "Cell type"])["Log mean trace peak"]
+            slice_df = timepoint_df.loc[timepoint_df["Slice"] == slice]
+
+            mc_list = slice_df.loc[slice_df["Cell type"] == "MC"]["Cell name"]
+            tc_list = slice_df.loc[slice_df["Cell type"] == "TC"]["Cell name"]
+
+            slice_cell_types = slice_df["Cell type"].unique().tolist()
+
+            if "MC" in slice_cell_types and "TC" in slice_cell_types:
+                pairs = list(itertools.product(mc_list, tc_list))
+                for pair in pairs:
+                    mc_name = pair[0]
+                    tc_name = pair[1]
+
+                pdb.set_trace()
+
+
 def make_within_slice_comparisons():
 
     slice_amps = get_slice_amps()
     slice_avg_amps = get_slice_avg_amps(slice_amps)
+    get_all_amp_pairs(slice_amps)
     cell_type_amp_corr_fig = plot_slice_amp_corr(slice_avg_amps)
     within_slice_amps_fig = plot_within_slice_amps(slice_amps)
-
+    pdb.set_trace()
     save_fig_to_png(
         cell_type_amp_corr_fig,
         legend=False,

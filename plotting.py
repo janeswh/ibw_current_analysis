@@ -2019,53 +2019,6 @@ def plot_ephys_sections_intensity_timepoint(data):
 
     # sections_fig.show()
 
-    # regression_results = pd.DataFrame()
-    # # gets regression results
-    # models = px.get_trendline_results(sections_fig)
-    # for count, model_row in models.iterrows():
-    #     variable = model_row["variable"]
-    #     results = model_row["px_fit_results"]
-    #     alpha = results.params[0]
-    #     beta = results.params[1]
-    #     p_beta = results.pvalues[1]
-    #     r_squared = results.rsquared
-
-    #     list = pd.DataFrame([variable, alpha, beta, p_beta, r_squared]).T
-    #     regression_results = pd.concat([regression_results, list])
-
-    #     # makes regression annotation
-    #     if beta > 0:
-    #         sign = "+"
-    #     else:
-    #         sign = "-"
-    #     line1 = f"y = {str(round(alpha, 4))} {sign} {abs(beta):.1E}x <br>"
-    #     line2 = f"p-value = {p_beta:.3f} <br>"
-    #     line3 = f"R\u00b2 = {str(round(r_squared, 4))} <br>"
-    #     summary = line1 + line2 + line3
-
-    #     # annotates facet plot with regression values
-    #     sections_fig.add_annotation(
-    #         xref=f"x{count+1}",
-    #         yref=f"y{count+1}",
-    #         x=long_data["Integrated density/area"].max()
-    #         * 0.9,  # relative to x
-    #         y=long_data.loc[long_data["variable"] == variable]["value"].max()
-    #         * 0.9,
-    #         text=summary,
-    #         align="left",
-    #         showarrow=False,
-    #     )
-
-    # regression_results.columns = [
-    #     "variable",
-    #     "alpha",
-    #     "beta",
-    #     "p_beta",
-    #     "r_squared",
-    # ]
-
-    # sections_fig.show()
-
     return sections_fig, long_data, all_correlation_stats
 
 

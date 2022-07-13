@@ -735,53 +735,6 @@ class JaneCell(object):
 
         return responses
 
-    # def extract_drug_sweeps(self):
-    #     """
-    #     Puts baseline-subtracted NBQX wash-in traces into a df
-    #     """
-    #     sweeps_dict = self.drug_sweeps_dict
-    #     traces = sweeps_dict["NBQX wash-in"]
-    #     # mean_trace = traces.mean(axis=1)
-
-    #     # filter traces
-    #     traces_filtered = self.filter_traces(traces)
-    #     mean_trace_filtered = pd.DataFrame(traces_filtered.mean(axis=1))
-
-    #     # convert time to ms
-    #     time = np.arange(0, len(traces) / FS, 1 / FS)
-    #     mean_trace_filtered.index = time
-    #     traces_filtered.index = time
-
-    #     # find mean baseline, defined as the last 3s of the sweep
-    #     baseline = self.calculate_mean_baseline(
-    #         traces_filtered, baseline_start=100, baseline_end=450
-    #     )
-    #     mean_baseline = self.calculate_mean_baseline(
-    #         mean_trace_filtered, baseline_start=100, baseline_end=450
-    #     )
-
-    #     # calculates the baseline-subtracted mean trace for plotting purposes
-    #     sub_mean_trace = mean_trace_filtered - mean_baseline
-
-    #     return sub_mean_trace
-
-    # def extract_VC_sweep(self, selected_condition, sweep_number):
-    #     """
-    #     Extracts a single VC sweep for plotting onset latency. Select the
-    #     sweep with sweep_number, which is the sweep # within a given set of
-    #     stim sweeps.
-    #     """
-    #     # if self.cell_name == "JH20210923_c2":
-    #     #     selected_condition = "50%, 1 ms"
-    #     # else:
-    #     #     selected_condition = ",".join(FileSettings.SELECTED_CONDITION)
-
-    #     selected_sweep = self.filtered_traces_dict[selected_condition][
-    #         sweep_number
-    #     ]
-
-    #     return selected_sweep
-
     def drop_short_isi(self):
         # makes list of event times for each sweep and puts in df
         isi_df = pd.DataFrame()

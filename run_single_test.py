@@ -755,19 +755,6 @@ class BothConditions(object):
         """
         Saves checked frequency and mean trace responses to csv
         """
-        # responses_df = pd.DataFrame(
-        #     {
-        #         "cell name": self.cell_name,
-        #         "timepoint": self.dataset,
-        #         "cell type": self.cell_type,
-        #         "light freq response": self.light_freq_response,
-        #         "mean trace response": self.mean_trace_response,
-        #         "spon freq response": self.spon_freq_response,
-        #         "overall response": self.overall_response,
-        #     },
-        #     columns=["cell name", "timepoint", "cell type", ]
-        #     index=[0],
-        # )
 
         responses_df = pd.DataFrame(
             [
@@ -834,20 +821,21 @@ def run_single(dataset, csvfile, file_name):
     # 1 checks whether cell has a data_notes response before proceeding
     condition_sweeps.check_response()
 
-    # 4 runs stats on sweeps and creates a dict for each stim condition
+    # 2 imports event timings from MOD and calculate event kinetics
     condition_sweeps.get_mod_events()
     condition_sweeps.calculate_event_stats()
-    # condition_sweeps.make_neo_SpikeTrains()
-    # condition_sweeps.get_IPSC_frequency()
+
     # condition_sweeps.plot_mod_events  # sanity check only
     condition_sweeps.calculate_mean_trace_stats()
     condition_sweeps.plot_annotated_events()
     condition_sweeps.save_annotated_events_plot()
 
     # cell.plot_events()    # sanity check only
+    # 3 analyzes and plots the frequency of IPSCs
     condition_sweeps.analyze_avg_frequency()
     condition_sweeps.save_annotated_freq()
 
+    # 4 plots the mean trace fig
     condition_sweeps.plot_mean_trace()
     # cell.save_mean_trace_plot()   # don't save, each plot is 130 mb
 
@@ -872,7 +860,7 @@ def run_both_conditions(dataset, csvfile, cell_name):
     cell.plot_both_freqs()
     cell.save_freq_event_stats_plots()
 
-    # compares avg freqs between light and spon condition to determine
+    # 4 compares avg freqs between light and spon condition to determine
     # whether or not cell has response
     cell.compare_avg_freqs()
     cell.check_light_response()
