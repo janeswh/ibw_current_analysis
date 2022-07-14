@@ -9,6 +9,7 @@ from collections import defaultdict
 import plotly.io as pio
 from file_settings import FileSettings
 from plotting import *
+import itertools
 
 pio.renderers.default = "browser"
 import pdb
@@ -586,4 +587,191 @@ def get_ephys_sections_intensity():
     ]
 
     return sections_data
+
+
+def get_slice_amps():
+    slicesfile_name = f"slices_list.csv"
+    slicesfile = os.path.join(
+        FileSettings.TABLES_FOLDER, "misc_csv_data", slicesfile_name
+    )
+    slices_list = pd.read_csv(slicesfile)
+
+    for timepoint in slices_list["Timepoint"].unique():
+        timepoint_slices_list = slices_list.loc[
+            slices_list["Timepoint"] == timepoint
+        ]
+
+        meantrace_file_name = f"{timepoint}_all_mean_trace_stats.csv"
+        mean_trace_file = os.path.join(
+            FileSettings.TABLES_FOLDER, timepoint, meantrace_file_name,
+        )
+        mean_trace_stats = pd.read_csv(mean_trace_file, index_col=0)
+
+        # freq_file_name = f"{timepoint}_avg_frequency_stats.csv"
+        # freq_file = os.path.join(
+        #     FileSettings.TABLES_FOLDER, timepoint, freq_file_name,
+        # )
+        # freq_stats = pd.read_csv(freq_file, index_col=0)
+
+        for cell in timepoint_slices_list["Cell name"].unique():
+            cell_type = mean_trace_stats.loc[
+                mean_trace_stats["Cell name"] == cell
+            ]["Cell Type"][0]
+
+            cell_mean_trace_peak = mean_trace_stats.loc[
+                mean_trace_stats["Cell name"] == cell
+            ]["Mean Trace Peak (pA)"][0]
+
+            cell_log_peak = np.log(abs(cell_mean_trace_peak))
+
+            slices_list.loc[
+                slices_list["Cell name"] == cell, "Cell type"
+            ] = cell_type
+            slices_list.loc[
+                slices_list["Cell name"] == cell, "Mean trace peak (pA)"
+            ] = cell_mean_trace_peak
+            slices_list.loc[
+                slices_list["Cell name"] == cell, "Log mean trace peak"
+            ] = cell_log_peak
+
+    return slices_list
+
+
+def get_slice_avg_amps(amps):
+    """
+    Gets the avg log-transformed peak amplitudes from each slice
+    """
+
+    mean_amps = (
+        amps.groupby(["Timepoint", "Slice", "Cell type"])[
+            "Mean trace peak (pA)", "Log mean trace peak"
+        ]
+        .mean()
+        .reset_index()
+    )
+
+    mean_amps.rename(
+        columns={
+            "Mean trace peak (pA)": "Avg Mean trace peak (pA)",
+            "Log mean trace peak": "Avg log mean trace peak",
+        },
+        inplace=True,
+    )
+
+    mean_amps = mean_amps.pivot(
+        index=["Timepoint", "Slice"],
+        columns="Cell type",
+        values="Avg log mean trace peak",
+    )
+
+    mean_amps.reset_index(inplace=True)
+
+    return mean_amps
+
+
+def get_all_amp_pairs(amps):
+    """
+    Gets all the pairs of mean trace peak amplitudes for MCs and TCs from
+    the same slice and calculates TC/MC ratio
+    """
+    timepoints = ["p2", "p14"]
+    all_ratios = pd.DataFrame()
+    for ct, timepoint in enumerate(timepoints):
+        timepoint_df = amps.loc[amps["Timepoint"] == timepoint]
+        slices = timepoint_df["Slice"].unique()
+        timepoint_ratios = pd.DataFrame()
+
+        for slice in slices:
+
+            slice_list = []
+            mc_names_list = []
+            tc_names_list = []
+            mc_amp_list = []
+            tc_amp_list = []
+            ratio_list = []
+
+            timepoint_df.groupby(["Slice", "Cell type"])["Log mean trace peak"]
+            slice_df = timepoint_df.loc[timepoint_df["Slice"] == slice]
+
+            mc_list = slice_df.loc[slice_df["Cell type"] == "MC"]["Cell name"]
+            tc_list = slice_df.loc[slice_df["Cell type"] == "TC"]["Cell name"]
+
+            slice_cell_types = slice_df["Cell type"].unique().tolist()
+
+            if "MC" in slice_cell_types and "TC" in slice_cell_types:
+                pairs = list(itertools.product(mc_list, tc_list))
+                for pair in pairs:
+                    mc_name = pair[0]
+                    tc_name = pair[1]
+
+                    mc_amp = float(
+                        timepoint_df.loc[
+                            (timepoint_df["Slice"] == slice)
+                            & (timepoint_df["Cell name"] == mc_name)
+                        ]["Mean trace peak (pA)"]
+                    )
+
+                    tc_amp = float(
+                        timepoint_df.loc[
+                            (timepoint_df["Slice"] == slice)
+                            & (timepoint_df["Cell name"] == tc_name)
+                        ]["Mean trace peak (pA)"]
+                    )
+
+                    ratio = abs(tc_amp) / abs(mc_amp)
+
+                    slice_list.append(slice)
+                    mc_names_list.append(mc_name)
+                    tc_names_list.append(tc_name)
+                    mc_amp_list.append(mc_amp)
+                    tc_amp_list.append(tc_amp)
+                    ratio_list.append(ratio)
+
+                pairs_amps = pd.DataFrame(
+                    {
+                        "Slice": slice_list,
+                        "MC cell name": mc_names_list,
+                        "TC cell name": tc_names_list,
+                        "MC amplitude (pA)": mc_amp_list,
+                        "TC amplitude (pA)": tc_amp_list,
+                        "TC/MC ratio": ratio_list,
+                    },
+                )
+
+                timepoint_ratios = pd.concat([timepoint_ratios, pairs_amps])
+                timepoint_ratios["Timepoint"] = timepoint
+        all_ratios = pd.concat([all_ratios, timepoint_ratios])
+
+    return all_ratios
+
+
+def count_ratios(ratios_df):
+    """
+    For each timepoint, counts the proportion of TC/MC mean trace peak amp
+    ratios that are less than and greater than 1
+    """
+    ratios_counts = pd.DataFrame()
+
+    for timepoint in ratios_df["Timepoint"].unique():
+        total = len(
+            ratios_df.loc[ratios_df["Timepoint"] == timepoint]["TC/MC ratio"]
+        )
+        tc_smaller = sum(
+            ratios_df.loc[ratios_df["Timepoint"] == timepoint]["TC/MC ratio"]
+            < 1
+        )
+        tc_bigger = total - tc_smaller
+
+        timepoint_counts = pd.DataFrame(
+            {
+                "timepoint": timepoint,
+                "total": total,
+                "MC > TC": tc_smaller,
+                "MC < TC": tc_bigger,
+            },
+            index=[0],
+        )
+        ratios_counts = pd.concat([ratios_counts, timepoint_counts])
+
+    return ratios_counts
 
