@@ -1,4 +1,6 @@
+from doctest import DocFileCase
 from locale import D_FMT
+from urllib.response import addinfo
 import pandas as pd
 import os
 import numpy as np
@@ -3388,3 +3390,127 @@ def plot_slice_amp_corr(avg_amps):
         )
 
     return fig
+
+
+def plot_ratio_counts(counts):
+    """
+    Plots the proportion of ratios < 1 for both timepoints
+    """
+    counts["timepoint"] = counts["timepoint"].str.upper()
+    response_colors = {"MC > TC": "#CEEE98", "MC < TC": "#ACCEFA"}
+    fig = go.Figure()
+    # plots the proportion of ratios < 1 for both timepoints
+    for count_type in ["MC > TC", "MC < TC"]:
+
+        fig.add_trace(
+            go.Bar(
+                x=counts["timepoint"],
+                y=counts[count_type],
+                name=count_type,
+                marker_color=response_colors[count_type],
+                legendgroup=count_type,
+            ),
+        )
+
+    fig.update_layout(barmode="stack")
+    fig.update_yaxes(title="Number of Cells")
+
+    return fig
+
+
+def plot_cell_type_ratios(df, counts):
+    """
+    Plots the TC/MC mean trace peak amplitude ratios for both timepoints
+    """
+    timepoint_line_colors = {"P2": "#af6fae", "P14": "#ff3a35"}
+    timepoint_bar_colors = {"P2": "#E8C7E7", "P14": "#FAC4C2"}
+
+    df["Timepoint"] = df["Timepoint"].str.upper()
+
+    # fig = make_subplots(
+    #     rows=2,
+    #     cols=1,
+    #     shared_yaxes=False,
+    #     horizontal_spacing=0.2,
+    #     # x_title="Timepoint",
+    #     # y_title="Avg log mean trace peak",
+    # )
+    bar_fig = go.Figure()
+    hist_fig = go.Figure()
+    for timepoint in df["Timepoint"].unique():
+
+        bar_fig.add_trace(
+            go.Box(
+                x=df.loc[df["Timepoint"] == timepoint]["Timepoint"],
+                y=df.loc[df["Timepoint"] == timepoint]["TC/MC ratio"],
+                line=dict(color="rgba(0,0,0,0)"),
+                fillcolor="rgba(0,0,0,0)",
+                boxpoints="all",
+                pointpos=0,
+                marker_color=timepoint_bar_colors[timepoint],
+                marker=dict(
+                    line=dict(
+                        color=timepoint_line_colors[timepoint], width=2,
+                    ),
+                    size=12,
+                ),
+                name=timepoint,
+                legendgroup=timepoint,
+                # offsetgroup=slice_ct + 1,
+            ),
+        )
+
+        bar_fig.add_trace(
+            go.Bar(
+                x=df.loc[df["Timepoint"] == timepoint]["Timepoint"],
+                y=[df.loc[df["Timepoint"] == timepoint]["TC/MC ratio"].mean()],
+                error_y=dict(
+                    type="data",
+                    array=[
+                        sem(
+                            df.loc[df["Timepoint"] == timepoint]["TC/MC ratio"]
+                        )
+                    ],
+                    color=timepoint_line_colors[timepoint],
+                    thickness=3,
+                    visible=True,
+                ),
+                marker_line_width=3,
+                marker_line_color=timepoint_line_colors[timepoint],
+                marker_color=timepoint_bar_colors[timepoint],
+                name=timepoint,
+                legendgroup=timepoint,
+            ),
+        )
+
+        hist_fig.add_trace(
+            go.Histogram(
+                x=df.loc[df["Timepoint"] == timepoint]["TC/MC ratio"],
+                xbins=dict(size=0.2),
+                marker_color=timepoint_line_colors[timepoint],
+                name=timepoint,
+                legendgroup=timepoint,
+            ),
+        )
+
+        hist_fig.update_layout(barmode="stack")
+        hist_fig.update_xaxes(title="TC/MC Amplitude Ratio")
+        hist_fig.update_yaxes(title="# of TC/MC Pairs")
+        bar_fig.update_yaxes(title="TC/MC Amplitude Ratio")
+
+        # below is code from stack overflow to hide duplicate legends
+        names = set()
+        hist_fig.for_each_trace(
+            lambda trace: trace.update(showlegend=False)
+            if (trace.name in names)
+            else names.add(trace.name)
+        )
+
+        bar_fig.for_each_trace(
+            lambda trace: trace.update(showlegend=False)
+            if (trace.name in names)
+            else names.add(trace.name)
+        )
+
+    return bar_fig, hist_fig
+
