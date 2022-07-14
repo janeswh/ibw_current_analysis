@@ -76,6 +76,32 @@ def do_stats(csvfile_name, measures_list, test_type):
     return stats
 
 
+def do_paired_ratio_stats(csvfile_name, test_type):
+    csvfile = os.path.join(
+        FileSettings.TABLES_FOLDER, "paper_figs_data", csvfile_name,
+    )
+
+    df = pd.read_csv(csvfile, index_col=0, header=0)
+    stats = pd.DataFrame()
+
+    p2_ratios = df.loc[df["Timepoint"] == "P2"]["TC/MC ratio"]
+    p14_ratios = df.loc[df["Timepoint"] == "P14"]["TC/MC ratio"]
+
+    if test_type == "Anderson-Darling":
+        anderson_statistic, crit_vals, p_val = anderson_ksamp(
+            [p2_ratios, p14_ratios]
+        )
+
+    stats = pd.DataFrame([csvfile_name, test_type, p_val]).T
+    stats.columns = [
+        "File",
+        "Test",
+        "p-value",
+    ]
+
+    return stats
+
+
 def calc_spearman(df, data_type, x_label, y_label):
     """
     Calculates the Pearson's correlation coefficient for both timepoints
@@ -130,6 +156,11 @@ def calc_spearman(df, data_type, x_label, y_label):
 
 def main():
 
+    # stats for TC/MC mean trace peak ratios
+    amp_ratio_stats = do_paired_ratio_stats(
+        "paired_amp_ratios.csv", "Anderson-Darling"
+    )
+
     # stats for response mean trace data
     mean_trace_stats = do_stats(
         "mean_trace_data.csv",
@@ -164,7 +195,13 @@ def main():
     )
 
     all_stats = pd.concat(
-        [mean_trace_stats, all_mean_trace_stats, freq_stats, cell_type_stats]
+        [
+            amp_ratio_stats,
+            mean_trace_stats,
+            all_mean_trace_stats,
+            freq_stats,
+            cell_type_stats,
+        ]
     )
     csv_filename = "anderson_darling_stats.csv"
     path = os.path.join(
