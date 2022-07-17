@@ -753,6 +753,7 @@ def count_ratios(ratios_df):
     ratios_counts = pd.DataFrame()
 
     for timepoint in ratios_df["Timepoint"].unique():
+
         total = len(
             ratios_df.loc[ratios_df["Timepoint"] == timepoint]["TC/MC ratio"]
         )

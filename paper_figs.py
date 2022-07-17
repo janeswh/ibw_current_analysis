@@ -672,7 +672,7 @@ def make_within_slice_comparisons():
     slice_avg_amps = get_slice_avg_amps(slice_amps)
     ratios = get_all_amp_pairs(slice_amps)
     ratio_counts = count_ratios(ratios)
-
+    pdb.set_trace()
     counts_fig = plot_ratio_counts(ratio_counts)
     ratio_bar_fig, ratio_hist_fig = plot_cell_type_ratios(ratios, ratio_counts)
     cell_type_amp_corr_fig = plot_slice_amp_corr(slice_avg_amps)

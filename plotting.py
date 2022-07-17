@@ -3413,7 +3413,7 @@ def plot_ratio_counts(counts):
         )
 
     fig.update_layout(barmode="stack")
-    fig.update_yaxes(title="Number of Cells")
+    fig.update_yaxes(title="Number of Pairs")
 
     return fig
 
@@ -3493,9 +3493,12 @@ def plot_cell_type_ratios(df, counts):
             ),
         )
 
+        # add line to indicate 1
+        hist_fig.add_vline(x=1, line_width=1, line_dash="dash")
+
         hist_fig.update_layout(barmode="stack")
         hist_fig.update_xaxes(title="TC/MC Amplitude Ratio")
-        hist_fig.update_yaxes(title="# of TC/MC Pairs")
+        hist_fig.update_yaxes(title="Number of TC/MC Pairs")
         bar_fig.update_yaxes(title="TC/MC Amplitude Ratio")
 
         # below is code from stack overflow to hide duplicate legends
