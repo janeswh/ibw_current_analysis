@@ -306,6 +306,27 @@ def main():
         dataset_freq_stats,
     )
 
+    (
+        all_mean_trace_avgsem,
+        windowed_median_avgsem,
+        event_comparisons_avgsem,
+        mean_trace_avgsem,
+        freq_avgsem,
+    ) = get_avg_sem(
+        all_mean_trace_stats_fig_data,
+        medians_fig_data,
+        event_comparisons_fig_data,
+        mean_trace_stats_fig_data,
+        freq_stats_fig_data,
+    )
+
+    save_avg_sem(
+        all_mean_trace_avgsem,
+        windowed_median_avgsem,
+        event_comparisons_avgsem,
+        mean_trace_avgsem,
+        freq_avgsem,
+    )
     save_summary_plots(
         all_mean_trace_stats_fig,
         all_mean_trace_stats_fig_data,

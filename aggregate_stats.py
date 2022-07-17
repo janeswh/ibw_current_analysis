@@ -210,13 +210,6 @@ class CellTypeSummary(object):
             respon_avg_freq_stats["Condition"] == "Light"
         ]
 
-    def save_summary_avgs(self):
-        csv_filename = "{}_{}_{}_thresh_summary_averages.csv".format(
-            self.dataset, self.genotype, thresh_prefix(self.threshold)
-        )
-        path = os.path.join(self.genotype_stats_folder, csv_filename)
-        self.selected_avgs.to_csv(path, float_format="%8.4f", index=False)
-
 
 def get_patched_counts(dataset_list):
     """
@@ -775,4 +768,100 @@ def count_ratios(ratios_df):
         ratios_counts = pd.concat([ratios_counts, timepoint_counts])
 
     return ratios_counts
+
+
+def get_avg_sem(
+    all_mean_trace_df,
+    windowed_medians_df,
+    event_comparisons_df,
+    mean_trace_df,
+    freq_df,
+):
+    """
+    Calculates the average and SEM of mean trace and freq stats
+    """
+    # mean trace stats for all cells, including non-responsive
+    all_mean_trace_stats = all_mean_trace_df.groupby(["Dataset", "Cell Type"])[
+        "Mean Trace Peak (pA)", "Mean Trace Time to Peak (ms)"
+    ].agg(["mean", "sem"])
+
+    # IPSC stats for windowed responses
+    windowed_median_stats = windowed_medians_df.groupby(
+        ["window condition", "Dataset", "Cell Type"]
+    )["Adjusted amplitude (pA)", "Rise time (ms)", "Tau (ms)"].agg(
+        ["mean", "sem"]
+    )
+
+    # IPSC stats for Light, response window between MCs and TCs
+    event_comparisons_stats = event_comparisons_df.groupby(
+        ["Dataset", "Cell Type"]
+    )["Adjusted amplitude (pA)", "Rise time (ms)", "Tau (ms)"].agg(
+        ["mean", "sem"]
+    )
+
+    # mean trace stats for responsive cells only
+    mean_trace_stats = mean_trace_df.groupby(["Dataset", "Cell Type"])[
+        "Mean Trace Peak (pA)", "Mean Trace Time to Peak (ms)"
+    ].agg(["mean", "sem"])
+
+    # freq stats
+    freq_stats = freq_df.groupby(["Dataset", "Cell Type"])[
+        "Baseline-sub Peak Freq (Hz)",
+        "Baseline Frequency (Hz)",
+        "Rise Time (ms)",
+    ].agg(["mean", "sem"])
+
+    # flatten indices, rename columns
+    for df in [
+        all_mean_trace_stats,
+        windowed_median_stats,
+        event_comparisons_stats,
+        mean_trace_stats,
+        freq_stats,
+    ]:
+        df.columns = [f"{x}_{y}" for x, y in df.columns.to_flat_index()]
+        df.reset_index(inplace=True)
+
+    return (
+        all_mean_trace_stats,
+        windowed_median_stats,
+        event_comparisons_stats,
+        mean_trace_stats,
+        freq_stats,
+    )
+
+
+def save_avg_sem(
+    all_mean_trace_avgsem,
+    windowed_median_avgsem,
+    event_comparisons_avgsem,
+    mean_trace_avgsem,
+    freq_avgsem,
+):
+    """
+    Saves the avg and sem values as csv
+    """
+
+    filenames = [
+        "all_mean_trace_avgsem.csv",
+        "windowed_event_medians_avgsem.csv",
+        "cell_comparison_medians_avgsem.csv",
+        "mean_trace_avgsem.csv",
+        "freq_stats_data_avgsem.csv",
+    ]
+
+    dfs = [
+        all_mean_trace_avgsem,
+        windowed_median_avgsem,
+        event_comparisons_avgsem,
+        mean_trace_avgsem,
+        freq_avgsem,
+    ]
+
+    for count, df in enumerate(dfs):
+        filename = filenames[count]
+        path = os.path.join(
+            FileSettings.TABLES_FOLDER, "datasets_summaries_data", filename
+        )
+        df.to_csv(path, float_format="%8.4f")
 
