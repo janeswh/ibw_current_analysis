@@ -520,6 +520,8 @@ def plot_misc_data():
 
     # plots previously analyzed mean trace peak data
     prev_analysis_fig = plot_previous_analysis()
+    old_mean_trace_avg_sem = get_previous_analysis_avgsem()
+    save_csv(old_mean_trace_avg_sem, "old_mean_trace_peaks_avgsem.csv")
     save_fig_to_png(
         prev_analysis_fig,
         legend=True,
@@ -537,6 +539,33 @@ def plot_misc_data():
         png_filename="example_PSTH_fig.png",
         extra_bottom=True,
     )
+
+
+def get_previous_analysis_avgsem():
+    """
+    Gets the avg and sem values of the previous mean trace peak amplitude 
+    analysis
+    """
+    timepoints = ["p2", "p14"]
+    all_stats = pd.DataFrame()
+    for timepoint in timepoints:
+        df = pd.read_csv(
+            os.path.join(
+                FileSettings.TABLES_FOLDER,
+                "misc_csv_data",
+                f"old_{timepoint}_mean_trace_peaks.csv",
+            ),
+            header=0,
+        )
+        stats = pd.DataFrame()
+
+        stats["mean"] = df.mean()
+        stats["sem"] = df.sem()
+        stats["timepoint"] = timepoint
+
+        all_stats = pd.concat([all_stats, stats])
+
+    return all_stats
 
 
 def get_frequencies():
@@ -672,7 +701,7 @@ def make_within_slice_comparisons():
     slice_avg_amps = get_slice_avg_amps(slice_amps)
     ratios = get_all_amp_pairs(slice_amps)
     ratio_counts = count_ratios(ratios)
-    pdb.set_trace()
+
     counts_fig = plot_ratio_counts(ratio_counts)
     ratio_bar_fig, ratio_hist_fig = plot_cell_type_ratios(ratios, ratio_counts)
     cell_type_amp_corr_fig = plot_slice_amp_corr(slice_avg_amps)
@@ -722,20 +751,20 @@ def make_within_slice_comparisons():
 
 if __name__ == "__main__":
 
-    make_within_slice_comparisons()
-    pdb.set_trace()
-    get_example_freq("p2", "JH200303_c8", "TC")
-    make_avg_freq_traces()
+    # make_within_slice_comparisons()
+    # pdb.set_trace()
+    # get_example_freq("p2", "JH200303_c8", "TC")
+    # make_avg_freq_traces()
 
     plot_misc_data()
 
-    get_correlations(data_type="event")
-    get_correlations(data_type="frequency")
+    # get_correlations(data_type="event")
+    # get_correlations(data_type="frequency")
 
-    make_example_huge_trace()
+    # make_example_huge_trace()
 
-    # make example traces
-    make_GC_example_traces()
-    make_timepoint_example_traces()
-    make_gabazine_wash_in_traces()
+    # # make example traces
+    # make_GC_example_traces()
+    # make_timepoint_example_traces()
+    # make_gabazine_wash_in_traces()
 
