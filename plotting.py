@@ -3495,6 +3495,13 @@ def plot_cell_type_ratios(df, counts):
 
         # add line to indicate 1
         hist_fig.add_vline(x=1, line_width=1, line_dash="dash")
+        hist_fig.add_annotation(
+            x=3,
+            y=10,
+            text="ratio = 1",
+            font=dict(color="gray"),
+            showarrow=False,
+        )
 
         hist_fig.update_layout(barmode="stack")
         hist_fig.update_xaxes(title="TC/MC Amplitude Ratio")

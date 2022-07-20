@@ -2208,7 +2208,7 @@ class JaneCell(object):
                 x=x_plot,
                 y=smoothed,
                 marker=dict(color="#A613C4", size=4),
-                name="smoothed frequency",
+                name="frequency",
             ),
             row=2,
             col=1,
