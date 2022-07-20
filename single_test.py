@@ -2208,7 +2208,7 @@ class JaneCell(object):
                 x=x_plot,
                 y=smoothed,
                 marker=dict(color="#A613C4", size=4),
-                name="spline estimate",
+                name="smoothed frequency",
             ),
             row=2,
             col=1,
