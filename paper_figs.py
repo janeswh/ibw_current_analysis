@@ -453,70 +453,70 @@ def get_correlations(data_type):
 
 def plot_misc_data():
 
-    # # gets ephys intensity data
-    # sections_data = get_ephys_sections_intensity()
+    # gets ephys intensity data
+    sections_data = get_ephys_sections_intensity()
 
-    # (
-    #     sections_fig,
-    #     sections_fig_data,
-    #     sections_corr,
-    # ) = plot_ephys_sections_intensity(sections_data)
+    (
+        sections_fig,
+        sections_fig_data,
+        sections_corr,
+    ) = plot_ephys_sections_intensity(sections_data)
 
-    # save_ephys_sections_fig(sections_fig, sections_fig_data, sections_corr)
+    save_ephys_sections_fig(sections_fig, sections_fig_data, sections_corr)
 
-    # save_fig_to_png(
-    #     sections_fig,
-    #     legend=False,
-    #     rows=1,
-    #     cols=2,
-    #     png_filename="combined_ephys_sections_comparisons.png",
-    #     extra_bottom=True,
-    # )
+    save_fig_to_png(
+        sections_fig,
+        legend=False,
+        rows=1,
+        cols=2,
+        png_filename="combined_ephys_sections_comparisons.png",
+        extra_bottom=True,
+    )
 
-    # # gets ephys intensity data but separated out timepoints
-    # (
-    #     timepoint_sections_fig,
-    #     timepoint_sections_fig_data,
-    #     timepoint_sections_corr,
-    # ) = plot_ephys_sections_intensity_timepoint(sections_data)
+    # gets ephys intensity data but separated out timepoints
+    (
+        timepoint_sections_fig,
+        timepoint_sections_fig_data,
+        timepoint_sections_corr,
+    ) = plot_ephys_sections_intensity_timepoint(sections_data)
 
-    # save_ephys_sections_fig(
-    #     timepoint_sections_fig,
-    #     timepoint_sections_fig_data,
-    #     timepoint_sections_corr,
-    #     timepoint=True,
-    # )
+    save_ephys_sections_fig(
+        timepoint_sections_fig,
+        timepoint_sections_fig_data,
+        timepoint_sections_corr,
+        timepoint=True,
+    )
 
-    # save_fig_to_png(
-    #     timepoint_sections_fig,
-    #     legend=True,
-    #     rows=2,
-    #     cols=2,
-    #     png_filename="timepoint_ephys_sections_comparisons.png",
-    #     extra_bottom=True,
-    # )
+    save_fig_to_png(
+        timepoint_sections_fig,
+        legend=True,
+        rows=2,
+        cols=2,
+        png_filename="timepoint_ephys_sections_comparisons.png",
+        extra_bottom=True,
+    )
 
-    # epl_fig = plot_EPL_intensity()  # should move this to paper figs
-    # save_epl_plot(epl_fig)
+    epl_fig = plot_EPL_intensity()  # should move this to paper figs
+    save_epl_plot(epl_fig)
 
-    # save_fig_to_png(
-    #     epl_fig,
-    #     legend=False,
-    #     rows=1,
-    #     cols=1,
-    #     png_filename="EPL_intensity_plot.png",
-    # )
+    save_fig_to_png(
+        epl_fig,
+        legend=False,
+        rows=1,
+        cols=1,
+        png_filename="EPL_intensity_plot.png",
+    )
 
-    # p2_6wpi_counts_fig = plot_p2_6wpi_response_counts()
-    # save_p2_6wpi_counts_fig(p2_6wpi_counts_fig)
+    p2_6wpi_counts_fig = plot_p2_6wpi_response_counts()
+    save_p2_6wpi_counts_fig(p2_6wpi_counts_fig)
 
-    # save_fig_to_png(
-    #     p2_6wpi_counts_fig,
-    #     legend=True,
-    #     rows=1,
-    #     cols=1,
-    #     png_filename="p2_6wpi_response_plot.png",
-    # )
+    save_fig_to_png(
+        p2_6wpi_counts_fig,
+        legend=True,
+        rows=1,
+        cols=1,
+        png_filename="p2_6wpi_response_plot.png",
+    )
 
     # plots previously analyzed mean trace peak data
     prev_analysis_fig = plot_previous_analysis()
@@ -526,19 +526,19 @@ def plot_misc_data():
         prev_analysis_fig,
         legend=True,
         rows=1,
-        cols=1,
+        cols=2,
         png_filename="prev_analysis_fig.png",
     )
 
-    # example_PSTH_fig = get_example_cell_PSTH("p14", "JH190828_c6")
-    # save_fig_to_png(
-    #     example_PSTH_fig,
-    #     legend=True,
-    #     rows=2,
-    #     cols=3,
-    #     png_filename="example_PSTH_fig.png",
-    #     extra_bottom=True,
-    # )
+    example_PSTH_fig = get_example_cell_PSTH("p14", "JH190828_c6")
+    save_fig_to_png(
+        example_PSTH_fig,
+        legend=True,
+        rows=2,
+        cols=3,
+        png_filename="example_PSTH_fig.png",
+        extra_bottom=True,
+    )
 
 
 def get_previous_analysis_avgsem():
@@ -761,14 +761,15 @@ def make_within_slice_comparisons():
 
 
 if __name__ == "__main__":
-    get_correlations(data_type="event")
-    get_correlations(data_type="frequency")
-    pdb.set_trace()
-    make_within_slice_comparisons()
-
     plot_misc_data()
 
+    make_within_slice_comparisons()
+
+    get_correlations(data_type="event")
+    get_correlations(data_type="frequency")
+
     get_example_freq("p2", "JH200303_c8", "TC")
+
     make_avg_freq_traces()
 
     make_example_huge_trace()

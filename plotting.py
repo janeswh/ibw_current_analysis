@@ -2794,12 +2794,24 @@ def plot_previous_analysis():
     all_means["Dataset"] = all_means["Dataset"].str.upper()
     all_sems["Dataset"] = all_sems["Dataset"].str.upper()
 
-    fig = go.Figure()
+    fig = make_subplots(
+        rows=1,
+        cols=2,
+        shared_xaxes=True,
+        # x_title="Timepoint",
+        horizontal_spacing=0.15,
+    )
+
+    # fig = go.Figure()
 
     for cell_type in cell_types:
-        cell_stats_df = all_amps[f"ln({cell_type})"]
-        cell_mean_df = all_means[f"ln({cell_type})"]
-        cell_sem_df = all_sems[f"ln({cell_type})"]
+        cell_stats_df = all_amps[f"{cell_type}"]
+        cell_mean_df = all_means[f"{cell_type}"]
+        cell_sem_df = all_sems[f"{cell_type}"]
+
+        ln_cell_stats_df = all_amps[f"ln({cell_type})"]
+        ln_cell_mean_df = all_means[f"ln({cell_type})"]
+        ln_cell_sem_df = all_sems[f"ln({cell_type})"]
 
         fig.add_trace(
             go.Box(
@@ -2817,6 +2829,8 @@ def plot_previous_analysis():
                 name=cell_type,
                 legendgroup=cell_type,
             ),
+            row=1,
+            col=1,
         )
 
         # tries bar plot instead, plots mean of median with sem
@@ -2840,6 +2854,54 @@ def plot_previous_analysis():
                 name=cell_type,
                 legendgroup=cell_type,
             ),
+            row=1,
+            col=1,
+        )
+
+        # plots log transformed amps
+        fig.add_trace(
+            go.Box(
+                x=all_amps["Dataset"],
+                y=ln_cell_stats_df,
+                line=dict(color="rgba(0,0,0,0)"),
+                fillcolor="rgba(0,0,0,0)",
+                boxpoints="all",
+                pointpos=0,
+                marker_color=cell_type_bar_colors[cell_type],
+                marker=dict(
+                    line=dict(color=cell_type_line_colors[cell_type], width=2),
+                    size=15,
+                ),
+                name=cell_type,
+                legendgroup=cell_type,
+            ),
+            row=1,
+            col=2,
+        )
+
+        # tries bar plot instead, plots mean of median with sem
+        fig.add_trace(
+            go.Bar(
+                x=all_amps["Dataset"].unique(),
+                y=ln_cell_mean_df,
+                # y=cell_mean_df["Log Mean Peak Amplitude"]
+                # if measure == "Mean Trace Peak (pA)"
+                # else cell_mean_df[measure],
+                error_y=dict(
+                    type="data",
+                    array=ln_cell_sem_df,
+                    color=cell_type_line_colors[cell_type],
+                    thickness=3,
+                    visible=True,
+                ),
+                marker_line_width=3,
+                marker_line_color=cell_type_line_colors[cell_type],
+                marker_color=cell_type_bar_colors[cell_type],
+                name=cell_type,
+                legendgroup=cell_type,
+            ),
+            row=1,
+            col=2,
         )
 
         #  below is code from stack overflow to hide duplicate legends
@@ -2849,7 +2911,8 @@ def plot_previous_analysis():
             if (trace.name in names)
             else names.add(trace.name)
         )
-        fig.update_yaxes(title_text="Log Mean Trace Peak",)
+    fig.update_yaxes(title_text="Mean Trace Peak (pA)", row=1, col=1)
+    fig.update_yaxes(title_text="Log Mean Trace Peak", row=1, col=2)
 
     fig.update_layout(
         boxmode="group", title_text="MC vs. TC Mean Trace", title_x=0.5,
