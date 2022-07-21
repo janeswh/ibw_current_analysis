@@ -722,7 +722,10 @@ def plot_correlations(data_df, data_type, x_label, y_label):
             tc_xref = "x2"
             tc_yref = "y2"
 
-        annotation_y = data_df[y_label].max() * 0.95
+        if data_type == "event":
+            annotation_y = data_df[y_label].max() * 0.95
+        elif data_type == "frequency":
+            annotation_y = data_df[y_label].max() * 0.85
 
         fig.add_annotation(
             xref=mc_xref,
@@ -3426,6 +3429,7 @@ def plot_cell_type_ratios(df, counts):
     timepoint_bar_colors = {"P2": "#E8C7E7", "P14": "#FAC4C2"}
 
     df["Timepoint"] = df["Timepoint"].str.upper()
+    df["ln(ratio)"] = np.log(df["TC/MC ratio"])
 
     # fig = make_subplots(
     #     rows=2,
@@ -3485,8 +3489,9 @@ def plot_cell_type_ratios(df, counts):
 
         hist_fig.add_trace(
             go.Histogram(
-                x=df.loc[df["Timepoint"] == timepoint]["TC/MC ratio"],
-                xbins=dict(size=0.2),
+                # x=df.loc[df["Timepoint"] == timepoint]["TC/MC ratio"],
+                # xbins=dict(size=0.2),
+                x=df.loc[df["Timepoint"] == timepoint]["ln(ratio)"],
                 marker_color=timepoint_line_colors[timepoint],
                 name=timepoint,
                 legendgroup=timepoint,
@@ -3494,17 +3499,17 @@ def plot_cell_type_ratios(df, counts):
         )
 
         # add line to indicate 1
-        hist_fig.add_vline(x=1, line_width=1, line_dash="dash")
+        hist_fig.add_vline(x=0, line_width=3, line_dash="dash")
         hist_fig.add_annotation(
-            x=3,
-            y=10,
+            x=-1.5,
+            y=16,
             text="ratio = 1",
             font=dict(color="gray"),
             showarrow=False,
         )
 
         hist_fig.update_layout(barmode="stack")
-        hist_fig.update_xaxes(title="TC/MC Amplitude Ratio")
+        hist_fig.update_xaxes(title="ln(TC/MC Amplitude Ratio)")
         hist_fig.update_yaxes(title="Number of TC/MC Pairs")
         bar_fig.update_yaxes(title="TC/MC Amplitude Ratio")
 
