@@ -3563,8 +3563,23 @@ def plot_cell_type_ratios(df, counts):
 
         # add line to indicate 1
         hist_fig.add_vline(x=0, line_width=3, line_dash="dash")
+
+        # adds mean lines
+        hist_fig.add_vline(
+            x=np.mean(df.loc[df["Timepoint"] == "P2"]["ln(ratio)"]),
+            line_width=3,
+            # line_dash="dash",
+            line_color="purple",
+        )
+        hist_fig.add_vline(
+            x=np.mean(df.loc[df["Timepoint"] == "P14"]["ln(ratio)"]),
+            line_width=3,
+            # line_dash="dash",
+            line_color="red",
+        )
+
         hist_fig.add_annotation(
-            x=-1.5,
+            x=1.5,
             y=16,
             text="ratio = 1",
             font=dict(color="gray"),
