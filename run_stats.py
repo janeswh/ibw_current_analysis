@@ -12,7 +12,13 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 from scipy.stats import sem
-from scipy.stats import anderson_ksamp, ks_2samp, pearsonr, spearmanr
+from scipy.stats import (
+    anderson_ksamp,
+    ks_2samp,
+    pearsonr,
+    spearmanr,
+    ttest_ind,
+)
 
 import plotly.io as pio
 
@@ -55,6 +61,9 @@ def do_stats(csvfile_name, measures_list, test_type):
                 )
             elif test_type == "KS":
                 ks_statistics, p_val = ks_2samp(mc_df, tc_df)
+
+            elif test_type == "2-samp_ttest":
+                ttest_statistic, p_val = ttest_ind(mc_df, tc_df)
 
             print(
                 f"{test_type} p-val for {timepoint} cell type comparison "
@@ -164,15 +173,34 @@ def main():
     # stats for response mean trace data
     mean_trace_stats = do_stats(
         "mean_trace_data.csv",
-        ["Mean Trace Peak (pA)", "Mean Trace Time to Peak (ms)"],
+        [
+            "Mean Trace Peak (pA)",
+            "Log Mean Trace Peak",
+            "Mean Trace Time to Peak (ms)",
+        ],
         "Anderson-Darling",
     )
 
     # stats for all mean trace
     all_mean_trace_stats = do_stats(
         "all_mean_trace_data.csv",
-        ["Mean Trace Peak (pA)", "Mean Trace Time to Peak (ms)"],
+        [
+            "Mean Trace Peak (pA)",
+            "Log Mean Trace Peak",
+            "Mean Trace Time to Peak (ms)",
+        ],
         "Anderson-Darling",
+    )
+
+    # stats for all mean trace, t-test
+    all_mean_trace_stats = do_stats(
+        "mean_trace_data.csv",
+        [
+            "Mean Trace Peak (pA)",
+            "Log Mean Trace Peak",
+            "Mean Trace Time to Peak (ms)",
+        ],
+        "2-samp_ttest",
     )
 
     # stats for freq stats
