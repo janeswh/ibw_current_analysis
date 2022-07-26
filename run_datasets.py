@@ -8,8 +8,10 @@ from aggregate_stats import *
 from file_settings import FileSettings
 
 from single_test import JaneCell
+
 from plotting import *
 
+# from ppt_plotting import *
 import pdb
 
 
@@ -214,6 +216,7 @@ def save_summary_plots(
         freq_stats_fig_data,
     )
 
+    # change rows to 1.1 if using ppt_plotting
     # save to png
     save_fig_to_png(
         all_mean_trace_stats_fig,
@@ -231,6 +234,7 @@ def save_summary_plots(
         png_filename="all_response_counts.png",
     )
 
+    # change rows to 1.1 if using ppt_plotting
     save_fig_to_png(
         mean_trace_stats_fig,
         legend=True,
