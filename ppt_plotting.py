@@ -1948,7 +1948,7 @@ def plot_ephys_sections_intensity_timepoint(data):
     sections_fig.add_annotation(
         x=0.5,
         y=-0.20,
-        font=dict(size=26),
+        font=dict(size=36),
         showarrow=False,
         text="Integrated intensity density/area \u03BCm\u00b2",
         textangle=-0,
@@ -2045,7 +2045,7 @@ def plot_ephys_sections_intensity(data):
         x="Integrated density/area",
         y="value",
         facet_col="variable",
-        facet_col_spacing=0.2,
+        facet_col_spacing=0.25,
         trendline="ols",
     )
 
@@ -2059,7 +2059,7 @@ def plot_ephys_sections_intensity(data):
     sections_fig.update_yaxes(matches=None)
 
     sections_fig.layout.yaxis.title.text = "Response %"
-    sections_fig.layout.yaxis2.title.text = "Mean Peak Frequency (Hz)"
+    sections_fig.layout.yaxis2.title.text = "Avg Peak Frequency (Hz)"
 
     sections_fig.for_each_yaxis(
         lambda yaxis: yaxis.update(showticklabels=True)
@@ -2074,8 +2074,8 @@ def plot_ephys_sections_intensity(data):
     sections_fig.for_each_annotation(lambda a: a.update(text=""))
     sections_fig.add_annotation(
         x=0.5,
-        y=-0.20,
-        font=dict(size=26),
+        y=-0.30,
+        font=dict(size=36),
         showarrow=False,
         text="Integrated intensity density/area \u03BCm\u00b2",
         textangle=-0,

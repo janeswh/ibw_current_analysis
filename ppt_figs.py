@@ -533,15 +533,15 @@ def plot_misc_data():
         png_filename="prev_analysis_fig.png",
     )
 
-    example_PSTH_fig = get_example_cell_PSTH("p14", "JH190828_c6")
-    save_fig_to_png(
-        example_PSTH_fig,
-        legend=True,
-        rows=2.5,
-        cols=3,
-        png_filename="example_PSTH_fig.png",
-        extra_bottom=True,
-    )
+    # example_PSTH_fig = get_example_cell_PSTH("p14", "JH190828_c6")
+    # save_fig_to_png(
+    #     example_PSTH_fig,
+    #     legend=True,
+    #     rows=2.5,
+    #     cols=3,
+    #     png_filename="example_PSTH_fig.png",
+    #     extra_bottom=True,
+    # )
 
 
 def get_previous_analysis_avgsem():
@@ -764,13 +764,13 @@ def make_within_slice_comparisons():
 
 
 if __name__ == "__main__":
-    # plot_misc_data()
+    plot_misc_data()
 
     # make_within_slice_comparisons()
     # pdb.set_trace()
 
-    get_correlations(data_type="event")
-    get_correlations(data_type="frequency")
+    # get_correlations(data_type="event")
+    # get_correlations(data_type="frequency")
 
     # get_example_freq("p2", "JH200303_c8", "TC")
 
