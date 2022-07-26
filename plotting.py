@@ -3448,8 +3448,8 @@ def plot_slice_amp_corr(avg_amps):
         fig.add_annotation(
             xref=f"x{count+1}",
             yref=f"y{count+1}",
-            x=avg_amps["MC"].max() * 0.9,  # relative to x
-            y=avg_amps["TC"].max() * 0.95,
+            x=avg_amps["MC"].max() * 0.95,  # relative to x
+            y=avg_amps["TC"].max() * 0.895,
             text=f"r\u209b = {np.round(r, 3)}<br>" f"p = {np.round(p_val, 3)}",
             align="left",
             showarrow=False,
