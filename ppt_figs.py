@@ -764,9 +764,9 @@ def make_within_slice_comparisons():
 
 
 if __name__ == "__main__":
-    plot_misc_data()
+    # plot_misc_data()
 
-    # make_within_slice_comparisons()
+    make_within_slice_comparisons()
     # pdb.set_trace()
 
     # get_correlations(data_type="event")

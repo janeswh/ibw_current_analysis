@@ -3506,7 +3506,8 @@ def plot_cell_type_ratios(df, counts):
     # )
     bar_fig = go.Figure()
     hist_fig = go.Figure()
-    for timepoint in df["Timepoint"].unique():
+    # hist_fig = make_subplots(rows=1, cols=2)
+    for ct, timepoint in enumerate(df["Timepoint"].unique()):
 
         bar_fig.add_trace(
             go.Box(
@@ -3546,7 +3547,7 @@ def plot_cell_type_ratios(df, counts):
                 ),
                 marker_line_width=3,
                 marker_line_color=timepoint_line_colors[timepoint],
-                marker_color=timepoint_bar_colors[timepoint],
+                marker_color=timepoint_line_colors[timepoint],
                 name=timepoint,
                 legendgroup=timepoint,
             ),
@@ -3558,9 +3559,14 @@ def plot_cell_type_ratios(df, counts):
                 # xbins=dict(size=0.2),
                 x=df.loc[df["Timepoint"] == timepoint]["ln(ratio)"],
                 marker_color=timepoint_line_colors[timepoint],
+                # marker_line_width=2,
+                # marker_line_color=timepoint_line_colors[timepoint],
                 name=timepoint,
                 legendgroup=timepoint,
+                histnorm="probability density",
             ),
+            # row=1,
+            # col=ct + 1,
         )
 
         # add line to indicate 1
@@ -3581,16 +3587,18 @@ def plot_cell_type_ratios(df, counts):
         )
 
         hist_fig.add_annotation(
-            x=1.95,
-            y=16,
+            x=2,
+            y=0.35,
             text="ratio = 1",
             font=dict(color="gray"),
             showarrow=False,
         )
 
-        hist_fig.update_layout(barmode="stack")
+        hist_fig.update_layout(barmode="overlay")
+        hist_fig.update_traces(opacity=0.5,)
+
         hist_fig.update_xaxes(title="ln(TC/MC Amplitude Ratio)")
-        hist_fig.update_yaxes(title="Number of TC/MC Pairs")
+        hist_fig.update_yaxes(title="Probability Density")
         bar_fig.update_yaxes(title="TC/MC Amplitude Ratio")
 
         # below is code from stack overflow to hide duplicate legends
