@@ -694,6 +694,23 @@ class BothConditions(object):
             self.response_pvals,
         )
 
+        # self.light_baseline_stats_fig = plot_light_baseline_win_comparison(
+        #     self.dataset,
+        #     self.cell_type,
+        #     self.cell_name,
+        #     self.stim_time,
+        #     colors,
+        #     self.response_pvals,
+        # )
+
+        # save_fig_to_png(
+        #     self.light_baseline_stats_fig,
+        #     legend=True,
+        #     rows=1,
+        #     cols=1,
+        #     png_filename="example_response_ttest.png",
+        # )
+
     def run_freq_stats(self, x, y):
         """
         Runs t-test and KS test on two arrays, returning p-values. Runs paired
@@ -869,16 +886,16 @@ def run_both_conditions(dataset, csvfile, cell_name):
 
 
 if __name__ == "__main__":
-    dataset = "p2"
-    # dataset = "p14"
+    # dataset = "p2"
+    dataset = "p14"
     csvfile_name = "{}_data_notes.csv".format(dataset)
     csvfile = os.path.join(
         "/home/jhuang/Documents/phd_projects/injected_GC_data/tables",
         dataset,
         csvfile_name,
     )
-    cell_name = "JH20210812_c6"
-    # cell_name = "JH190904_c2"
+    # cell_name = "JH20210812_c6"
+    cell_name = "JH190828_c6"
 
     run_both_conditions(dataset, csvfile, cell_name)
 

@@ -1760,6 +1760,58 @@ def add_median_vline(hist, annotation_color, data, win_count, count, unit):
     )
 
 
+def plot_light_baseline_win_comparison(
+    dataset, cell_type, cell_name, stim_time, colors, stats_dict
+):
+    """
+    Plots the response windows used for stats comparisons - just light vs.
+    baseline, no sub. For saving as figure purposes
+    """
+
+    comparison = "light vs. baseline"
+    subtraction_type = "no sub"
+    ttest_pval = stats_dict[comparison][subtraction_type]["ttest pval"]
+
+    # rounds p-values for easier readaibility
+    if ttest_pval < 0.01:
+        ttest_pval = f"{ttest_pval:.2e}"
+    else:
+        ttest_pval = np.round(ttest_pval, 4)
+
+    title = f"{comparison}, t-test pval = {ttest_pval}"
+
+    fig = go.Figure()
+
+    x_name = comparison.split(" vs. ")[0]
+    y_name = comparison.split(" vs. ")[1]
+
+    # plots x freq
+    fig.add_trace(
+        go.Scatter(
+            x=stats_dict[comparison][subtraction_type]["freqs"]["x"].index,
+            y=stats_dict[comparison][subtraction_type]["freqs"]["x"],
+            name=x_name,
+            marker=dict(color=colors[x_name]),
+            legendgroup=x_name,
+        ),
+    )
+
+    # plots y freq
+    fig.add_trace(
+        go.Scatter(
+            x=stats_dict[comparison][subtraction_type]["freqs"]["y"].index,
+            y=stats_dict[comparison][subtraction_type]["freqs"]["y"],
+            name=y_name,
+            marker=dict(color=colors[y_name]),
+            legendgroup=y_name,
+        ),
+    )
+    fig.update_xaxes(title="Time (ms)")
+    fig.update_yaxes(title="Frequency (Hz)")
+
+    return fig
+
+
 def plot_response_win_comparison(
     dataset, cell_type, cell_name, stim_time, colors, stats_dict
 ):
