@@ -13,8 +13,8 @@ import plotly.io as pio
 pio.templates.default = "simple_white"
 
 
-pio.kaleido.scope.default_scale = 2
-pio.kaleido.scope.default_format = "png"
+# pio.kaleido.scope.default_scale = 2
+# pio.kaleido.scope.default_format = "png"
 from scipy.stats import sem
 from scipy.stats import spearmanr
 from collections import defaultdict
@@ -29,7 +29,6 @@ import pdb
 
 
 def plot_averages(dataset, genotype, threshold, averages_df):
-
     # plotting
     durations = averages_df["Light Duration"].unique()
     intensities = averages_df["Light Intensity"].unique()
@@ -44,7 +43,6 @@ def plot_averages(dataset, genotype, threshold, averages_df):
     )
 
     for count, duration in enumerate(durations):
-
         y_df = averages_df.loc[averages_df["Light Duration"] == duration]
 
         x_intensity = y_df["Light Intensity"]
@@ -194,7 +192,6 @@ def plot_averages(dataset, genotype, threshold, averages_df):
 
 
 def save_summary_stats_fig(genotype, threshold, fig_folder, fig):
-
     html_filename = "{}_{}_threshold_summary_avgs.html".format(
         genotype, threshold
     )
@@ -204,7 +201,6 @@ def save_summary_stats_fig(genotype, threshold, fig_folder, fig):
 
 
 def plot_selected_averages(threshold, selected_avgs):
-
     genotype_color = {"OMP": "#ff9300", "Gg8": "#7a81ff"}
 
     selected_summary_fig = make_subplots(rows=3, cols=2, x_title="Dataset")
@@ -212,7 +208,6 @@ def plot_selected_averages(threshold, selected_avgs):
     genotypes = selected_avgs["Genotype"].unique()
 
     for genotype in genotypes:
-
         x_datasets = selected_avgs.loc[selected_avgs["Genotype"] == genotype][
             "Dataset"
         ]
@@ -397,7 +392,6 @@ def plot_response_counts(counts_dict):
 
         for cell_type in counts_dict[timepoint].keys():
             for response_type in counts_dict[timepoint][cell_type].keys():
-
                 response_counts_fig.add_trace(
                     go.Bar(
                         x=[cell_type],
@@ -515,7 +509,6 @@ def plot_mean_trace_stats(mean_trace_dict, all_cells=False):
         for cell_type_ct, cell_type in enumerate(
             mean_trace_dict[timepoint].keys()
         ):
-
             df = mean_trace_dict[timepoint][cell_type]["mean trace stats"]
 
             # add log-transformed peak amplitudes for plotting
@@ -605,7 +598,9 @@ def plot_mean_trace_stats(mean_trace_dict, all_cells=False):
 
             if measure == "Mean Trace Peak (pA)":
                 mean_trace_stats_fig.update_yaxes(
-                    autorange="reversed", row=1, col=measure_ct + 1,
+                    autorange="reversed",
+                    row=1,
+                    col=measure_ct + 1,
                 )
 
             #  below is code from stack overflow to hide duplicate legends
@@ -616,7 +611,9 @@ def plot_mean_trace_stats(mean_trace_dict, all_cells=False):
                 else names.add(trace.name)
             )
             mean_trace_stats_fig.update_yaxes(
-                title_text=measure, row=1, col=measure_ct + 1,
+                title_text=measure,
+                row=1,
+                col=measure_ct + 1,
             )
             mean_trace_stats_fig.update_xaxes(
                 categoryorder="array",
@@ -626,7 +623,9 @@ def plot_mean_trace_stats(mean_trace_dict, all_cells=False):
             )
 
     mean_trace_stats_fig.update_layout(
-        boxmode="group", title_text="MC vs. TC Mean Trace", title_x=0.5,
+        boxmode="group",
+        title_text="MC vs. TC Mean Trace",
+        title_x=0.5,
     )
 
     # mean_trace_stats_fig.show()
@@ -843,7 +842,7 @@ def save_corr_fig(figs_list, stats, data_type):
 
 def plot_freq_stats(dataset_freq_stats):
     """
-    Plots average frequency kinetic properties for responding cells in the 
+    Plots average frequency kinetic properties for responding cells in the
     light condition
     """
     dataset_order = {"p2": 1, "p14": 2}
@@ -899,7 +898,6 @@ def plot_freq_stats(dataset_freq_stats):
         cell_sem_df = all_sems.loc[all_sems["Cell Type"] == cell_type]
 
         for measure_ct, measure in enumerate(measures_list):
-
             freq_stats_fig.add_trace(
                 go.Box(
                     x=cell_stats_df["Dataset"],
@@ -949,7 +947,9 @@ def plot_freq_stats(dataset_freq_stats):
 
             if measure == "Mean Trace Peak (pA)":
                 freq_stats_fig.update_yaxes(
-                    autorange="reversed", row=1, col=measure_ct + 1,
+                    autorange="reversed",
+                    row=1,
+                    col=measure_ct + 1,
                 )
 
             #  below is code from stack overflow to hide duplicate legends
@@ -1279,7 +1279,6 @@ def plot_cell_type_event_comparisons(median_dict):
         cell_sem_df = all_sems.loc[all_sems["Cell Type"] == cell_type]
 
         for measure_ct, measure in enumerate(measures_list):
-
             event_comparisons_fig.add_trace(
                 go.Box(
                     x=cell_median_df["Dataset"],
@@ -1329,7 +1328,9 @@ def plot_cell_type_event_comparisons(median_dict):
 
             if measure == "Adjusted amplitude (pA)":
                 event_comparisons_fig.update_yaxes(
-                    autorange="reversed", row=1, col=measure_ct + 1,
+                    autorange="reversed",
+                    row=1,
+                    col=measure_ct + 1,
                 )
 
             #  below is code from stack overflow to hide duplicate legends
@@ -1354,7 +1355,9 @@ def plot_cell_type_event_comparisons(median_dict):
             )
 
     event_comparisons_fig.update_layout(
-        boxmode="group", title_text="MC vs. TC Event Kinetics", title_x=0.5,
+        boxmode="group",
+        title_text="MC vs. TC Event Kinetics",
+        title_x=0.5,
     )
 
     # event_comparisons_fig.show()
@@ -1479,7 +1482,11 @@ def plot_annotated_trace(trace, annotation_values, genotype):
 
     # adds horizontal line + text for scale bar
     annotated_plot.add_shape(
-        type="line", x0=527, y0=-300, x1=529, y1=-300,
+        type="line",
+        x0=527,
+        y0=-300,
+        x1=529,
+        y1=-300,
     )
     annotated_plot.add_annotation(
         x=528,
@@ -1503,7 +1510,12 @@ def plot_annotated_trace(trace, annotation_values, genotype):
         font=dict(size=20),
     )
 
-    annotated_plot.update_layout(font=dict(family="Arial",), showlegend=False)
+    annotated_plot.update_layout(
+        font=dict(
+            family="Arial",
+        ),
+        showlegend=False,
+    )
 
     annotated_plot_noaxes = go.Figure(annotated_plot)
     annotated_plot_noaxes.update_xaxes(showgrid=False, visible=False)
@@ -1517,10 +1529,10 @@ def plot_annotated_trace(trace, annotation_values, genotype):
 
 def make_one_plot_trace(file_name, cell_trace, type=None, inset=False):
     """
-    Makes the trace data used to plot later. "type" parameter determines the 
+    Makes the trace data used to plot later. "type" parameter determines the
     color of the trace. Also returns the ephys trace used to make the plotting
     trace.
-    
+
     """
     # # trace starts and ends depending on what is being plotted
     if "GC" in type:
@@ -1583,7 +1595,9 @@ def make_inset_plot_fig(
     # sets background color to white
     layout = go.Layout(
         plot_bgcolor="rgba(0,0,0,0)",
-        yaxis=dict(range=[-700, 150],),
+        yaxis=dict(
+            range=[-700, 150],
+        ),
         xaxis2=dict(domain=[0.55, 0.95], anchor="y2"),
         yaxis2=dict(domain=[0.1, 0.5], anchor="x2"),
     )
@@ -1603,7 +1617,11 @@ def make_inset_plot_fig(
 
     # adds horizontal line + text for main plot scale bar
     inset_plot.add_shape(
-        type="line", x0=530, y0=-600, x1=555, y1=-600,
+        type="line",
+        x0=530,
+        y0=-600,
+        x1=555,
+        y1=-600,
     )
     inset_plot.add_annotation(
         x=542.5, y=-650, text="25 ms", showarrow=False, font=dict(size=20)
@@ -1687,7 +1705,10 @@ def make_inset_plot_fig(
         dtick=10,
     )
     inset_plot.update_yaxes(
-        showline=True, linewidth=1, gridcolor="black", linecolor="black",
+        showline=True,
+        linewidth=1,
+        gridcolor="black",
+        linecolor="black",
     )
 
     inset_plot.update_layout(
@@ -1724,7 +1745,7 @@ def save_example_traces_figs(fig, ephys_traces, type):
 
 def make_event_hist_trace(trace_color, condition, data):
     """
-    Makes the plotting traces for event kinetics histogram, for events within 
+    Makes the plotting traces for event kinetics histogram, for events within
     response window and outside of response window
     """
 
@@ -2338,7 +2359,9 @@ def plot_p2_6wpi_response_counts():
     """
     counts = pd.read_csv(
         os.path.join(
-            FileSettings.TABLES_FOLDER, "p2_6wpi", "p2_6wpi_all_counts.csv",
+            FileSettings.TABLES_FOLDER,
+            "p2_6wpi",
+            "p2_6wpi_all_counts.csv",
         ),
         header=0,
         index_col=0,
@@ -2370,10 +2393,13 @@ def plot_p2_6wpi_response_counts():
                 )
             )
     counts_fig.update_layout(
-        barmode="stack", legend_title_text="Cell Responses",
+        barmode="stack",
+        legend_title_text="Cell Responses",
     )
     # counts_fig.update_xaxes(title_text="Cell Type")
-    counts_fig.update_yaxes(title_text="Number of Cells",)
+    counts_fig.update_yaxes(
+        title_text="Number of Cells",
+    )
 
     # # below is code from stack overflow to hide duplicate legends
     names = set()
@@ -2399,10 +2425,13 @@ def save_p2_6wpi_counts_fig(fig):
 
 def plot_example_GC_traces(traces_dict):
     """
-    Takes the plotting traces for each sweep that needs to be plotted and 
+    Takes the plotting traces for each sweep that needs to be plotted and
     makes a subplot for each. Arrangement depends on type of plot shown.
     """
-    fig = make_subplots(rows=1, cols=2,)
+    fig = make_subplots(
+        rows=1,
+        cols=2,
+    )
     stim_time = p2_acq_parameters.STIM_TIME
     fig.update_layout(template="plotly")
 
@@ -2411,7 +2440,9 @@ def plot_example_GC_traces(traces_dict):
 
     for count, (cell, info) in enumerate(traces_dict.items()):
         fig.add_trace(
-            info["plotting trace"], row=1, col=count + 1,
+            info["plotting trace"],
+            row=1,
+            col=count + 1,
         )
 
         # adds horizontal line + text for cell_attached plot scale bar
@@ -2476,7 +2507,10 @@ def plot_example_GC_traces(traces_dict):
         dtick=10,
     )
     fig.update_yaxes(
-        showline=True, linewidth=1, gridcolor="black", linecolor="black",
+        showline=True,
+        linewidth=1,
+        gridcolor="black",
+        linecolor="black",
     )
 
     fig.update_layout(
@@ -2500,7 +2534,7 @@ def plot_example_GC_traces(traces_dict):
 def plot_example_cell_type_traces(traces_dict, timepoint):
     """
     Plots an example MC and TC sweep for each timepoint, and overlay gabazine
-    wash-in on the proper cell.    
+    wash-in on the proper cell.
     """
 
     fig = make_subplots(rows=2, cols=2, shared_yaxes="all", shared_xaxes=True)
@@ -2512,7 +2546,6 @@ def plot_example_cell_type_traces(traces_dict, timepoint):
         stim_time = p14_acq_parameters.STIM_TIME
 
     for cell, info in traces_dict.items():
-
         fig.add_trace(
             info["plotting trace"],
             row=int(cell[-1]),
@@ -2567,7 +2600,10 @@ def plot_example_cell_type_traces(traces_dict, timepoint):
         dtick=10,
     )
     fig.update_yaxes(
-        showline=True, linewidth=1, gridcolor="black", linecolor="black",
+        showline=True,
+        linewidth=1,
+        gridcolor="black",
+        linecolor="black",
     )
 
     fig.update_layout(
@@ -2601,7 +2637,7 @@ def plot_example_cell_type_traces(traces_dict, timepoint):
 
 def plot_single_trace(traces_dict, timepoint):
     """
-    Takes the plotting traces for each sweep that needs to be plotted and 
+    Takes the plotting traces for each sweep that needs to be plotted and
     makes a subplot for each. Arrangement depends on type of plot shown.
     """
     fig = go.Figure()
@@ -2615,20 +2651,30 @@ def plot_single_trace(traces_dict, timepoint):
     #     fig.add_trace(trace, row=count + 1, col=1)
 
     for count, (cell, info) in enumerate(traces_dict.items()):
-        fig.add_trace(info["plotting trace"],)
+        fig.add_trace(
+            info["plotting trace"],
+        )
     fig.update_layout(template="plotly")
 
     # adds horizontal line + text for plot scale bar
     fig.add_shape(type="line", x0=800, y0=-700, x1=900, y1=-700)
     fig.add_annotation(
-        x=850, y=-800, text="100 ms", showarrow=False, font=dict(size=20),
+        x=850,
+        y=-800,
+        text="100 ms",
+        showarrow=False,
+        font=dict(size=20),
     )
 
     # adds vertical line + text for scale bar
     fig.add_shape(type="line", x0=900, y0=-700, x1=900, y1=-300)
 
     fig.add_annotation(
-        x=950, y=-500, text="400 pA", showarrow=False, font=dict(size=20),
+        x=950,
+        y=-500,
+        text="400 pA",
+        showarrow=False,
+        font=dict(size=20),
     )
 
     # adds line for light stim
@@ -2652,7 +2698,10 @@ def plot_single_trace(traces_dict, timepoint):
         dtick=10,
     )
     fig.update_yaxes(
-        showline=True, linewidth=1, gridcolor="black", linecolor="black",
+        showline=True,
+        linewidth=1,
+        gridcolor="black",
+        linecolor="black",
     )
 
     fig.update_layout(
@@ -2674,7 +2723,7 @@ def plot_single_trace(traces_dict, timepoint):
 
 def plot_gabazine_wash_traces(traces_dict):
     """
-    Takes the plotting traces for each sweep that needs to be plotted and 
+    Takes the plotting traces for each sweep that needs to be plotted and
     makes a subplot for each. Arrangement depends on type of plot shown.
     """
     fig = make_subplots(rows=1, cols=2, shared_yaxes=True)
@@ -2686,7 +2735,9 @@ def plot_gabazine_wash_traces(traces_dict):
 
     for count, (cell, info) in enumerate(traces_dict.items()):
         fig.add_trace(
-            info["plotting trace"], row=1, col=count + 1,
+            info["plotting trace"],
+            row=1,
+            col=count + 1,
         )
 
     # adds horizontal line + text for plot scale bar
@@ -2735,7 +2786,10 @@ def plot_gabazine_wash_traces(traces_dict):
         dtick=10,
     )
     fig.update_yaxes(
-        showline=True, linewidth=1, gridcolor="black", linecolor="black",
+        showline=True,
+        linewidth=1,
+        gridcolor="black",
+        linecolor="black",
     )
 
     fig.update_layout(
@@ -2967,7 +3021,9 @@ def plot_previous_analysis():
     fig.update_yaxes(title_text="Log Mean Trace Peak", row=1, col=2)
 
     fig.update_layout(
-        boxmode="group", title_text="MC vs. TC Mean Trace", title_x=0.5,
+        boxmode="group",
+        title_text="MC vs. TC Mean Trace",
+        title_x=0.5,
     )
     # fig.show()
 
@@ -3037,7 +3093,10 @@ def plot_freq(MC_df, TC_df, dataset):
         )
 
         fig.update_yaxes(
-            tickvals=[np.round(cell_freq.min()), np.round(cell_freq.max()),],
+            tickvals=[
+                np.round(cell_freq.min()),
+                np.round(cell_freq.max()),
+            ],
             row=index + 1,
             col=1,
             automargin=True,
@@ -3058,7 +3117,10 @@ def plot_freq(MC_df, TC_df, dataset):
         )
 
         fig.update_yaxes(
-            tickvals=[np.round(cell_freq.min()), np.round(cell_freq.max()),],
+            tickvals=[
+                np.round(cell_freq.min()),
+                np.round(cell_freq.max()),
+            ],
             row=index + 1,
             col=2,
         )
@@ -3281,7 +3343,11 @@ def plot_annotated_freq(df, stats, dataset):
 
     # adds horizontal line + text for scale bar
     fig.add_shape(
-        type="line", x0=700, y0=5, x1=800, y1=5,
+        type="line",
+        x0=700,
+        y0=5,
+        x1=800,
+        y1=5,
     )
     fig.add_annotation(
         x=750,
@@ -3305,7 +3371,12 @@ def plot_annotated_freq(df, stats, dataset):
         font=dict(size=20),
     )
 
-    fig.update_layout(font=dict(family="Arial",), showlegend=False)
+    fig.update_layout(
+        font=dict(
+            family="Arial",
+        ),
+        showlegend=False,
+    )
 
     annotated_plot_noaxes = go.Figure(fig)
     annotated_plot_noaxes.update_xaxes(showgrid=False, visible=False)
@@ -3320,7 +3391,6 @@ def plot_annotated_freq(df, stats, dataset):
 
 
 def plot_within_slice_amps(df):
-
     # df["Timepoint"] = df["Timepoint"].str.upper()
     cell_type_line_colors = {"MC": "#609a00", "TC": "#388bf7"}
     cell_type_bar_colors = {"MC": "#CEEE98", "TC": "#ACCEFA"}
@@ -3363,7 +3433,6 @@ def plot_within_slice_amps(df):
         slices = timepoint_df["Slice"].unique()
 
         for slice_ct, slice in enumerate(slices):
-
             timepoint_df.groupby(["Slice", "Cell type"])["Log mean trace peak"]
 
             slice_df = timepoint_df.loc[timepoint_df["Slice"] == slice]
@@ -3385,7 +3454,10 @@ def plot_within_slice_amps(df):
                     pointpos=0,
                     marker_color=color_scale[slice_ct],
                     marker=dict(
-                        line=dict(color=color_scale[slice_ct], width=2,),
+                        line=dict(
+                            color=color_scale[slice_ct],
+                            width=2,
+                        ),
                         size=12,
                     ),
                     name=slice,
@@ -3434,7 +3506,9 @@ def plot_within_slice_amps(df):
                 col=ct + 1,
             )
 
-    fig.update_layout(showlegend=False,)
+    fig.update_layout(
+        showlegend=False,
+    )
 
     fig.for_each_yaxis(lambda yaxis: yaxis.update(showticklabels=True))
 
@@ -3519,7 +3593,6 @@ def plot_ratio_counts(counts):
     fig = go.Figure()
     # plots the proportion of ratios < 1 for both timepoints
     for count_type in ["MC > TC", "MC < TC"]:
-
         fig.add_trace(
             go.Bar(
                 x=counts["timepoint"],
@@ -3557,7 +3630,6 @@ def plot_cell_type_ratios(df, counts):
     bar_fig = go.Figure()
     hist_fig = go.Figure()
     for timepoint in df["Timepoint"].unique():
-
         bar_fig.add_trace(
             go.Box(
                 x=df.loc[df["Timepoint"] == timepoint]["Timepoint"],
@@ -3569,7 +3641,8 @@ def plot_cell_type_ratios(df, counts):
                 marker_color=timepoint_bar_colors[timepoint],
                 marker=dict(
                     line=dict(
-                        color=timepoint_line_colors[timepoint], width=2,
+                        color=timepoint_line_colors[timepoint],
+                        width=2,
                     ),
                     size=12,
                 ),
@@ -3644,7 +3717,9 @@ def plot_cell_type_ratios(df, counts):
         )
 
         hist_fig.update_layout(barmode="overlay")
-        hist_fig.update_traces(opacity=0.5,)
+        hist_fig.update_traces(
+            opacity=0.5,
+        )
 
         hist_fig.update_xaxes(title="ln(TC/MC Amplitude Ratio)")
         hist_fig.update_yaxes(title="Probability Density")
@@ -3665,4 +3740,3 @@ def plot_cell_type_ratios(df, counts):
         )
 
     return bar_fig, hist_fig
-

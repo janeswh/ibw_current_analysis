@@ -33,9 +33,10 @@ from aggregate_stats import *
 
 
 def do_stats(csvfile_name, measures_list, test_type):
-
     csvfile = os.path.join(
-        FileSettings.TABLES_FOLDER, "datasets_summaries_data", csvfile_name,
+        FileSettings.TABLES_FOLDER,
+        "datasets_summaries_data",
+        csvfile_name,
     )
 
     df = pd.read_csv(csvfile, index_col=0, header=0)
@@ -87,7 +88,9 @@ def do_stats(csvfile_name, measures_list, test_type):
 
 def do_paired_ratio_stats(csvfile_name, test_type):
     csvfile = os.path.join(
-        FileSettings.TABLES_FOLDER, "paper_figs_data", csvfile_name,
+        FileSettings.TABLES_FOLDER,
+        "paper_figs_data",
+        csvfile_name,
     )
 
     df = pd.read_csv(csvfile, index_col=0, header=0)
@@ -128,7 +131,6 @@ def calc_spearman(df, data_type, x_label, y_label):
     print(f"Analyzing Pearson's for {data_type}")
     for timepoint in timepoints:
         for cell_type in cell_types:
-
             x_array = df.loc[
                 (df["Cell Type"] == cell_type) & (df["Dataset"] == timepoint),
                 x_label,
@@ -164,7 +166,6 @@ def calc_spearman(df, data_type, x_label, y_label):
 
 
 def main():
-
     # stats for TC/MC mean trace peak ratios
     amp_ratio_stats = do_paired_ratio_stats(
         "paired_amp_ratios.csv", "Anderson-Darling"
@@ -239,5 +240,4 @@ def main():
 
 
 if __name__ == "__main__":
-
     main()

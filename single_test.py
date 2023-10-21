@@ -22,8 +22,9 @@ import collections
 from scipy.stats import sem
 from scipy import io
 
-import pymc3 as pm
-from theano import shared
+# import pymc3 as pm
+
+# from theano import shared
 
 import plotly.io as pio
 
@@ -51,26 +52,26 @@ def igor_to_pandas(path_to_file):
 
 def run_BARS_smoothing(x_stop, x_array, y_array, x_plot):
     """
-        Runs Bayesian Adaptive Regression Splines (BARS) smoothing, code
-        adapted from 
-        https://gist.github.com/AustinRochford/d640a240af12f6869a7b9b592485ca15
-        but changed for updated pymc.
+    Runs Bayesian Adaptive Regression Splines (BARS) smoothing, code
+    adapted from
+    https://gist.github.com/AustinRochford/d640a240af12f6869a7b9b592485ca15
+    but changed for updated pymc.
 
-        See also:
-        Wallstrom et al. 2008
-        https://www.ncbi.nlm.nih.gov/pmc/articles/PMC2748880/
+    See also:
+    Wallstrom et al. 2008
+    https://www.ncbi.nlm.nih.gov/pmc/articles/PMC2748880/
 
-        Statistical Smoothing of Neuronal Data by Rob Kass 
-        https://www.stat.cmu.edu/~kass/papers/smooth.pdf
+    Statistical Smoothing of Neuronal Data by Rob Kass
+    https://www.stat.cmu.edu/~kass/papers/smooth.pdf
 
-        Arguments:
-            x (array): the x-values of the dataset, from the bar_bins of psth
-            y (array): the y-values of the dataset, freq from psth
-            x_plot (array): the x values to span the plot
-        
-        Returns:
-            smoothed_avg (array): The average interpolated y-values
-        """
+    Arguments:
+        x (array): the x-values of the dataset, from the bar_bins of psth
+        y (array): the y-values of the dataset, freq from psth
+        x_plot (array): the x values to span the plot
+
+    Returns:
+        smoothed_avg (array): The average interpolated y-values
+    """
     x = x_array[:x_stop]
     y = y_array[:x_stop]
     N_KNOT = 20  # arbitrary # of knots
@@ -136,7 +137,11 @@ def run_BARS_smoothing(x_stop, x_array, y_array, x_plot):
     smoothed_avg = pp_trace["obs"].mean(axis=0)
 
     BARS_fig.add_trace(
-        go.Scatter(x=x_plot, y=smoothed_avg, name="spline estimate",)
+        go.Scatter(
+            x=x_plot,
+            y=smoothed_avg,
+            name="spline estimate",
+        )
     )
     # BARS_fig.show()
 
@@ -150,7 +155,7 @@ def convolve_FR_gaussian(freq, bar_bins, gaussian_width):
     sigma = gaussian_width / 2.385
     kernel_x = np.arange(len(freq))
 
-    kernel = np.exp(-((kernel_x) ** 2) / (2 * sigma ** 2))
+    kernel = np.exp(-((kernel_x) ** 2) / (2 * sigma**2))
     r_avg = np.convolve(freq, kernel / kernel.sum())  # kernel normalized
     # pdb.set_trace()
     return r_avg
@@ -179,7 +184,6 @@ def decay_func(time, a, tau, offset):
 
 
 def ipsc_func(time, peak, peak_time, tau):
-
     return peak * time * np.exp(-(time - peak_time) / tau)
 
 
@@ -689,22 +693,22 @@ class JaneCell(object):
 
     def calculate_responses(self, baseline_std, peak_mean, threshold=None):
         """
-            Decides on whether there is a response above 2x, 3x above the baseline std,
-            or a user-selectable cutoff.
-            Parameters
-            ----------
-            baseline_std: int or float
-                The std of the baseline of the mean filtered trace.
-            peak_mean: int or float
-                The current peak of the mean filtered trace.
-            threshold: int, float (optional)
-                If supplied, will provide another threshold in addition to the 2x and 3x
-                above the baseline std to threshold the response checker.
-            Returns
-            -------
-            responses: pd.DataFrame(bool)
-                A DataFrame with bool for responses above the threshold in the column header.
-            """
+        Decides on whether there is a response above 2x, 3x above the baseline std,
+        or a user-selectable cutoff.
+        Parameters
+        ----------
+        baseline_std: int or float
+            The std of the baseline of the mean filtered trace.
+        peak_mean: int or float
+            The current peak of the mean filtered trace.
+        threshold: int, float (optional)
+            If supplied, will provide another threshold in addition to the 2x and 3x
+            above the baseline std to threshold the response checker.
+        Returns
+        -------
+        responses: pd.DataFrame(bool)
+            A DataFrame with bool for responses above the threshold in the column header.
+        """
         # takes values out of series format to enable boolean comparison
         baseline_std = baseline_std[0]
         peak_mean = peak_mean[0]
@@ -888,7 +892,6 @@ class JaneCell(object):
         # calculate decay fits afterwards so it has access to roots time
         # of the following event
         for index, row in event_stats.iterrows():
-
             sweep = int(row["Sweep"])
             pos = row["New pos"]
             amplitude = row["New amplitude (pA)"]
@@ -1044,7 +1047,6 @@ class JaneCell(object):
         )
 
         for sweep in range(self.num_sweeps):
-
             # need to only plot events with rise times after the start of
             # window_toplot
 
@@ -1211,7 +1213,6 @@ class JaneCell(object):
         self.annotated_events_fig = annotated_events_fig
 
     def calculate_mean_trace_stats(self):
-
         # filter traces
         mean_trace_filtered = pd.DataFrame(self.traces_filtered.mean(axis=1))
         mean_trace_filtered.index = self.time
@@ -1283,7 +1284,7 @@ class JaneCell(object):
 
     def plot_mod_events(self):
         """
-        Sanity check; plots all the individual sweeps with identified mod event 
+        Sanity check; plots all the individual sweeps with identified mod event
         peaks marked. By default, all traces are hidden and only shown when
         selected in figure legends. This includes all events that are later
         dropped using kinetics criteria.
@@ -1301,7 +1302,6 @@ class JaneCell(object):
         )
 
         for sweep in range(self.num_sweeps):
-
             sweep_events_pos = self.updated_mod_events.loc[
                 self.updated_mod_events["Sweep"] == sweep
             ]["New pos"].values
@@ -1352,14 +1352,13 @@ class JaneCell(object):
 
     def plot_events(self):
         """
-        Sanity check; plots all the individual sweeps with identified event 
+        Sanity check; plots all the individual sweeps with identified event
         peaks marked. By default, all traces are hidden and only shown when
         selected in figure legends.
         """
         events_fig = go.Figure()
 
         for sweep in range(self.num_sweeps):
-
             sweep_events_pos = self.event_stats.loc[
                 self.event_stats["Sweep"] == sweep
             ]["New pos"].values
@@ -1418,9 +1417,9 @@ class JaneCell(object):
         2. Plots raster plot and PSTH for the entire sweep
         3. Smoothes PSTH using BARS and gets smoothed avg frequency
         4. Plots smoothed PSTH
-        5. Does calculations on avg frequency 
+        5. Does calculations on avg frequency
         6. Plots smoothed PSTH with stats annotated if light condition
-        
+
         """
         raster_df, bins, bar_bins, freq = self.get_bin_parameters(
             bin_width, window="whole sweep"
@@ -1528,7 +1527,9 @@ class JaneCell(object):
         new_sweeps = event_times["Sweep"] + 1
 
         # sets background color to white
-        layout = go.Layout(plot_bgcolor="rgba(0,0,0,0)",)
+        layout = go.Layout(
+            plot_bgcolor="rgba(0,0,0,0)",
+        )
 
         # make overall fig layout
         psth_fig = make_subplots(
@@ -1572,7 +1573,12 @@ class JaneCell(object):
         )
 
         psth_fig.add_trace(
-            go.Bar(x=x, y=y, showlegend=False, marker=dict(color="#D39DDD"),),
+            go.Bar(
+                x=x,
+                y=y,
+                showlegend=False,
+                marker=dict(color="#D39DDD"),
+            ),
             row=2,
             col=1,
         )
@@ -1633,18 +1639,24 @@ class JaneCell(object):
         return raster_df, bins, bar_bins, freq
 
     def plot_smoothed_PSTH(self, x_stop, x_array, y_array, x_plot, smoothed):
-
         x = x_array[:x_stop]
         y = y_array[:x_stop]
 
         smoothed_psth = go.Figure()
 
         smoothed_psth.add_trace(
-            go.Bar(x=x, y=y, marker=dict(color="#D39DDD"), name="PSTH",),
+            go.Bar(
+                x=x,
+                y=y,
+                marker=dict(color="#D39DDD"),
+                name="PSTH",
+            ),
         )
 
         # this removes the white outline of the bar graph to emulate histogram
-        smoothed_psth.update_traces(marker=dict(line=dict(width=0)),)
+        smoothed_psth.update_traces(
+            marker=dict(line=dict(width=0)),
+        )
 
         smoothed_psth.update_yaxes(title_text="Frequency (Hz)")
         smoothed_psth.update_xaxes(title_text="Time (ms)")
@@ -1695,7 +1707,6 @@ class JaneCell(object):
         return smoothed
 
     def calculate_freq_baseline(self):
-
         baseline_freq = self.avg_frequency_df.loc[: self.baseline_end]
 
         avg_baseline_freq = baseline_freq.mean()[0]
@@ -1717,7 +1728,6 @@ class JaneCell(object):
         return max_freq, freq_peak_time, time_to_peak_freq
 
     def calculate_freq_peak_onset(self, baseline_std, response_window):
-
         # how to define onset - 5% of peak, or exceeds 3 std above baseline
         # the issue is that the smoothed curve is already high before light stim
 
@@ -1913,7 +1923,6 @@ class JaneCell(object):
         freq_baseline=None,
         next_root=None,
     ):
-
         decay_window = self.define_decay_parameters(
             max_freq,
             freq_peak_time,
@@ -1965,9 +1974,19 @@ class JaneCell(object):
             decay_fit = decay_func(x_2, *popt)
 
             decay_fig = go.Figure()
-            decay_fig.add_trace(go.Scatter(x=x, y=y_plot, name="data",))
             decay_fig.add_trace(
-                go.Scatter(x=x, y=norm_y * decay_fit, name="fit on 90%",)
+                go.Scatter(
+                    x=x,
+                    y=y_plot,
+                    name="data",
+                )
+            )
+            decay_fig.add_trace(
+                go.Scatter(
+                    x=x,
+                    y=norm_y * decay_fit,
+                    name="fit on 90%",
+                )
             )
             decay_fig.add_trace(
                 go.Scatter(
@@ -1999,7 +2018,6 @@ class JaneCell(object):
         return freq_cut
 
     def calculate_avg_freq_stats(self, x_plot, avg_frequency):
-
         avg_frequency_df = pd.DataFrame()
         avg_frequency_df["Avg Frequency (Hz)"] = avg_frequency
 
@@ -2041,7 +2059,6 @@ class JaneCell(object):
             if (max_freq > 1) and (
                 freq_peak_time <= self.stim_time + self.post_stim
             ):
-
                 # calculate root time to start finding rise_start
                 # root_window_start = (
                 #     p14_acq_parameters.TP_START + p14_acq_parameters.TP_LENGTH
@@ -2115,7 +2132,9 @@ class JaneCell(object):
         new_sweeps = event_times["Sweep"] + 1
 
         # sets background color to white
-        layout = go.Layout(plot_bgcolor="rgba(0,0,0,0)",)
+        layout = go.Layout(
+            plot_bgcolor="rgba(0,0,0,0)",
+        )
 
         # make overall fig layout
         annotated_freq = make_subplots(
@@ -2173,7 +2192,9 @@ class JaneCell(object):
 
         # this removes the white outline of the bar graph to emulate histogram
         annotated_freq.update_traces(
-            marker=dict(line=dict(width=0)), row=2, col=1,
+            marker=dict(line=dict(width=0)),
+            row=2,
+            col=1,
         )
 
         annotated_freq.update_yaxes(
@@ -2246,7 +2267,6 @@ class JaneCell(object):
             ]
             rise_end_time = self.avg_frequency_stats["80% Rise End (ms)"][0]
             if np.isnan(rise_start_time) == False:
-
                 rise_start_idx = np.where(x_plot == rise_start_time)[0][0]
                 rise_end_idx = np.where(x_plot == rise_end_time)[0][0]
 
@@ -2303,7 +2323,9 @@ class JaneCell(object):
         )
 
         annotated_freq.update_yaxes(
-            title_text="Current (pA)", row=3, col=1,
+            title_text="Current (pA)",
+            row=3,
+            col=1,
         )
 
         annotated_freq.add_vrect(
@@ -2369,7 +2391,7 @@ class JaneCell(object):
 
     def plot_mean_trace(self):
         """
-        Plots the averaged trace ontop of all individual sweeps. Individual 
+        Plots the averaged trace ontop of all individual sweeps. Individual
         sweeps are hidden by default unless selected to show with legend.
         """
 
@@ -2433,7 +2455,6 @@ class JaneCell(object):
         self.mean_trace_fig = mean_trace_fig
 
     def get_mod_events(self):
-
         mod_file = f"{self.drop_ibw}.mod.w4.e1.h13.minidet.mat"
         mod_events = io.loadmat(
             f"/home/jhuang/Documents/phd_projects/injected_GC_data/mod_events/"
@@ -2498,7 +2519,6 @@ class JaneCell(object):
         self.mod_events_df = mod_events_df
 
     def make_cell_analysis_dict(self):
-
         # create dict to hold analysis results for each stim set
         filtered_traces_dict = {}
         cell_analysis_dict = {}
@@ -2583,4 +2603,3 @@ class JaneCell(object):
         self.annotated_freq_fig.write_html(
             path, full_html=False, include_plotlyjs="cdn"
         )
-

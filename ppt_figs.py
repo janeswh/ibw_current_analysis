@@ -135,7 +135,6 @@ def get_single_cell_traces(
 
 
 def make_GC_example_traces():
-
     files_dict = {
         "GC cell-attached": {
             "name": "JH200303GCAttached_c5_light100.ibw",
@@ -154,7 +153,11 @@ def make_GC_example_traces():
 
     dataset = "extra_sweeps"
     csvfile_name = f"{dataset}_data_notes.csv"
-    csvfile = os.path.join(FileSettings.TABLES_FOLDER, dataset, csvfile_name,)
+    csvfile = os.path.join(
+        FileSettings.TABLES_FOLDER,
+        dataset,
+        csvfile_name,
+    )
     sweep_info = pd.read_csv(csvfile, index_col=0)
 
     for cell, info in files_dict.items():
@@ -245,7 +248,9 @@ def make_timepoint_example_traces():
         dataset = timepoint
         csvfile_name = f"{dataset}_data_notes.csv"
         csvfile = os.path.join(
-            FileSettings.TABLES_FOLDER, dataset, csvfile_name,
+            FileSettings.TABLES_FOLDER,
+            dataset,
+            csvfile_name,
         )
         sweep_info = pd.read_csv(csvfile, index_col=0)
 
@@ -279,7 +284,6 @@ def make_timepoint_example_traces():
 
 
 def make_gabazine_wash_in_traces():
-
     files_dict = {
         "MC Control": {
             "name": "JH190828_c6_light100.ibw",
@@ -300,7 +304,9 @@ def make_gabazine_wash_in_traces():
         dataset = info["timepoint"]
         csvfile_name = f"{dataset}_data_notes.csv"
         csvfile = os.path.join(
-            FileSettings.TABLES_FOLDER, dataset, csvfile_name,
+            FileSettings.TABLES_FOLDER,
+            dataset,
+            csvfile_name,
         )
         sweep_info = pd.read_csv(csvfile, index_col=0)
         file = os.path.join(FileSettings.DATA_FOLDER, dataset, info["name"])
@@ -329,7 +335,6 @@ def make_gabazine_wash_in_traces():
 
 
 def make_example_huge_trace():
-
     files_dict = {
         "MC": {
             "name": "JH20210824_c4_light100.ibw",
@@ -345,7 +350,9 @@ def make_example_huge_trace():
         dataset = info["timepoint"]
         csvfile_name = f"{dataset}_data_notes.csv"
         csvfile = os.path.join(
-            FileSettings.TABLES_FOLDER, dataset, csvfile_name,
+            FileSettings.TABLES_FOLDER,
+            dataset,
+            csvfile_name,
         )
         sweep_info = pd.read_csv(csvfile, index_col=0)
         file = os.path.join(FileSettings.DATA_FOLDER, dataset, info["name"])
@@ -376,7 +383,11 @@ def get_example_cell_PSTH(dataset, cell_name):
     Gets the raster plot and PSTH plot of one cell for showing an example.
     """
     csvfile_name = f"{dataset}_data_notes.csv"
-    csvfile = os.path.join(FileSettings.TABLES_FOLDER, dataset, csvfile_name,)
+    csvfile = os.path.join(
+        FileSettings.TABLES_FOLDER,
+        dataset,
+        csvfile_name,
+    )
 
     file_name = f"{cell_name}_light100.ibw"
     sweep_info = pd.read_csv(csvfile, index_col=0)
@@ -413,7 +424,9 @@ def get_correlations(data_type):
         csvfile_name = "freq_stats_data.csv"
 
     csvfile = os.path.join(
-        FileSettings.TABLES_FOLDER, "datasets_summaries_data", csvfile_name,
+        FileSettings.TABLES_FOLDER,
+        "datasets_summaries_data",
+        csvfile_name,
     )
 
     df = pd.read_csv(csvfile, index_col=0, header=0)
@@ -455,7 +468,6 @@ def get_correlations(data_type):
 
 
 def plot_misc_data():
-
     # gets ephys intensity data
     sections_data = get_ephys_sections_intensity()
 
@@ -546,7 +558,7 @@ def plot_misc_data():
 
 def get_previous_analysis_avgsem():
     """
-    Gets the avg and sem values of the previous mean trace peak amplitude 
+    Gets the avg and sem values of the previous mean trace peak amplitude
     analysis
     """
     timepoints = ["p2", "p14"]
@@ -658,7 +670,9 @@ def get_example_freq(dataset, cell_name, cell_type):
     freq_file = f"{cell_name}_avg_frequency.csv"
     example_freq = pd.read_csv(os.path.join(csv_path, freq_file), index_col=0)
     example_freq.drop(
-        labels="Spontaneous Avg Frequency (Hz)", axis=1, inplace=True,
+        labels="Spontaneous Avg Frequency (Hz)",
+        axis=1,
+        inplace=True,
     )
 
     freq_stats_file = f"{cell_name}_avg_freq_stats.csv"
@@ -699,7 +713,6 @@ def save_csv(df, filename):
 
 
 def make_within_slice_comparisons():
-
     slice_amps = get_slice_amps()
     slice_avg_amps = get_slice_avg_amps(slice_amps)
     ratios = get_all_amp_pairs(slice_amps)
@@ -782,4 +795,3 @@ if __name__ == "__main__":
     # make_GC_example_traces()
     # make_timepoint_example_traces()
     # make_gabazine_wash_in_traces()
-
